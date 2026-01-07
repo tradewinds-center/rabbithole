@@ -90,12 +90,43 @@ export function initializeDatabase() {
     )
   `);
 
+  // Scholar topics table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS scholar_topics (
+      id TEXT PRIMARY KEY,
+      scholar_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      topic TEXT NOT NULL,
+      bloom_level TEXT DEFAULT 'remember' CHECK (bloom_level IN ('remember', 'understand', 'apply', 'analyze', 'evaluate', 'create')),
+      teacher_rating INTEGER NOT NULL DEFAULT 0,
+      mention_count INTEGER NOT NULL DEFAULT 1,
+      last_conversation_id TEXT REFERENCES conversations(id),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  // Suggested topics table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS suggested_topics (
+      id TEXT PRIMARY KEY,
+      scholar_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      teacher_id TEXT NOT NULL REFERENCES users(id),
+      topic TEXT NOT NULL,
+      rationale TEXT,
+      target_bloom_level TEXT CHECK (target_bloom_level IN ('remember', 'understand', 'apply', 'analyze', 'evaluate', 'create')),
+      explored INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
   // Create indexes for better query performance
   sqlite.exec(`
     CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_observations_scholar_id ON observations(scholar_id);
     CREATE INDEX IF NOT EXISTS idx_analyses_conversation_id ON analyses(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_scholar_topics_scholar_id ON scholar_topics(scholar_id);
+    CREATE INDEX IF NOT EXISTS idx_suggested_topics_scholar_id ON suggested_topics(scholar_id);
   `);
 
   console.log("Database initialized successfully");

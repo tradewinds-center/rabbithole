@@ -105,11 +105,86 @@ export const analyses = sqliteTable("analyses", {
     .$defaultFn(() => new Date()),
 });
 
+// Scholar topics - tracks topics of interest with teacher ratings
+export const scholarTopics = sqliteTable("scholar_topics", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  scholarId: text("scholar_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  topic: text("topic").notNull(),
+  // Bloom's taxonomy level: remember, understand, apply, analyze, evaluate, create
+  bloomLevel: text("bloom_level", {
+    enum: ["remember", "understand", "apply", "analyze", "evaluate", "create"],
+  }).default("remember"),
+  // Teacher rating: 1 = thumbs up (encourage), -1 = thumbs down (discourage), 0 = neutral
+  teacherRating: integer("teacher_rating").notNull().default(0),
+  // How many times this topic appeared in conversations
+  mentionCount: integer("mention_count").notNull().default(1),
+  // Last conversation where this topic appeared
+  lastConversationId: text("last_conversation_id").references(() => conversations.id),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Suggested follow-up topics from teachers (Bloom's taxonomy inspired)
+export const suggestedTopics = sqliteTable("suggested_topics", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  scholarId: text("scholar_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  teacherId: text("teacher_id")
+    .notNull()
+    .references(() => users.id),
+  topic: text("topic").notNull(),
+  // Why this suggestion (e.g., "pushes from understand to apply")
+  rationale: text("rationale"),
+  // Target Bloom level for this suggestion
+  targetBloomLevel: text("target_bloom_level", {
+    enum: ["remember", "understand", "apply", "analyze", "evaluate", "create"],
+  }),
+  // Whether the scholar has explored this topic
+  explored: integer("explored", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   conversations: many(conversations),
   observations: many(observations, { relationName: "teacherObservations" }),
   scholarObservations: many(observations, { relationName: "scholarObservations" }),
+  scholarTopics: many(scholarTopics),
+  suggestedTopicsReceived: many(suggestedTopics, { relationName: "scholarSuggestions" }),
+  suggestedTopicsGiven: many(suggestedTopics, { relationName: "teacherSuggestions" }),
+}));
+
+export const scholarTopicsRelations = relations(scholarTopics, ({ one }) => ({
+  scholar: one(users, {
+    fields: [scholarTopics.scholarId],
+    references: [users.id],
+  }),
+  lastConversation: one(conversations, {
+    fields: [scholarTopics.lastConversationId],
+    references: [conversations.id],
+  }),
+}));
+
+export const suggestedTopicsRelations = relations(suggestedTopics, ({ one }) => ({
+  scholar: one(users, {
+    fields: [suggestedTopics.scholarId],
+    references: [users.id],
+    relationName: "scholarSuggestions",
+  }),
+  teacher: one(users, {
+    fields: [suggestedTopics.teacherId],
+    references: [users.id],
+    relationName: "teacherSuggestions",
+  }),
 }));
 
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
@@ -162,3 +237,7 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Observation = typeof observations.$inferSelect;
 export type Analysis = typeof analyses.$inferSelect;
+export type ScholarTopic = typeof scholarTopics.$inferSelect;
+export type NewScholarTopic = typeof scholarTopics.$inferInsert;
+export type SuggestedTopic = typeof suggestedTopics.$inferSelect;
+export type NewSuggestedTopic = typeof suggestedTopics.$inferInsert;

@@ -53,6 +53,34 @@ interface Analysis {
   suggestedIntervention: string | null;
 }
 
+interface AIAnalysis {
+  summary: string;
+  topics: string[];
+  bloomLevel: string;
+  bloomDescription: string;
+  nudges: { type: string; message: string }[];
+  suggestedFollowUps: { topic: string; targetLevel: string; rationale: string }[];
+  scholarName: string;
+}
+
+const BLOOM_COLORS: Record<string, string> = {
+  remember: "gray",
+  understand: "blue",
+  apply: "cyan",
+  analyze: "teal",
+  evaluate: "purple",
+  create: "violet",
+};
+
+const BLOOM_ICONS: Record<string, string> = {
+  remember: "1",
+  understand: "2",
+  apply: "3",
+  analyze: "4",
+  evaluate: "5",
+  create: "6",
+};
+
 interface ConversationViewerProps {
   conversationId: string;
   onClose: () => void;
@@ -67,11 +95,12 @@ export function ConversationViewer({
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [whisper, setWhisper] = useState("");
   const [isSavingWhisper, setIsSavingWhisper] = useState(false);
-  const [activeTab, setActiveTab] = useState<"messages" | "analysis">("messages");
+  const [activeTab, setActiveTab] = useState<"messages" | "insights">("messages");
 
   // Fetch conversation data
   const fetchConversation = useCallback(async () => {
@@ -111,10 +140,20 @@ export function ConversationViewer({
     fetchAnalysis();
   }, [fetchConversation, fetchAnalysis]);
 
-  // Run analysis
+  // Run AI analysis with summary, nudges, and Bloom's taxonomy
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     try {
+      // Run the new AI analysis endpoint
+      const aiRes = await fetch(`/api/conversations/${conversationId}/analyze`, {
+        method: "POST",
+      });
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        setAiAnalysis(aiData);
+      }
+
+      // Also run the observer analysis for metrics
       const res = await fetch("/api/observe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,9 +162,10 @@ export function ConversationViewer({
       if (res.ok) {
         const data = await res.json();
         setAnalysis(data.analysis);
-        await fetchConversation();
-        onUpdate();
       }
+
+      await fetchConversation();
+      onUpdate();
     } catch (error) {
       console.error("Error analyzing conversation:", error);
     } finally {
@@ -261,14 +301,14 @@ export function ConversationViewer({
         </Button>
         <Button
           size="sm"
-          variant={activeTab === "analysis" ? "solid" : "ghost"}
-          bg={activeTab === "analysis" ? "navy.500" : "transparent"}
-          color={activeTab === "analysis" ? "white" : "charcoal.500"}
+          variant={activeTab === "insights" ? "solid" : "ghost"}
+          bg={activeTab === "insights" ? "navy.500" : "transparent"}
+          color={activeTab === "insights" ? "white" : "charcoal.500"}
           fontFamily="heading"
-          onClick={() => setActiveTab("analysis")}
+          onClick={() => setActiveTab("insights")}
         >
           <FiEye style={{ marginRight: "6px" }} />
-          Analysis
+          Insights
         </Button>
       </HStack>
 
@@ -321,8 +361,194 @@ export function ConversationViewer({
           </VStack>
         ) : (
           <VStack gap={4} align="stretch">
-            {/* Analysis */}
-            {analysis ? (
+            {/* AI Analysis Summary */}
+            {aiAnalysis ? (
+              <>
+                {/* 2-Sentence Summary */}
+                <Box p={4} bg="violet.50" borderRadius="lg" borderLeft="4px solid" borderColor="violet.500">
+                  <Text
+                    fontWeight="600"
+                    fontFamily="heading"
+                    mb={2}
+                    color="navy.500"
+                    fontSize="sm"
+                  >
+                    Quick Summary
+                  </Text>
+                  <Text fontFamily="body" fontSize="sm" color="charcoal.600">
+                    {aiAnalysis.summary}
+                  </Text>
+                </Box>
+
+                {/* Bloom's Taxonomy Level */}
+                <Box p={3} bg="gray.50" borderRadius="lg">
+                  <HStack justify="space-between" mb={2}>
+                    <Text
+                      fontWeight="600"
+                      fontFamily="heading"
+                      fontSize="sm"
+                      color="navy.500"
+                    >
+                      Cognitive Level (Bloom&apos;s)
+                    </Text>
+                    <Badge
+                      bg={`${BLOOM_COLORS[aiAnalysis.bloomLevel] || "gray"}.100`}
+                      color={`${BLOOM_COLORS[aiAnalysis.bloomLevel] || "gray"}.700`}
+                      fontFamily="heading"
+                      fontSize="xs"
+                      px={2}
+                      py={1}
+                    >
+                      {BLOOM_ICONS[aiAnalysis.bloomLevel] || "?"} {aiAnalysis.bloomLevel?.toUpperCase()}
+                    </Badge>
+                  </HStack>
+                  <Text fontFamily="body" fontSize="xs" color="charcoal.500">
+                    {aiAnalysis.bloomDescription}
+                  </Text>
+                  {/* Bloom's Progress Bar */}
+                  <HStack gap={1} mt={2}>
+                    {["remember", "understand", "apply", "analyze", "evaluate", "create"].map((level) => (
+                      <Box
+                        key={level}
+                        flex={1}
+                        h={2}
+                        bg={
+                          ["remember", "understand", "apply", "analyze", "evaluate", "create"].indexOf(level) <=
+                          ["remember", "understand", "apply", "analyze", "evaluate", "create"].indexOf(aiAnalysis.bloomLevel || "remember")
+                            ? `${BLOOM_COLORS[level]}.500`
+                            : "gray.200"
+                        }
+                        borderRadius="full"
+                        title={level}
+                      />
+                    ))}
+                  </HStack>
+                </Box>
+
+                {/* Nudges for Teacher */}
+                {aiAnalysis.nudges && aiAnalysis.nudges.length > 0 && (
+                  <Box>
+                    <Text
+                      fontWeight="600"
+                      fontFamily="heading"
+                      fontSize="sm"
+                      mb={2}
+                      color="navy.500"
+                    >
+                      Suggested Nudges
+                    </Text>
+                    <VStack gap={2} align="stretch">
+                      {aiAnalysis.nudges.map((nudge, i) => (
+                        <Box
+                          key={i}
+                          p={3}
+                          bg={
+                            nudge.type === "encourage" ? "green.50" :
+                            nudge.type === "challenge" ? "purple.50" :
+                            nudge.type === "redirect" ? "orange.50" : "blue.50"
+                          }
+                          borderRadius="md"
+                          borderLeft="3px solid"
+                          borderColor={
+                            nudge.type === "encourage" ? "green.500" :
+                            nudge.type === "challenge" ? "purple.500" :
+                            nudge.type === "redirect" ? "orange.500" : "blue.500"
+                          }
+                        >
+                          <Badge
+                            mb={1}
+                            fontSize="xs"
+                            bg={
+                              nudge.type === "encourage" ? "green.100" :
+                              nudge.type === "challenge" ? "purple.100" :
+                              nudge.type === "redirect" ? "orange.100" : "blue.100"
+                            }
+                            color={
+                              nudge.type === "encourage" ? "green.700" :
+                              nudge.type === "challenge" ? "purple.700" :
+                              nudge.type === "redirect" ? "orange.700" : "blue.700"
+                            }
+                          >
+                            {nudge.type}
+                          </Badge>
+                          <Text fontFamily="body" fontSize="sm">
+                            {nudge.message}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Suggested Follow-up Topics */}
+                {aiAnalysis.suggestedFollowUps && aiAnalysis.suggestedFollowUps.length > 0 && (
+                  <Box>
+                    <Text
+                      fontWeight="600"
+                      fontFamily="heading"
+                      fontSize="sm"
+                      mb={2}
+                      color="navy.500"
+                    >
+                      Push Further (Follow-up Topics)
+                    </Text>
+                    <VStack gap={2} align="stretch">
+                      {aiAnalysis.suggestedFollowUps.map((followUp, i) => (
+                        <Box
+                          key={i}
+                          p={3}
+                          bg="cyan.50"
+                          borderRadius="md"
+                        >
+                          <HStack justify="space-between" mb={1}>
+                            <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="cyan.700">
+                              {followUp.topic}
+                            </Text>
+                            <Badge
+                              bg={`${BLOOM_COLORS[followUp.targetLevel] || "gray"}.100`}
+                              color={`${BLOOM_COLORS[followUp.targetLevel] || "gray"}.700`}
+                              fontSize="xs"
+                            >
+                              {followUp.targetLevel}
+                            </Badge>
+                          </HStack>
+                          <Text fontFamily="body" fontSize="xs" color="charcoal.500">
+                            {followUp.rationale}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Topics Discussed */}
+                {aiAnalysis.topics && aiAnalysis.topics.length > 0 && (
+                  <Box>
+                    <Text
+                      fontWeight="600"
+                      fontFamily="heading"
+                      fontSize="sm"
+                      mb={2}
+                      color="navy.500"
+                    >
+                      Topics Discussed
+                    </Text>
+                    <HStack gap={2} flexWrap="wrap">
+                      {aiAnalysis.topics.map((topic, i) => (
+                        <Badge
+                          key={i}
+                          bg="cyan.100"
+                          color="cyan.700"
+                          fontFamily="heading"
+                        >
+                          {topic}
+                        </Badge>
+                      ))}
+                    </HStack>
+                  </Box>
+                )}
+              </>
+            ) : analysis ? (
               <>
                 <Box p={4} bg="gray.50" borderRadius="lg">
                   <Text
@@ -350,33 +576,6 @@ export function ConversationViewer({
                   />
                   <ScoreBar label="On Task" value={analysis.onTaskScore} />
                 </VStack>
-
-                {/* Topics */}
-                {analysis.topics.length > 0 && (
-                  <Box>
-                    <Text
-                      fontWeight="600"
-                      fontFamily="heading"
-                      fontSize="sm"
-                      mb={2}
-                      color="navy.500"
-                    >
-                      Topics
-                    </Text>
-                    <HStack gap={2} flexWrap="wrap">
-                      {analysis.topics.map((topic, i) => (
-                        <Badge
-                          key={i}
-                          bg="cyan.100"
-                          color="cyan.700"
-                          fontFamily="heading"
-                        >
-                          {topic}
-                        </Badge>
-                      ))}
-                    </HStack>
-                  </Box>
-                )}
 
                 {/* Learning Indicators */}
                 {analysis.learningIndicators.length > 0 && (
@@ -427,24 +626,6 @@ export function ConversationViewer({
                     </VStack>
                   </Box>
                 )}
-
-                {/* Suggested Intervention */}
-                {analysis.suggestedIntervention && (
-                  <Box p={3} bg="yellow.50" borderRadius="lg">
-                    <Text
-                      fontWeight="600"
-                      fontFamily="heading"
-                      fontSize="sm"
-                      mb={2}
-                      color="yellow.800"
-                    >
-                      Suggested Intervention
-                    </Text>
-                    <Text fontFamily="body" fontSize="sm" color="yellow.900">
-                      {analysis.suggestedIntervention}
-                    </Text>
-                  </Box>
-                )}
               </>
             ) : (
               <Text
@@ -453,7 +634,7 @@ export function ConversationViewer({
                 textAlign="center"
                 py={4}
               >
-                No analysis available
+                Click &quot;Analyze&quot; to get AI-powered insights
               </Text>
             )}
 
@@ -469,7 +650,7 @@ export function ConversationViewer({
                 style={{ marginRight: "8px" }}
                 className={isAnalyzing ? "animate-spin" : ""}
               />
-              {isAnalyzing ? "Analyzing..." : "Run New Analysis"}
+              {isAnalyzing ? "Analyzing..." : aiAnalysis ? "Re-analyze" : "Analyze Conversation"}
             </Button>
           </VStack>
         )}

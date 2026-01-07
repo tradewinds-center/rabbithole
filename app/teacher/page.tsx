@@ -28,8 +28,9 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiAlertTriangle,
+  FiUser,
 } from "react-icons/fi";
-import { ConversationViewer } from "@/components/ConversationViewer";
+import { ConversationViewer, ScholarProfile } from "@/components";
 
 interface Scholar {
   id: string;
@@ -57,6 +58,7 @@ export default function TeacherDashboard() {
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
+  const [selectedScholarId, setSelectedScholarId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch scholars
@@ -267,7 +269,14 @@ export default function TeacherDashboard() {
               <ScholarCard
                 key={scholar.id}
                 scholar={scholar}
-                onViewConversation={(id) => setSelectedConversationId(id)}
+                onViewConversation={(id) => {
+                  setSelectedScholarId(null);
+                  setSelectedConversationId(id);
+                }}
+                onViewProfile={() => {
+                  setSelectedConversationId(null);
+                  setSelectedScholarId(scholar.id);
+                }}
               />
             ))}
           </SimpleGrid>
@@ -291,6 +300,14 @@ export default function TeacherDashboard() {
           conversationId={selectedConversationId}
           onClose={() => setSelectedConversationId(null)}
           onUpdate={fetchScholars}
+        />
+      )}
+
+      {/* Scholar Profile Sidebar */}
+      {selectedScholarId && (
+        <ScholarProfile
+          scholarId={selectedScholarId}
+          onClose={() => setSelectedScholarId(null)}
         />
       )}
     </Flex>
@@ -351,9 +368,11 @@ function StatusCard({
 function ScholarCard({
   scholar,
   onViewConversation,
+  onViewProfile,
 }: {
   scholar: Scholar;
   onViewConversation: (id: string) => void;
+  onViewProfile: () => void;
 }) {
   const statusColors = {
     green: { bg: "green.500", text: "On Track" },
@@ -391,13 +410,25 @@ function ScholarCard({
                 </Text>
               </VStack>
             </HStack>
-            <Box
-              w={3}
-              h={3}
-              borderRadius="full"
-              bg={statusColors[scholar.overallStatus].bg}
-              title={statusColors[scholar.overallStatus].text}
-            />
+            <HStack gap={2}>
+              <IconButton
+                aria-label="View Profile"
+                size="sm"
+                variant="ghost"
+                color="violet.500"
+                _hover={{ bg: "violet.50" }}
+                onClick={onViewProfile}
+              >
+                <FiUser />
+              </IconButton>
+              <Box
+                w={3}
+                h={3}
+                borderRadius="full"
+                bg={statusColors[scholar.overallStatus].bg}
+                title={statusColors[scholar.overallStatus].text}
+              />
+            </HStack>
           </HStack>
 
           {/* Stats */}
