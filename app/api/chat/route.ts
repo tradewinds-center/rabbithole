@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db, conversations, messages } from "@/db";
+import { db, conversations, messages, users } from "@/db";
 import { eq, and } from "drizzle-orm";
 import { buildSystemPrompt, sendMessage, type ChatMessage } from "@/lib/claude";
 import Anthropic from "@anthropic-ai/sdk";
@@ -70,8 +70,17 @@ export async function POST(req: NextRequest) {
         content: m.content,
       }));
 
-    // Build system prompt with any teacher whisper
-    const systemPrompt = buildSystemPrompt(conversation[0].teacherWhisper);
+    // Fetch user's reading level
+    const user = await db
+      .select({ readingLevel: users.readingLevel })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1);
+
+    const readingLevel = user.length > 0 ? user[0].readingLevel : null;
+
+    // Build system prompt with teacher whisper and reading level
+    const systemPrompt = buildSystemPrompt(conversation[0].teacherWhisper, readingLevel);
 
     // Create streaming response
     const encoder = new TextEncoder();

@@ -10,6 +10,9 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: ["scholar", "teacher", "admin"] })
     .notNull()
     .default("scholar"),
+  // Reading level for scholars (teacher-settable)
+  // Examples: "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"
+  readingLevel: text("reading_level"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

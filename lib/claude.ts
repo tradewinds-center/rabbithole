@@ -41,18 +41,50 @@ const BASE_SYSTEM_PROMPT = `You are Makawulu, an AI learning companion for gifte
 
 Remember: You are a guide alongside the scholar, not an authority above them. Your goal is to help them develop their own capacity for deep thinking.`;
 
-// Generate the full system prompt with any teacher whispers
-export function buildSystemPrompt(teacherWhisper?: string | null): string {
-  if (!teacherWhisper) {
-    return BASE_SYSTEM_PROMPT;
+// Reading level descriptions for the AI
+const READING_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  K: "kindergarten level (ages 5-6) - use very simple words and short sentences",
+  "1": "1st grade level (ages 6-7) - use simple vocabulary and basic sentence structures",
+  "2": "2nd grade level (ages 7-8) - use straightforward language with some new vocabulary in context",
+  "3": "3rd grade level (ages 8-9) - introduce more complex ideas with clear explanations",
+  "4": "4th grade level (ages 9-10) - use grade-appropriate vocabulary and discuss abstract concepts",
+  "5": "5th grade level (ages 10-11) - engage with more sophisticated vocabulary and reasoning",
+  "6": "6th grade level (ages 11-12) - use middle school appropriate language and concepts",
+  "7": "7th grade level (ages 12-13) - engage with increasingly complex texts and ideas",
+  "8": "8th grade level (ages 13-14) - use advanced vocabulary and nuanced discussions",
+  "9": "9th grade level (ages 14-15) - high school freshman level complexity",
+  "10": "10th grade level (ages 15-16) - high school sophomore level complexity",
+  "11": "11th grade level (ages 16-17) - high school junior level, SAT-prep vocabulary",
+  "12": "12th grade level (ages 17-18) - high school senior level, college-prep complexity",
+  college: "college level - use advanced academic language and sophisticated concepts",
+};
+
+// Generate the full system prompt with teacher whispers and reading level
+export function buildSystemPrompt(
+  teacherWhisper?: string | null,
+  readingLevel?: string | null
+): string {
+  let prompt = BASE_SYSTEM_PROMPT;
+
+  // Add reading level context if specified
+  if (readingLevel && READING_LEVEL_DESCRIPTIONS[readingLevel]) {
+    prompt += `
+
+## Reading Level
+This scholar is at a ${READING_LEVEL_DESCRIPTIONS[readingLevel]}. Adjust your vocabulary, sentence complexity, and explanations accordingly. You can still explore advanced topics, but frame them in accessible language. Challenge the scholar appropriately for their level.`;
   }
 
-  return `${BASE_SYSTEM_PROMPT}
+  // Add teacher whisper if present
+  if (teacherWhisper) {
+    prompt += `
 
 ## Current Guidance from Teacher
 The following is guidance from the scholar's teacher. Incorporate this naturally into your interactions without explicitly mentioning it:
 
 ${teacherWhisper}`;
+  }
+
+  return prompt;
 }
 
 // Types for chat messages

@@ -48,6 +48,7 @@ interface Scholar {
   email: string;
   name: string;
   image?: string;
+  readingLevel?: string | null;
   createdAt: string;
 }
 
@@ -74,6 +75,24 @@ const BLOOM_LEVELS = [
   { value: "create", label: "Create - Produce new work" },
 ];
 
+const READING_LEVELS = [
+  { value: "", label: "Not set" },
+  { value: "K", label: "K - Kindergarten" },
+  { value: "1", label: "1st Grade" },
+  { value: "2", label: "2nd Grade" },
+  { value: "3", label: "3rd Grade" },
+  { value: "4", label: "4th Grade" },
+  { value: "5", label: "5th Grade" },
+  { value: "6", label: "6th Grade" },
+  { value: "7", label: "7th Grade" },
+  { value: "8", label: "8th Grade" },
+  { value: "9", label: "9th Grade" },
+  { value: "10", label: "10th Grade" },
+  { value: "11", label: "11th Grade" },
+  { value: "12", label: "12th Grade" },
+  { value: "college", label: "College" },
+];
+
 export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   const [scholar, setScholar] = useState<Scholar | null>(null);
   const [topics, setTopics] = useState<ScholarTopic[]>([]);
@@ -82,6 +101,7 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
   const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
+  const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
 
   // Fetch scholar profile
   const fetchProfile = useCallback(async () => {
@@ -104,6 +124,25 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  // Update reading level
+  const handleReadingLevelChange = async (newLevel: string) => {
+    setIsSavingReadingLevel(true);
+    try {
+      const res = await fetch(`/api/scholars/${scholarId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ readingLevel: newLevel || null }),
+      });
+      if (res.ok) {
+        setScholar((prev) => prev ? { ...prev, readingLevel: newLevel || null } : prev);
+      }
+    } catch (error) {
+      console.error("Error updating reading level:", error);
+    } finally {
+      setIsSavingReadingLevel(false);
+    }
+  };
 
   // Rate a topic
   const handleRateTopic = async (topicId: string, rating: number) => {
@@ -249,6 +288,40 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
           </Text>
         </VStack>
       </HStack>
+
+      {/* Reading Level */}
+      <Box p={4} borderBottom="1px solid" borderColor="gray.200">
+        <HStack mb={2}>
+          <FiUser color="#AD60BF" />
+          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+            Reading Level
+          </Text>
+          {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+        </HStack>
+        <select
+          value={scholar?.readingLevel || ""}
+          onChange={(e) => handleReadingLevelChange(e.target.value)}
+          disabled={isSavingReadingLevel}
+          style={{
+            width: "100%",
+            padding: "8px 10px",
+            borderRadius: "6px",
+            border: "1px solid #e2e8f0",
+            fontSize: "14px",
+            fontFamily: "inherit",
+            backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
+          }}
+        >
+          {READING_LEVELS.map((level) => (
+            <option key={level.value} value={level.value}>
+              {level.label}
+            </option>
+          ))}
+        </select>
+        <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+          Adjusts vocabulary and complexity in conversations
+        </Text>
+      </Box>
 
       {/* Content */}
       <Box flex={1} overflow="auto" p={4}>
