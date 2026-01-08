@@ -7,9 +7,10 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 ## Roadmap
 
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
-- [ ] **Categorize by Assignment** - Link conversations to specific assignments/projects
+- [x] **Categorize by Assignment** - Link conversations to specific assignments/projects ✅ (Jan 2026)
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
-- [ ] **Reading Level** - Track and auto-increase reading level over time based on performance
+- [x] **Reading Level** - Teacher-settable reading level per scholar ✅ (Jan 2026)
+- [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
 - [ ] **Best Quote of the Day → FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
 
@@ -176,13 +177,42 @@ Read-only access for family members:
 
 ---
 
-## Reading Level System (TODO)
+## Reading Level System ✅
 
-Track and progress reading level:
-- Store current reading level per scholar (e.g., Lexile score, grade level)
-- AI analysis includes vocabulary complexity assessment
-- Auto-increase based on sustained performance
-- Adjust Claude's vocabulary in system prompt based on level
+Teachers can set a reading level for each scholar (K through college):
+- Set via dropdown in Scholar Profile panel
+- Stored in `users.reading_level` column
+- Injected into Claude system prompt to adjust vocabulary/complexity
+- AI still explores advanced topics but frames them appropriately
+
+**TODO:** Auto-increase reading level based on AI analysis of vocabulary complexity over time.
+
+---
+
+## Projects/Assignments ✅
+
+Teachers can create projects (assignments) with custom AI context:
+
+**Database:** `projects` table with:
+- `title`, `description`, `system_prompt`, `rubric`
+- `target_bloom_level` (optional cognitive depth target)
+- `is_active` (soft delete)
+
+**Teacher Workflow:**
+1. Click "Projects" button in dashboard header
+2. Create project with title, description, AI instructions, and rubric
+3. Set optional Bloom level (remember → create)
+
+**Scholar Workflow:**
+1. Sidebar shows "PROJECT" selector (General + any active projects)
+2. Select a project to see only conversations for that project
+3. "New Project Chat" creates a conversation linked to that project
+4. AI tutor receives project context, rubric, and cognitive target
+
+**API Endpoints:**
+- `GET/POST /api/projects` - List/create projects
+- `GET/PATCH/DELETE /api/projects/[id]` - Single project operations
+- `GET/POST /api/conversations?projectId=...` - Filter/create by project
 
 ---
 
