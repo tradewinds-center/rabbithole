@@ -29,8 +29,9 @@ import {
   FiCheckCircle,
   FiAlertTriangle,
   FiUser,
+  FiBook,
 } from "react-icons/fi";
-import { ConversationViewer, ScholarProfile } from "@/components";
+import { ConversationViewer, ScholarProfile, ProjectManager } from "@/components";
 
 interface Scholar {
   id: string;
@@ -59,6 +60,7 @@ export default function TeacherDashboard() {
     string | null
   >(null);
   const [selectedScholarId, setSelectedScholarId] = useState<string | null>(null);
+  const [showProjectManager, setShowProjectManager] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch scholars
@@ -175,6 +177,23 @@ export default function TeacherDashboard() {
             </HStack>
 
             <HStack gap={4}>
+              <Button
+                size="sm"
+                bg={showProjectManager ? "violet.500" : "white"}
+                color={showProjectManager ? "white" : "navy.500"}
+                border="1px solid"
+                borderColor={showProjectManager ? "violet.500" : "gray.200"}
+                _hover={{ bg: showProjectManager ? "violet.600" : "gray.50" }}
+                fontFamily="heading"
+                onClick={() => {
+                  setSelectedConversationId(null);
+                  setSelectedScholarId(null);
+                  setShowProjectManager(!showProjectManager);
+                }}
+              >
+                <FiBook style={{ marginRight: "6px" }} />
+                Projects
+              </Button>
               <IconButton
                 aria-label="Refresh"
                 variant="ghost"
@@ -308,6 +327,13 @@ export default function TeacherDashboard() {
         <ScholarProfile
           scholarId={selectedScholarId}
           onClose={() => setSelectedScholarId(null)}
+        />
+      )}
+
+      {/* Project Manager Sidebar */}
+      {showProjectManager && (
+        <ProjectManager
+          onClose={() => setShowProjectManager(false)}
         />
       )}
     </Flex>

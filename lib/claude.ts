@@ -59,12 +59,78 @@ const READING_LEVEL_DESCRIPTIONS: Record<string, string> = {
   college: "college level - use advanced academic language and sophisticated concepts",
 };
 
-// Generate the full system prompt with teacher whispers and reading level
+// Context for a project/assignment
+export interface ProjectContext {
+  title: string;
+  description?: string | null;
+  systemPrompt?: string | null;
+  rubric?: string | null;
+  targetBloomLevel?: string | null;
+}
+
+// Generate the full system prompt with teacher whispers, reading level, and project context
 export function buildSystemPrompt(
   teacherWhisper?: string | null,
-  readingLevel?: string | null
+  readingLevel?: string | null,
+  project?: ProjectContext | null
 ): string {
   let prompt = BASE_SYSTEM_PROMPT;
+
+  // Add project context if this is a project-based conversation
+  if (project) {
+    prompt += `
+
+## Current Assignment: ${project.title}`;
+
+    if (project.description) {
+      prompt += `
+${project.description}`;
+    }
+
+    if (project.systemPrompt) {
+      prompt += `
+
+### Assignment Instructions
+${project.systemPrompt}`;
+    }
+
+    if (project.rubric) {
+      try {
+        const rubricData = JSON.parse(project.rubric);
+        if (Array.isArray(rubricData) && rubricData.length > 0) {
+          prompt += `
+
+### Assessment Criteria
+Guide the scholar toward demonstrating these competencies:`;
+          for (const criterion of rubricData) {
+            prompt += `
+- **${criterion.criterion}**: ${criterion.description || ""}`;
+          }
+        }
+      } catch {
+        // Rubric is raw text, not JSON
+        prompt += `
+
+### Assessment Criteria
+${project.rubric}`;
+      }
+    }
+
+    if (project.targetBloomLevel) {
+      const bloomDescriptions: Record<string, string> = {
+        remember: "recall and recognition of facts",
+        understand: "explaining ideas and concepts",
+        apply: "using information in new situations",
+        analyze: "drawing connections and examining relationships",
+        evaluate: "justifying decisions and making judgments",
+        create: "producing new or original work",
+      };
+      prompt += `
+
+### Cognitive Target
+Aim for discussions at the "${project.targetBloomLevel}" level (${bloomDescriptions[project.targetBloomLevel] || project.targetBloomLevel}). Help the scholar reach this depth of thinking.`;
+    }
+  }
 
   // Add reading level context if specified
   if (readingLevel && READING_LEVEL_DESCRIPTIONS[readingLevel]) {

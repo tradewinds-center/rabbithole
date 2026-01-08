@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db, conversations, messages, users } from "@/db";
+import { db, conversations, messages, users, projects } from "@/db";
 import { eq, and } from "drizzle-orm";
-import { buildSystemPrompt, sendMessage, type ChatMessage } from "@/lib/claude";
+import { buildSystemPrompt, sendMessage, type ChatMessage, type ProjectContext } from "@/lib/claude";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
@@ -79,8 +79,28 @@ export async function POST(req: NextRequest) {
 
     const readingLevel = user.length > 0 ? user[0].readingLevel : null;
 
-    // Build system prompt with teacher whisper and reading level
-    const systemPrompt = buildSystemPrompt(conversation[0].teacherWhisper, readingLevel);
+    // Fetch project context if conversation is linked to a project
+    let projectContext: ProjectContext | null = null;
+    if (conversation[0].projectId) {
+      const project = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, conversation[0].projectId))
+        .limit(1);
+
+      if (project.length > 0) {
+        projectContext = {
+          title: project[0].title,
+          description: project[0].description,
+          systemPrompt: project[0].systemPrompt,
+          rubric: project[0].rubric,
+          targetBloomLevel: project[0].targetBloomLevel,
+        };
+      }
+    }
+
+    // Build system prompt with teacher whisper, reading level, and project context
+    const systemPrompt = buildSystemPrompt(conversation[0].teacherWhisper, readingLevel, projectContext);
 
     // Create streaming response
     const encoder = new TextEncoder();

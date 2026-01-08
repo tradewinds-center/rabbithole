@@ -27,6 +27,8 @@ export const conversations = sqliteTable("conversations", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  // Optional project this conversation belongs to (null = general chat)
+  projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
   title: text("title").default("New Conversation"),
   // Status indicator: green = on track, yellow = needs attention, red = requires intervention
   status: text("status", { enum: ["green", "yellow", "red"] })
@@ -133,6 +135,32 @@ export const scholarTopics = sqliteTable("scholar_topics", {
     .$defaultFn(() => new Date()),
 });
 
+// Projects/Assignments - teacher-created with custom prompts and rubrics
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  teacherId: text("teacher_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  // System prompt to inject for this project (provides context for AI)
+  systemPrompt: text("system_prompt"),
+  // Rubric in JSON format: array of { criterion, description, levels: { exemplary, proficient, developing, beginning } }
+  rubric: text("rubric"),
+  // Optional: target Bloom level for adaptive rubric
+  targetBloomLevel: text("target_bloom_level", {
+    enum: ["remember", "understand", "apply", "analyze", "evaluate", "create"],
+  }),
+  // Whether this project is active/visible to scholars
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Suggested follow-up topics from teachers (Bloom's taxonomy inspired)
 export const suggestedTopics = sqliteTable("suggested_topics", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -164,6 +192,15 @@ export const usersRelations = relations(users, ({ many }) => ({
   scholarTopics: many(scholarTopics),
   suggestedTopicsReceived: many(suggestedTopics, { relationName: "scholarSuggestions" }),
   suggestedTopicsGiven: many(suggestedTopics, { relationName: "teacherSuggestions" }),
+  projectsCreated: many(projects),
+}));
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [projects.teacherId],
+    references: [users.id],
+  }),
+  conversations: many(conversations),
 }));
 
 export const scholarTopicsRelations = relations(scholarTopics, ({ one }) => ({
@@ -194,6 +231,10 @@ export const conversationsRelations = relations(conversations, ({ one, many }) =
   user: one(users, {
     fields: [conversations.userId],
     references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [conversations.projectId],
+    references: [projects.id],
   }),
   messages: many(messages),
   observations: many(observations),
@@ -244,3 +285,5 @@ export type ScholarTopic = typeof scholarTopics.$inferSelect;
 export type NewScholarTopic = typeof scholarTopics.$inferInsert;
 export type SuggestedTopic = typeof suggestedTopics.$inferSelect;
 export type NewSuggestedTopic = typeof suggestedTopics.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;

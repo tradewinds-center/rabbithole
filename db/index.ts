@@ -119,14 +119,32 @@ export function initializeDatabase() {
     )
   `);
 
+  // Projects/Assignments table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      teacher_id TEXT NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      description TEXT,
+      system_prompt TEXT,
+      rubric TEXT,
+      target_bloom_level TEXT CHECK (target_bloom_level IN ('remember', 'understand', 'apply', 'analyze', 'evaluate', 'create')),
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
   // Create indexes for better query performance
   sqlite.exec(`
     CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations(project_id);
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_observations_scholar_id ON observations(scholar_id);
     CREATE INDEX IF NOT EXISTS idx_analyses_conversation_id ON analyses(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_scholar_topics_scholar_id ON scholar_topics(scholar_id);
     CREATE INDEX IF NOT EXISTS idx_suggested_topics_scholar_id ON suggested_topics(scholar_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_teacher_id ON projects(teacher_id);
   `);
 
   console.log("Database initialized successfully");

@@ -21,6 +21,8 @@ import {
   FiTrash2,
   FiMenu,
   FiX,
+  FiBook,
+  FiHome,
 } from "react-icons/fi";
 import { ChatInterface } from "@/components/ChatInterface";
 
@@ -29,26 +31,55 @@ interface Conversation {
   title: string;
   status: "green" | "yellow" | "red";
   updatedAt: string;
+  projectId?: string | null;
+  projectTitle?: string | null;
+}
+
+interface Project {
+  id: string;
+  title: string;
+  description?: string | null;
 }
 
 export default function ScholarPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null); // null = "General" (no project)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Fetch conversations
+  // Fetch projects
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await fetch("/api/projects");
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.projects);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  }, []);
+
+  // Fetch conversations (optionally filtered by project)
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const url = selectedProjectId === null
+        ? "/api/conversations?projectId=none"
+        : `/api/conversations?projectId=${selectedProjectId}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setConversations(data.conversations);
-        // Auto-select first conversation if none selected
-        if (!activeConversationId && data.conversations.length > 0) {
+        // Auto-select first conversation if none selected or if current is not in list
+        const currentExists = data.conversations.some((c: Conversation) => c.id === activeConversationId);
+        if (!currentExists && data.conversations.length > 0) {
           setActiveConversationId(data.conversations[0].id);
+        } else if (!currentExists) {
+          setActiveConversationId(null);
         }
       }
     } catch (error) {
@@ -56,7 +87,7 @@ export default function ScholarPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeConversationId]);
+  }, [selectedProjectId, activeConversationId]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -68,13 +99,27 @@ export default function ScholarPage() {
       router.push("/teacher");
       return;
     }
+    fetchProjects();
     fetchConversations();
-  }, [session, status, router, fetchConversations]);
+  }, [session, status, router, fetchProjects, fetchConversations]);
 
-  // Create new conversation
+  // Re-fetch conversations when selected project changes
+  useEffect(() => {
+    if (status !== "loading" && session) {
+      fetchConversations();
+    }
+  }, [selectedProjectId]);
+
+  // Create new conversation (optionally linked to a project)
   const handleNewConversation = async () => {
     try {
-      const res = await fetch("/api/conversations", { method: "POST" });
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: selectedProjectId || undefined,
+        }),
+      });
       if (res.ok) {
         const data = await res.json();
         setConversations((prev) => [data.conversation, ...prev]);
@@ -181,6 +226,51 @@ export default function ScholarPage() {
           </IconButton>
         </Flex>
 
+        {/* Project Selector */}
+        <Box px={3} pt={3} pb={1}>
+          <Text fontSize="xs" fontWeight="600" color="whiteAlpha.600" fontFamily="heading" mb={2}>
+            PROJECT
+          </Text>
+          <VStack gap={1} align="stretch">
+            <HStack
+              p={2}
+              borderRadius="md"
+              cursor="pointer"
+              bg={selectedProjectId === null ? "whiteAlpha.200" : "transparent"}
+              _hover={{ bg: "whiteAlpha.100" }}
+              onClick={() => setSelectedProjectId(null)}
+            >
+              <FiHome color="white" opacity={0.7} size={14} />
+              <Text color="white" fontSize="sm" fontFamily="heading">
+                General
+              </Text>
+            </HStack>
+            {projects.map((project) => (
+              <HStack
+                key={project.id}
+                p={2}
+                borderRadius="md"
+                cursor="pointer"
+                bg={selectedProjectId === project.id ? "whiteAlpha.200" : "transparent"}
+                _hover={{ bg: "whiteAlpha.100" }}
+                onClick={() => setSelectedProjectId(project.id)}
+              >
+                <FiBook color="white" opacity={0.7} size={14} />
+                <Text
+                  color="white"
+                  fontSize="sm"
+                  fontFamily="heading"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                >
+                  {project.title}
+                </Text>
+              </HStack>
+            ))}
+          </VStack>
+        </Box>
+
         {/* New Chat Button */}
         <Box p={3}>
           <Button
@@ -193,7 +283,7 @@ export default function ScholarPage() {
             onClick={handleNewConversation}
           >
             <FiPlus style={{ marginRight: "8px" }} />
-            New Chat
+            {selectedProjectId ? "New Project Chat" : "New Chat"}
           </Button>
         </Box>
 
