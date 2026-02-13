@@ -286,29 +286,17 @@ export function ChatInterface({
 
           {messages
             .filter((m) => m.role !== "system")
-            .filter((m) => !(streamingMsgId && m.id === streamingMsgId))
-            .map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                personaOptions={personaOptions}
-              />
-            ))}
-
-          {/* Streaming message */}
-          {streamingContent && (
-            <MessageBubble
-              message={{
-                id: "streaming",
-                role: "assistant",
-                content: streamingContent,
-                createdAt: Date.now(),
-                personaId: conversationData.personaId,
-              }}
-              personaOptions={personaOptions}
-              isStreaming
-            />
-          )}
+            .map((message) => {
+              const isActiveStream = streamingMsgId && message.id === streamingMsgId;
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
+                  personaOptions={personaOptions}
+                  isStreaming={!!isActiveStream && !!streamingContent}
+                />
+              );
+            })}
 
           {/* Typing indicator */}
           {isStreaming && !streamingContent && (
