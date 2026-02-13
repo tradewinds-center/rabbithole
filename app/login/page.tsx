@@ -3,12 +3,11 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Container, Heading, Text, VStack, HStack, Separator } from "@chakra-ui/react";
-import { FcGoogle } from "react-icons/fc";
-import { FiUser, FiBook } from "react-icons/fi";
+import { Box, Button, Container, Heading, Text, VStack, HStack } from "@chakra-ui/react";
+import { FiUser } from "react-icons/fi";
 import { useState, useEffect } from "react";
 
-// Test users for dev login
+// Test users for dev sign-in
 const TEST_USERS = [
   { id: "test-teacher-001", name: "Test Teacher", role: "teacher" },
   { id: "test-scholar-001", name: "Kai Nakamura", role: "scholar" },
@@ -29,7 +28,7 @@ export default function LoginPage() {
     }
   }, [isAuthenticated]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     try {
       await signIn("google");
@@ -40,7 +39,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleTestLogin = async (testUser: (typeof TEST_USERS)[number]) => {
+  const handleTestSignIn = async (testUser: (typeof TEST_USERS)[number]) => {
     setIsSigningIn(true);
     try {
       await signIn("password", {
@@ -59,7 +58,7 @@ export default function LoginPage() {
       // initializes fresh with the stored token on page load.
       window.location.href = "/";
     } catch (error) {
-      console.error("Test login error:", error);
+      console.error("Test sign-in error:", error);
       setIsSigningIn(false);
     }
   };
@@ -114,91 +113,52 @@ export default function LoginPage() {
             </Heading>
           </VStack>
 
-          {/* Sign In Button */}
+          {/* Primary CTA */}
           <Button
             size="lg"
             w="full"
-            bg="white"
-            color="charcoal.600"
-            border="2px solid"
-            borderColor="gray.200"
-            _hover={{
-              bg: "gray.50",
-              borderColor: "gray.300",
-            }}
+            bg="violet.500"
+            color="white"
+            _hover={{ bg: "violet.600" }}
             fontFamily="heading"
             fontWeight="500"
             h={14}
             disabled={isSigningIn}
-            onClick={handleGoogleLogin}
+            onClick={() => handleTestSignIn(TEST_USERS[0])}
           >
-            <FcGoogle style={{ marginRight: "12px", fontSize: "24px" }} />
-            Sign in with Google
+            <FiUser style={{ marginRight: "8px" }} />
+            Sign in as Teacher
           </Button>
 
-          {/* Dev/Test Login Section */}
-          <VStack gap={4} w="full" pt={4}>
-            <HStack w="full" gap={4}>
-              <Separator flex={1} />
-              <Text
-                color="charcoal.300"
-                fontSize="xs"
-                fontFamily="heading"
-                whiteSpace="nowrap"
-              >
-                DEV / TEST ACCOUNTS
-              </Text>
-              <Separator flex={1} />
+          {/* Footer links */}
+          <VStack gap={2} pt={2}>
+            <HStack gap={4} flexWrap="wrap" justifyContent="center">
+              {TEST_USERS.slice(1).map((scholar) => (
+                <Text
+                  key={scholar.id}
+                  as="button"
+                  color="charcoal.300"
+                  fontSize="xs"
+                  fontFamily="heading"
+                  cursor="pointer"
+                  _hover={{ color: "charcoal.500", textDecoration: "underline" }}
+                  onClick={() => !isSigningIn && handleTestSignIn(scholar)}
+                >
+                  {scholar.name}
+                </Text>
+              ))}
             </HStack>
-
-            {/* Teacher Test Login */}
-            <Button
-              size="md"
-              w="full"
-              bg="violet.500"
-              color="white"
-              _hover={{ bg: "violet.600" }}
+            <Text
+              as="button"
+              color="charcoal.300"
+              fontSize="xs"
               fontFamily="heading"
-              fontWeight="500"
-              disabled={isSigningIn}
-              onClick={() => handleTestLogin(TEST_USERS[0])}
+              cursor="pointer"
+              _hover={{ color: "charcoal.500", textDecoration: "underline" }}
+              onClick={() => !isSigningIn && handleGoogleSignIn()}
             >
-              <FiUser style={{ marginRight: "8px" }} />
-              Login as Teacher
-            </Button>
-
-            {/* Scholar Test Logins */}
-            <VStack gap={2} w="full">
-              <Text
-                color="charcoal.400"
-                fontSize="xs"
-                fontFamily="heading"
-                alignSelf="start"
-              >
-                Test Scholars:
-              </Text>
-              <HStack gap={2} w="full" flexWrap="wrap">
-                {TEST_USERS.slice(1).map((scholar) => (
-                  <Button
-                    key={scholar.id}
-                    size="sm"
-                    flex={1}
-                    minW="120px"
-                    bg="navy.500"
-                    color="white"
-                    _hover={{ bg: "navy.600" }}
-                    fontFamily="heading"
-                    fontWeight="400"
-                    fontSize="xs"
-                    disabled={isSigningIn}
-                    onClick={() => handleTestLogin(scholar)}
-                  >
-                    <FiBook style={{ marginRight: "4px" }} />
-                    {scholar.name.split(" ")[0]}
-                  </Button>
-                ))}
-              </HStack>
-            </VStack>
+              Sign in with Google
+            </Text>
           </VStack>
         </VStack>
       </Container>
