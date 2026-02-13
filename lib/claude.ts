@@ -165,7 +165,7 @@ export async function sendMessage(
   systemPrompt: string
 ): Promise<AsyncIterable<Anthropic.MessageStreamEvent>> {
   const stream = anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-opus-4-6",
     max_tokens: 2048,
     system: systemPrompt,
     messages: messages.map((m) => ({
@@ -183,7 +183,7 @@ export async function sendMessageSync(
   systemPrompt: string
 ): Promise<{ content: string; model: string; tokensUsed: number }> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-opus-4-6",
     max_tokens: 2048,
     system: systemPrompt,
     messages: messages.map((m) => ({
@@ -264,7 +264,7 @@ export async function analyzeConversation(
     .join("\n\n");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1024,
     system: OBSERVER_SYSTEM_PROMPT,
     messages: [

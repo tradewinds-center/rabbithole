@@ -113,7 +113,7 @@ Focus on:
 Respond ONLY with valid JSON, no other text.`;
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [
         {
