@@ -1,4 +1,4 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 
 export const seedAll = internalMutation({
   handler: async (ctx) => {
@@ -138,49 +138,64 @@ export const seedAll = internalMutation({
         externalId: "test-teacher-001",
         email: "test.teacher@tradewinds.school",
         name: "Test Teacher",
+        image: "/avatars/teacher.png",
         role: "teacher" as const,
       },
       {
         externalId: "test-scholar-001",
         email: "kai.nakamura@example.com",
         name: "Kai Nakamura",
+        image: "/avatars/kai-nakamura.png",
         role: "scholar" as const,
+        readingLevel: "3",
       },
       {
         externalId: "test-scholar-002",
         email: "lani.kealoha@example.com",
         name: "Lani Kealoha",
+        image: "/avatars/lani-kealoha.png",
         role: "scholar" as const,
+        readingLevel: "2",
       },
       {
         externalId: "test-scholar-003",
         email: "noah.takahashi@example.com",
         name: "Noah Takahashi",
+        image: "/avatars/noah-takahashi.png",
         role: "scholar" as const,
+        readingLevel: "5",
       },
       {
         externalId: "test-scholar-004",
         email: "sophie.anderson@example.com",
         name: "Sophie Anderson",
+        image: "/avatars/sophie-anderson.png",
         role: "scholar" as const,
+        readingLevel: "4",
       },
       {
         externalId: "test-scholar-005",
         email: "koa.medeiros@example.com",
         name: "Koa Medeiros",
+        image: "/avatars/koa-medeiros.png",
         role: "scholar" as const,
+        readingLevel: "K",
       },
       {
         externalId: "test-scholar-006",
         email: "lily.murphy@example.com",
         name: "Lily Murphy",
+        image: "/avatars/lily-murphy.png",
         role: "scholar" as const,
+        readingLevel: "1",
       },
       {
         externalId: "test-scholar-007",
         email: "jack.davis@example.com",
         name: "Jack Davis",
+        image: "/avatars/jack-davis.png",
         role: "scholar" as const,
+        readingLevel: "5",
       },
     ];
 
@@ -191,5 +206,37 @@ export const seedAll = internalMutation({
     console.log(
       "Seeded: 5 personas, 7 perspectives, 1 system teacher, 8 test users"
     );
+  },
+});
+
+/**
+ * Patch existing test users with avatar images and reading levels.
+ * Run once: npx convex run seed:patchAvatars
+ */
+export const patchAvatars = internalMutation({
+  handler: async (ctx) => {
+    const avatarMap: Record<string, { image: string; readingLevel?: string }> = {
+      "test.teacher@tradewinds.school": { image: "/avatars/teacher.png" },
+      "kai.nakamura@example.com": { image: "/avatars/kai-nakamura.png", readingLevel: "3" },
+      "lani.kealoha@example.com": { image: "/avatars/lani-kealoha.png", readingLevel: "2" },
+      "noah.takahashi@example.com": { image: "/avatars/noah-takahashi.png", readingLevel: "5" },
+      "sophie.anderson@example.com": { image: "/avatars/sophie-anderson.png", readingLevel: "4" },
+      "koa.medeiros@example.com": { image: "/avatars/koa-medeiros.png", readingLevel: "K" },
+      "lily.murphy@example.com": { image: "/avatars/lily-murphy.png", readingLevel: "1" },
+      "jack.davis@example.com": { image: "/avatars/jack-davis.png", readingLevel: "5" },
+    };
+
+    let patched = 0;
+    for (const [email, data] of Object.entries(avatarMap)) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+      if (user) {
+        await ctx.db.patch(user._id, data);
+        patched++;
+      }
+    }
+    console.log(`Patched ${patched} users with avatars`);
   },
 });

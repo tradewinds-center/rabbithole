@@ -15,22 +15,15 @@ import {
   Button,
   IconButton,
   Spinner,
-  Badge,
   Card,
   SimpleGrid,
-  Input,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
   FiLogOut,
   FiUsers,
   FiMessageSquare,
-  FiRefreshCw,
   FiEye,
-  FiSearch,
-  FiAlertCircle,
-  FiCheckCircle,
-  FiAlertTriangle,
   FiUser,
   FiBook,
   FiSmile,
@@ -60,7 +53,6 @@ export default function TeacherDashboard() {
   const { signOut } = useAuthActions();
   const router = useRouter();
   const scholars = useQuery(api.users.listScholars) ?? [];
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
@@ -79,20 +71,6 @@ export default function TeacherDashboard() {
       return;
     }
   }, [user, isUserLoading, router]);
-
-  // Filter scholars
-  const filteredScholars = scholars.filter(
-    (s) =>
-      (s.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.email ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Count by status
-  const statusCounts = {
-    green: scholars.filter((s) => s.overallStatus === "green").length,
-    yellow: scholars.filter((s) => s.overallStatus === "yellow").length,
-    red: scholars.filter((s) => s.overallStatus === "red").length,
-  };
 
   if (isUserLoading || scholars === undefined) {
     return (
@@ -206,66 +184,10 @@ export default function TeacherDashboard() {
           </Flex>
         </Box>
 
-        {/* Status Summary Cards */}
-        <Box px={6} py={4}>
-          <SimpleGrid columns={{ base: 1, md: 4 }} gap={4}>
-            <StatusCard
-              icon={<FiUsers />}
-              label="Total Scholars"
-              value={scholars.length}
-              color="navy"
-            />
-            <StatusCard
-              icon={<FiCheckCircle />}
-              label="On Track"
-              value={statusCounts.green}
-              color="green"
-            />
-            <StatusCard
-              icon={<FiAlertTriangle />}
-              label="Needs Attention"
-              value={statusCounts.yellow}
-              color="yellow"
-            />
-            <StatusCard
-              icon={<FiAlertCircle />}
-              label="Requires Intervention"
-              value={statusCounts.red}
-              color="red"
-            />
-          </SimpleGrid>
-        </Box>
-
-        {/* Search */}
-        <Box px={6} pb={4}>
-          <Flex position="relative" maxW="md">
-            <Input
-              placeholder="Search scholars..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              bg="white"
-              border="2px solid"
-              borderColor="gray.200"
-              _focus={{ borderColor: "violet.500" }}
-              pl={10}
-              fontFamily="heading"
-            />
-            <Box
-              position="absolute"
-              left={3}
-              top="50%"
-              transform="translateY(-50%)"
-              color="gray.400"
-            >
-              <FiSearch />
-            </Box>
-          </Flex>
-        </Box>
-
         {/* Scholars Grid */}
-        <Box px={6} pb={6}>
+        <Box px={6} py={4}>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
-            {filteredScholars.map((scholar) => (
+            {scholars.map((scholar) => (
               <ScholarCard
                 key={scholar.id}
                 scholar={scholar}
@@ -281,13 +203,11 @@ export default function TeacherDashboard() {
             ))}
           </SimpleGrid>
 
-          {filteredScholars.length === 0 && (
+          {scholars.length === 0 && (
             <VStack py={12} gap={4}>
               <FiUsers size={48} color="#c1c1c1" />
               <Text color="charcoal.400" fontFamily="heading">
-                {searchQuery
-                  ? "No scholars match your search"
-                  : "No scholars enrolled yet"}
+                No scholars enrolled yet
               </Text>
             </VStack>
           )}
@@ -320,56 +240,6 @@ export default function TeacherDashboard() {
         />
       )}
     </Flex>
-  );
-}
-
-// Status Card Component
-function StatusCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: "navy" | "green" | "yellow" | "red";
-}) {
-  const colorMap = {
-    navy: { bg: "navy.500", text: "white" },
-    green: { bg: "green.100", text: "green.700" },
-    yellow: { bg: "yellow.100", text: "yellow.800" },
-    red: { bg: "red.100", text: "red.700" },
-  };
-
-  return (
-    <Card.Root bg="white" shadow="sm">
-      <Card.Body p={4}>
-        <HStack gap={4}>
-          <Box
-            p={3}
-            borderRadius="lg"
-            bg={colorMap[color].bg}
-            color={colorMap[color].text}
-          >
-            {icon}
-          </Box>
-          <VStack gap={0} align="start">
-            <Text
-              fontSize="2xl"
-              fontWeight="bold"
-              fontFamily="heading"
-              color="navy.500"
-            >
-              {value}
-            </Text>
-            <Text fontSize="sm" color="charcoal.400" fontFamily="heading">
-              {label}
-            </Text>
-          </VStack>
-        </HStack>
-      </Card.Body>
-    </Card.Root>
   );
 }
 

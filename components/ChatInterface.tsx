@@ -456,11 +456,11 @@ function MessageBubble({
         shadow="sm"
       >
         {isUser ? (
-          <Text fontFamily="body" fontSize="md" whiteSpace="pre-wrap">
+          <Text fontFamily="body" fontSize="lg" whiteSpace="pre-wrap">
             {message.content}
           </Text>
         ) : (
-          <Box className="chat-markdown" fontFamily="body" fontSize="md">
+          <Box className="chat-markdown" fontFamily="body" fontSize="lg">
             <ReactMarkdown>{message.content}</ReactMarkdown>
             {isStreaming && (
               <Box
