@@ -16,6 +16,7 @@ import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
 import type * as chatHelpers from "../chatHelpers.js";
 import type * as conversations from "../conversations.js";
+import type * as focus from "../focus.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   chatHelpers: typeof chatHelpers;
   conversations: typeof conversations;
+  focus: typeof focus;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;

@@ -46,6 +46,16 @@ export function ChatInterface({
   const projects = useQuery(api.projects.list) ?? [];
   const perspectives = useQuery(api.perspectives.list) ?? [];
 
+  // Focus lock from teacher
+  const currentFocus = useQuery(api.focus.getCurrent);
+  const focusLock = currentFocus?.isActive
+    ? {
+        personaId: currentFocus.personaId ? String(currentFocus.personaId) : null,
+        projectId: currentFocus.projectId ? String(currentFocus.projectId) : null,
+        perspectiveId: currentFocus.perspectiveId ? String(currentFocus.perspectiveId) : null,
+      }
+    : null;
+
   const personaOptions: DimensionOption[] = personas.map((p) => ({
     id: p._id,
     title: p.title,
@@ -120,11 +130,38 @@ export function ChatInterface({
     }
   }, [isLoading, conversationId]);
 
+  // Auto-apply locked dimensions when focus becomes active
+  useEffect(() => {
+    if (!focusLock || !convData?.conversation) return;
+    const conv = convData.conversation;
+    const updates: Record<string, string | null> = {};
+    if (focusLock.personaId != null && String(conv.personaId ?? "") !== focusLock.personaId) {
+      updates.personaId = focusLock.personaId;
+    }
+    if (focusLock.projectId != null && String(conv.projectId ?? "") !== focusLock.projectId) {
+      updates.projectId = focusLock.projectId;
+    }
+    if (focusLock.perspectiveId != null && String(conv.perspectiveId ?? "") !== focusLock.perspectiveId) {
+      updates.perspectiveId = focusLock.perspectiveId;
+    }
+    if (Object.keys(updates).length > 0) {
+      updateConversation({
+        id: conversationId as Id<"conversations">,
+        ...updates,
+      } as Parameters<typeof updateConversation>[0]).catch(console.error);
+    }
+  }, [focusLock, conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle dimension changes via Convex mutation
   const handleDimensionChange = async (
     field: "personaId" | "projectId" | "perspectiveId",
     value: string | null
   ) => {
+    // Skip if this dimension is locked by focus
+    if (focusLock) {
+      const lockKey = field as keyof typeof focusLock;
+      if (focusLock[lockKey] != null) return;
+    }
     try {
       await updateConversation({
         id: conversationId as Id<"conversations">,
@@ -256,6 +293,7 @@ export function ChatInterface({
         onPersonaChange={(id) => handleDimensionChange("personaId", id)}
         onProjectChange={(id) => handleDimensionChange("projectId", id)}
         onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
+        focusLock={focusLock}
       />
 
       {/* Messages */}

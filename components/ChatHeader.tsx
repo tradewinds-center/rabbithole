@@ -9,13 +9,19 @@ import {
   Portal,
   IconButton,
 } from "@chakra-ui/react";
-import { FiBook, FiChevronDown, FiEye } from "react-icons/fi";
+import { FiBook, FiChevronDown, FiEye, FiLock } from "react-icons/fi";
 
 interface DimensionOption {
   id: string;
   title: string;
   emoji?: string | null;
   icon?: string | null;
+}
+
+interface FocusLock {
+  personaId?: string | null;
+  projectId?: string | null;
+  perspectiveId?: string | null;
 }
 
 interface ChatHeaderProps {
@@ -32,6 +38,8 @@ interface ChatHeaderProps {
   onPersonaChange: (id: string | null) => void;
   onProjectChange: (id: string | null) => void;
   onPerspectiveChange: (id: string | null) => void;
+  // Focus lock (optional)
+  focusLock?: FocusLock | null;
 }
 
 const menuItemCss = {
@@ -62,7 +70,12 @@ export function ChatHeader({
   onPersonaChange,
   onProjectChange,
   onPerspectiveChange,
+  focusLock,
 }: ChatHeaderProps) {
+  const personaLocked = focusLock?.personaId != null;
+  const projectLocked = focusLock?.projectId != null;
+  const perspectiveLocked = focusLock?.perspectiveId != null;
+
   const activePersona = personaOptions.find((p) => p.id === personaId);
   const activeProject = projectOptions.find((p) => p.id === projectId);
   const activePerspective = perspectiveOptions.find((p) => p.id === perspectiveId);
@@ -84,57 +97,79 @@ export function ChatHeader({
       minH="56px"
     >
       {/* Persona Avatar (left) */}
-      <Menu.Root
-        onSelect={({ value }) =>
-          onPersonaChange(value === "none" ? null : value)
-        }
-      >
-        <Menu.Trigger asChild>
-          <Box
-            w={10}
-            h={10}
-            borderRadius="full"
-            bg={activePersona ? "violet.100" : "gray.100"}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            cursor="pointer"
-            _hover={{ bg: activePersona ? "violet.200" : "gray.200" }}
-            flexShrink={0}
-            title={activePersona ? activePersona.title : "Choose a persona"}
-          >
-            <Text fontSize="xl" lineHeight={1}>
-              {activePersona?.emoji || "🤖"}
-            </Text>
+      {personaLocked ? (
+        <Box
+          w={10}
+          h={10}
+          borderRadius="full"
+          bg={activePersona ? "violet.100" : "gray.100"}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          position="relative"
+          title={`${activePersona?.title || "Makawulu"} (locked by teacher)`}
+        >
+          <Text fontSize="xl" lineHeight={1}>
+            {activePersona?.emoji || "🤖"}
+          </Text>
+          <Box position="absolute" bottom={-0.5} right={-0.5} bg="white" borderRadius="full" p={0.5}>
+            <FiLock size={10} color="var(--chakra-colors-charcoal-400)" />
           </Box>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content
-              css={{
-                padding: "0.5rem",
-                minWidth: "200px",
-              }}
+        </Box>
+      ) : (
+        <Menu.Root
+          onSelect={({ value }) =>
+            onPersonaChange(value === "none" ? null : value)
+          }
+        >
+          <Menu.Trigger asChild>
+            <Box
+              w={10}
+              h={10}
+              borderRadius="full"
+              bg={activePersona ? "violet.100" : "gray.100"}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              _hover={{ bg: activePersona ? "violet.200" : "gray.200" }}
+              flexShrink={0}
+              title={activePersona ? activePersona.title : "Choose a persona"}
             >
-              <Menu.Item
-                value="none"
-                css={!personaId ? activeMenuItemCss : menuItemCss}
+              <Text fontSize="xl" lineHeight={1}>
+                {activePersona?.emoji || "🤖"}
+              </Text>
+            </Box>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content
+                css={{
+                  padding: "0.5rem",
+                  minWidth: "200px",
+                }}
               >
-                🤖 Makawulu (default)
-              </Menu.Item>
-              {personaOptions.map((p) => (
                 <Menu.Item
-                  key={p.id}
-                  value={p.id}
-                  css={personaId === p.id ? activeMenuItemCss : menuItemCss}
+                  value="none"
+                  css={!personaId ? activeMenuItemCss : menuItemCss}
                 >
-                  {p.emoji} {p.title}
+                  🤖 Makawulu (default)
                 </Menu.Item>
-              ))}
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+                {personaOptions.map((p) => (
+                  <Menu.Item
+                    key={p.id}
+                    value={p.id}
+                    css={personaId === p.id ? activeMenuItemCss : menuItemCss}
+                  >
+                    {p.emoji} {p.title}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+      )}
 
       {/* Title + badges (center) */}
       <Box flex={1} overflow="hidden">
@@ -164,100 +199,132 @@ export function ChatHeader({
       </Box>
 
       {/* Project menu (right) */}
-      <Menu.Root
-        onSelect={({ value }) =>
-          onProjectChange(value === "none" ? null : value)
-        }
-      >
-        <Menu.Trigger asChild>
-          <IconButton
-            aria-label="Select project"
-            size="sm"
-            variant="ghost"
-            color={projectId ? "violet.500" : "charcoal.400"}
-            _hover={{ bg: "gray.100" }}
-          >
-            <HStack gap={1}>
-              <FiBook />
-              <FiChevronDown size={12} />
-            </HStack>
-          </IconButton>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content
-              css={{
-                padding: "0.5rem",
-                minWidth: "200px",
-              }}
+      {projectLocked ? (
+        <IconButton
+          aria-label="Project (locked by teacher)"
+          size="sm"
+          variant="ghost"
+          color="violet.500"
+          cursor="default"
+          title={`${activeProject?.title || "Project"} (locked by teacher)`}
+        >
+          <HStack gap={1}>
+            <FiBook />
+            <FiLock size={10} />
+          </HStack>
+        </IconButton>
+      ) : (
+        <Menu.Root
+          onSelect={({ value }) =>
+            onProjectChange(value === "none" ? null : value)
+          }
+        >
+          <Menu.Trigger asChild>
+            <IconButton
+              aria-label="Select project"
+              size="sm"
+              variant="ghost"
+              color={projectId ? "violet.500" : "charcoal.400"}
+              _hover={{ bg: "gray.100" }}
             >
-              <Menu.Item
-                value="none"
-                css={!projectId ? activeMenuItemCss : menuItemCss}
+              <HStack gap={1}>
+                <FiBook />
+                <FiChevronDown size={12} />
+              </HStack>
+            </IconButton>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content
+                css={{
+                  padding: "0.5rem",
+                  minWidth: "200px",
+                }}
               >
-                No project
-              </Menu.Item>
-              {projectOptions.map((p) => (
                 <Menu.Item
-                  key={p.id}
-                  value={p.id}
-                  css={projectId === p.id ? activeMenuItemCss : menuItemCss}
+                  value="none"
+                  css={!projectId ? activeMenuItemCss : menuItemCss}
                 >
-                  📚 {p.title}
+                  No project
                 </Menu.Item>
-              ))}
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+                {projectOptions.map((p) => (
+                  <Menu.Item
+                    key={p.id}
+                    value={p.id}
+                    css={projectId === p.id ? activeMenuItemCss : menuItemCss}
+                  >
+                    📚 {p.title}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+      )}
 
       {/* Perspective menu (right) */}
-      <Menu.Root
-        onSelect={({ value }) =>
-          onPerspectiveChange(value === "none" ? null : value)
-        }
-      >
-        <Menu.Trigger asChild>
-          <IconButton
-            aria-label="Select perspective"
-            size="sm"
-            variant="ghost"
-            color={perspectiveId ? "violet.500" : "charcoal.400"}
-            _hover={{ bg: "gray.100" }}
-          >
-            <HStack gap={1}>
-              <FiEye />
-              <FiChevronDown size={12} />
-            </HStack>
-          </IconButton>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content
-              css={{
-                padding: "0.5rem",
-                minWidth: "220px",
-              }}
+      {perspectiveLocked ? (
+        <IconButton
+          aria-label="Perspective (locked by teacher)"
+          size="sm"
+          variant="ghost"
+          color="violet.500"
+          cursor="default"
+          title={`${activePerspective?.title || "Perspective"} (locked by teacher)`}
+        >
+          <HStack gap={1}>
+            <FiEye />
+            <FiLock size={10} />
+          </HStack>
+        </IconButton>
+      ) : (
+        <Menu.Root
+          onSelect={({ value }) =>
+            onPerspectiveChange(value === "none" ? null : value)
+          }
+        >
+          <Menu.Trigger asChild>
+            <IconButton
+              aria-label="Select perspective"
+              size="sm"
+              variant="ghost"
+              color={perspectiveId ? "violet.500" : "charcoal.400"}
+              _hover={{ bg: "gray.100" }}
             >
-              <Menu.Item
-                value="none"
-                css={!perspectiveId ? activeMenuItemCss : menuItemCss}
+              <HStack gap={1}>
+                <FiEye />
+                <FiChevronDown size={12} />
+              </HStack>
+            </IconButton>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content
+                css={{
+                  padding: "0.5rem",
+                  minWidth: "220px",
+                }}
               >
-                No lens
-              </Menu.Item>
-              {perspectiveOptions.map((p) => (
                 <Menu.Item
-                  key={p.id}
-                  value={p.id}
-                  css={perspectiveId === p.id ? activeMenuItemCss : menuItemCss}
+                  value="none"
+                  css={!perspectiveId ? activeMenuItemCss : menuItemCss}
                 >
-                  {p.icon || "🔍"} {p.title}
+                  No lens
                 </Menu.Item>
-              ))}
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+                {perspectiveOptions.map((p) => (
+                  <Menu.Item
+                    key={p.id}
+                    value={p.id}
+                    css={perspectiveId === p.id ? activeMenuItemCss : menuItemCss}
+                  >
+                    {p.icon || "🔍"} {p.title}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+      )}
     </Flex>
   );
 }

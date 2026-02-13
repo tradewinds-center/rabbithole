@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Flex,
@@ -18,6 +19,7 @@ import {
   Card,
   SimpleGrid,
   Menu,
+  Portal,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -28,15 +30,18 @@ import {
   FiBook,
   FiSmile,
   FiEye,
-  FiExternalLink,
+  FiChevronDown,
+  FiX,
 } from "react-icons/fi";
+import { TbFocusCentered } from "react-icons/tb";
+import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 
 type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives";
 
-const TABS: { key: Tab; label: string; icon: typeof FiUsers }[] = [
+const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
+  { key: "live", label: "Conductor View", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
-  { key: "live", label: "Live View", icon: FiMessageSquare },
   { key: "projects", label: "Projects", icon: FiBook },
   { key: "personas", label: "Personas", icon: FiSmile },
   { key: "perspectives", label: "Perspectives", icon: FiEye },
@@ -61,10 +66,18 @@ export default function TeacherDashboard() {
   const { signOut } = useAuthActions();
   const router = useRouter();
   const scholars = useQuery(api.users.listScholars) ?? [];
-  const [activeTab, setActiveTab] = useState<Tab>("scholars");
+  const [activeTab, setActiveTab] = useState<Tab>("live");
   const [selectedScholarId, setSelectedScholarId] = useState<string | null>(
     null
   );
+
+  // Focus mode data
+  const personas = useQuery(api.personas.list) ?? [];
+  const projects = useQuery(api.projects.list) ?? [];
+  const perspectives = useQuery(api.perspectives.list) ?? [];
+  const currentFocus = useQuery(api.focus.getCurrent);
+  const setFocus = useMutation(api.focus.set);
+  const clearFocus = useMutation(api.focus.clear);
 
   // Auth redirect
   useEffect(() => {
@@ -264,21 +277,33 @@ export default function TeacherDashboard() {
 
         {/* Live View tab — real-time scholar cards */}
         {activeTab === "live" && (
-          <Box flex={1} overflow="auto" px={6} py={4}>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
-              {scholars.map((scholar) => (
-                <ScholarCard key={scholar.id} scholar={scholar} />
-              ))}
-            </SimpleGrid>
+          <Box flex={1} overflow="auto">
+            {/* Focus Bar */}
+            <FocusBar
+              currentFocus={currentFocus ?? null}
+              personas={personas}
+              projects={projects}
+              perspectives={perspectives}
+              onSet={async (args) => { await setFocus(args); }}
+              onClear={async () => { await clearFocus(); }}
+            />
 
-            {scholars.length === 0 && (
-              <VStack py={12} gap={4}>
-                <FiUsers size={48} color="#c1c1c1" />
-                <Text color="charcoal.400" fontFamily="heading">
-                  No scholars enrolled yet
-                </Text>
-              </VStack>
-            )}
+            <Box px={6} py={4}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+                {scholars.map((scholar) => (
+                  <ScholarCard key={scholar.id} scholar={scholar} />
+                ))}
+              </SimpleGrid>
+
+              {scholars.length === 0 && (
+                <VStack py={12} gap={4}>
+                  <FiUsers size={48} color="#c1c1c1" />
+                  <Text color="charcoal.400" fontFamily="heading">
+                    No scholars enrolled yet
+                  </Text>
+                </VStack>
+              )}
+            </Box>
           </Box>
         )}
 
@@ -332,10 +357,6 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
       borderColor={cardBorder}
       transition="all 0.15s"
       onClick={() => window.open(remoteUrl, "_blank")}
-      css={{
-        "& .remote-icon": { opacity: 0, transition: "opacity 0.15s" },
-        "&:hover .remote-icon": { opacity: 1 },
-      }}
     >
       <Card.Body p={4}>
         <VStack align="stretch" gap={3}>
@@ -355,13 +376,6 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
                   >
                     {scholar.name}
                   </Text>
-                  <Box
-                    className="remote-icon"
-                    color="charcoal.300"
-                    fontSize="xs"
-                  >
-                    <FiExternalLink />
-                  </Box>
                 </HStack>
                 <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
                   {scholar.email}
@@ -418,5 +432,231 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
         </VStack>
       </Card.Body>
     </Card.Root>
+  );
+}
+
+// Focus Bar Component
+interface FocusEntity {
+  _id: string;
+  title: string;
+  emoji?: string;
+  icon?: string | null;
+}
+
+interface FocusBarProps {
+  currentFocus: {
+    personaId?: string | null;
+    projectId?: string | null;
+    perspectiveId?: string | null;
+    isActive: boolean;
+  } | null;
+  personas: FocusEntity[];
+  projects: FocusEntity[];
+  perspectives: FocusEntity[];
+  onSet: (args: {
+    personaId?: Id<"personas">;
+    projectId?: Id<"projects">;
+    perspectiveId?: Id<"perspectives">;
+  }) => void;
+  onClear: () => void;
+}
+
+function FocusBar({ currentFocus, personas, projects, perspectives, onSet, onClear }: FocusBarProps) {
+  const isActive = currentFocus?.isActive ?? false;
+  const focusPersonaId = isActive ? currentFocus?.personaId ?? null : null;
+  const focusProjectId = isActive ? currentFocus?.projectId ?? null : null;
+  const focusPerspectiveId = isActive ? currentFocus?.perspectiveId ?? null : null;
+  const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId;
+
+  const activePersona = personas.find((p) => p._id === focusPersonaId);
+  const activeProject = projects.find((p) => p._id === focusProjectId);
+  const activePerspective = perspectives.find((p) => p._id === focusPerspectiveId);
+
+  const handleSelect = (
+    dim: "personaId" | "projectId" | "perspectiveId",
+    value: string | null
+  ) => {
+    const args: Record<string, string | undefined> = {
+      personaId: focusPersonaId ?? undefined,
+      projectId: focusProjectId ?? undefined,
+      perspectiveId: focusPerspectiveId ?? undefined,
+    };
+    args[dim] = value ?? undefined;
+    onSet(args as {
+      personaId?: Id<"personas">;
+      projectId?: Id<"projects">;
+      perspectiveId?: Id<"perspectives">;
+    });
+  };
+
+  return (
+    <Flex
+      px={6}
+      py={2}
+      bg={hasFocus ? "violet.50" : "gray.50"}
+      borderBottom="1px solid"
+      borderColor={hasFocus ? "violet.200" : "gray.200"}
+      align="center"
+      gap={3}
+      transition="all 0.15s"
+    >
+      <HStack gap={2} color={hasFocus ? "violet.600" : "charcoal.400"}>
+        <TbFocusCentered size={18} />
+        <Text fontFamily="heading" fontSize="sm" fontWeight="600" whiteSpace="nowrap">
+          Current Focus:
+        </Text>
+      </HStack>
+
+      {/* Persona dropdown */}
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <Button
+            size="xs"
+            variant="outline"
+            borderColor={focusPersonaId ? "violet.300" : "gray.300"}
+            bg={focusPersonaId ? "violet.100" : "white"}
+            color={focusPersonaId ? "violet.700" : "charcoal.500"}
+            fontFamily="heading"
+            fontSize="xs"
+            fontWeight="500"
+            _hover={{ bg: focusPersonaId ? "violet.200" : "gray.100" }}
+          >
+            {activePersona ? `${activePersona.emoji} ${activePersona.title}` : "Persona"}
+            <FiChevronDown size={12} />
+          </Button>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content minW="10rem">
+              <Menu.RadioItemGroup
+                value={focusPersonaId ?? "none"}
+                onValueChange={(e) =>
+                  handleSelect("personaId", e.value === "none" ? null : e.value)
+                }
+              >
+                <Menu.RadioItem value="none">
+                  <Box w="1.2em" display="inline-block" flexShrink={0} />
+                  Free Choice
+                  <Menu.ItemIndicator />
+                </Menu.RadioItem>
+                {personas.map((p) => (
+                  <Menu.RadioItem key={p._id} value={p._id}>
+                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.emoji}</Box>
+                    {p.title}
+                    <Menu.ItemIndicator />
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioItemGroup>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+
+      {/* Project dropdown */}
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <Button
+            size="xs"
+            variant="outline"
+            borderColor={focusProjectId ? "violet.300" : "gray.300"}
+            bg={focusProjectId ? "violet.100" : "white"}
+            color={focusProjectId ? "violet.700" : "charcoal.500"}
+            fontFamily="heading"
+            fontSize="xs"
+            fontWeight="500"
+            _hover={{ bg: focusProjectId ? "violet.200" : "gray.100" }}
+          >
+            {activeProject ? activeProject.title : "Project"}
+            <FiChevronDown size={12} />
+          </Button>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content minW="10rem">
+              <Menu.RadioItemGroup
+                value={focusProjectId ?? "none"}
+                onValueChange={(e) =>
+                  handleSelect("projectId", e.value === "none" ? null : e.value)
+                }
+              >
+                <Menu.RadioItem value="none">
+                  Free Choice
+                  <Menu.ItemIndicator />
+                </Menu.RadioItem>
+                {projects.map((p) => (
+                  <Menu.RadioItem key={p._id} value={p._id}>
+                    {p.title}
+                    <Menu.ItemIndicator />
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioItemGroup>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+
+      {/* Perspective dropdown */}
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <Button
+            size="xs"
+            variant="outline"
+            borderColor={focusPerspectiveId ? "violet.300" : "gray.300"}
+            bg={focusPerspectiveId ? "violet.100" : "white"}
+            color={focusPerspectiveId ? "violet.700" : "charcoal.500"}
+            fontFamily="heading"
+            fontSize="xs"
+            fontWeight="500"
+            _hover={{ bg: focusPerspectiveId ? "violet.200" : "gray.100" }}
+          >
+            {activePerspective
+              ? `${activePerspective.icon || "🔍"} ${activePerspective.title}`
+              : "Perspective"}
+            <FiChevronDown size={12} />
+          </Button>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content minW="12rem">
+              <Menu.RadioItemGroup
+                value={focusPerspectiveId ?? "none"}
+                onValueChange={(e) =>
+                  handleSelect("perspectiveId", e.value === "none" ? null : e.value)
+                }
+              >
+                <Menu.RadioItem value="none">
+                  <Box w="1.2em" display="inline-block" flexShrink={0} />
+                  Free Choice
+                  <Menu.ItemIndicator />
+                </Menu.RadioItem>
+                {perspectives.map((p) => (
+                  <Menu.RadioItem key={p._id} value={p._id}>
+                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.icon || "🔍"}</Box>
+                    {p.title}
+                    <Menu.ItemIndicator />
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioItemGroup>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+
+      {/* Clear Focus button */}
+      {hasFocus && (
+        <Button
+          size="xs"
+          variant="ghost"
+          color="charcoal.400"
+          fontFamily="heading"
+          fontSize="xs"
+          _hover={{ color: "red.500", bg: "red.50" }}
+          onClick={() => onClear()}
+        >
+          <FiX style={{ marginRight: "4px" }} />
+          Clear Focus
+        </Button>
+      )}
+    </Flex>
   );
 }

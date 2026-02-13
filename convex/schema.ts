@@ -183,4 +183,12 @@ export default defineSchema({
   })
     .index("by_teacher", ["teacherId"])
     .index("by_active", ["isActive"]),
+
+  focusSettings: defineTable({
+    teacherId: v.id("users"),
+    personaId: v.optional(v.id("personas")),
+    projectId: v.optional(v.id("projects")),
+    perspectiveId: v.optional(v.id("perspectives")),
+    isActive: v.boolean(),
+  }).index("by_active", ["isActive"]),
 });
