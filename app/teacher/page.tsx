@@ -30,8 +30,10 @@ import {
   FiAlertTriangle,
   FiUser,
   FiBook,
+  FiSmile,
+  FiExternalLink,
 } from "react-icons/fi";
-import { ConversationViewer, ScholarProfile, ProjectManager } from "@/components";
+import { ConversationViewer, ScholarProfile, EntityManager } from "@/components";
 
 interface Scholar {
   id: string;
@@ -60,7 +62,7 @@ export default function TeacherDashboard() {
     string | null
   >(null);
   const [selectedScholarId, setSelectedScholarId] = useState<string | null>(null);
-  const [showProjectManager, setShowProjectManager] = useState(false);
+  const [activeEntityPanel, setActiveEntityPanel] = useState<"project" | "persona" | "perspective" | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch scholars
@@ -177,23 +179,32 @@ export default function TeacherDashboard() {
             </HStack>
 
             <HStack gap={4}>
-              <Button
-                size="sm"
-                bg={showProjectManager ? "violet.500" : "white"}
-                color={showProjectManager ? "white" : "navy.500"}
-                border="1px solid"
-                borderColor={showProjectManager ? "violet.500" : "gray.200"}
-                _hover={{ bg: showProjectManager ? "violet.600" : "gray.50" }}
-                fontFamily="heading"
-                onClick={() => {
-                  setSelectedConversationId(null);
-                  setSelectedScholarId(null);
-                  setShowProjectManager(!showProjectManager);
-                }}
-              >
-                <FiBook style={{ marginRight: "6px" }} />
-                Projects
-              </Button>
+              {(["project", "persona", "perspective"] as const).map((type) => {
+                const isActive = activeEntityPanel === type;
+                const icons = { project: FiBook, persona: FiSmile, perspective: FiEye };
+                const labels = { project: "Projects", persona: "Personas", perspective: "Perspectives" };
+                const TypeIcon = icons[type];
+                return (
+                  <Button
+                    key={type}
+                    size="sm"
+                    bg={isActive ? "violet.500" : "white"}
+                    color={isActive ? "white" : "navy.500"}
+                    border="1px solid"
+                    borderColor={isActive ? "violet.500" : "gray.200"}
+                    _hover={{ bg: isActive ? "violet.600" : "gray.50" }}
+                    fontFamily="heading"
+                    onClick={() => {
+                      setSelectedConversationId(null);
+                      setSelectedScholarId(null);
+                      setActiveEntityPanel(isActive ? null : type);
+                    }}
+                  >
+                    <TypeIcon style={{ marginRight: "6px" }} />
+                    {labels[type]}
+                  </Button>
+                );
+              })}
               <IconButton
                 aria-label="Refresh"
                 variant="ghost"
@@ -330,10 +341,12 @@ export default function TeacherDashboard() {
         />
       )}
 
-      {/* Project Manager Sidebar */}
-      {showProjectManager && (
-        <ProjectManager
-          onClose={() => setShowProjectManager(false)}
+      {/* Entity Manager Sidebar (Projects, Personas, or Perspectives) */}
+      {activeEntityPanel && (
+        <EntityManager
+          key={activeEntityPanel}
+          entityType={activeEntityPanel}
+          onClose={() => setActiveEntityPanel(null)}
         />
       )}
     </Flex>
@@ -406,36 +419,54 @@ function ScholarCard({
     red: { bg: "red.500", text: "Intervention" },
   };
 
+  const remoteUrl = `/scholar?remote=${scholar.id}`;
+
   return (
     <Card.Root bg="white" shadow="sm" _hover={{ shadow: "md" }}>
       <Card.Body p={4}>
         <VStack align="stretch" gap={3}>
-          {/* Header */}
+          {/* Header — click to open scholar's view in new tab */}
           <HStack justify="space-between">
-            <HStack gap={3}>
-              <Avatar
-                size="md"
-                name={scholar.name}
-                src={scholar.image || undefined}
-              />
-              <VStack gap={0} align="start">
-                <Text
-                  fontWeight="600"
-                  fontFamily="heading"
-                  color="navy.500"
-                  fontSize="md"
-                >
-                  {scholar.name}
-                </Text>
-                <Text
-                  fontSize="xs"
-                  color="charcoal.400"
-                  fontFamily="heading"
-                >
-                  {scholar.email}
-                </Text>
-              </VStack>
-            </HStack>
+            <Box
+              flex={1}
+              cursor="pointer"
+              borderRadius="md"
+              p={1}
+              m={-1}
+              _hover={{ bg: "gray.50" }}
+              css={{ "& .remote-icon": { opacity: 0, transition: "opacity 0.15s" }, "&:hover .remote-icon": { opacity: 1 } }}
+              onClick={() => window.open(remoteUrl, "_blank")}
+            >
+              <HStack gap={3}>
+                <Avatar
+                  size="md"
+                  name={scholar.name}
+                  src={scholar.image || undefined}
+                />
+                <VStack gap={0} align="start" flex={1}>
+                  <HStack gap={1}>
+                    <Text
+                      fontWeight="600"
+                      fontFamily="heading"
+                      color="navy.500"
+                      fontSize="md"
+                    >
+                      {scholar.name}
+                    </Text>
+                    <Box className="remote-icon" color="charcoal.300" fontSize="xs">
+                      <FiExternalLink />
+                    </Box>
+                  </HStack>
+                  <Text
+                    fontSize="xs"
+                    color="charcoal.400"
+                    fontFamily="heading"
+                  >
+                    {scholar.email}
+                  </Text>
+                </VStack>
+              </HStack>
+            </Box>
             <HStack gap={2}>
               <IconButton
                 aria-label="View Profile"

@@ -18,6 +18,9 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
 - [ ] **Scholar Projects UI Redesign** - Replace current project UI with dropdown selector; current IA is confusing
+- [ ] **Text-to-Speech** - Click to have Makawulu read responses aloud (OpenAI TTS or browser SpeechSynthesis)
+- [ ] **Stack Migration** - Migrate from SQLite/Next.js to Convex + TanStack Router + Vite
+- [ ] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId}), seeing exactly what the scholar sees using existing routes
 
 ---
 
@@ -106,7 +109,10 @@ suggested_topics → teacher-curated suggestions
 
 ```
 Teacher: test.teacher@tradewinds.school
-Scholars: kai@example.com, lani@example.com, noah@example.com
+Scholars (K-5):
+  Koa Medeiros (K), Lily Murphy (1st), Lani Kealoha (2nd), Kai Nakamura (3rd),
+  Sophie Anderson (4th), Noah Takahashi (5th), Jack Davis (5th)
+Reset: pnpm db:reset
 ```
 
 ---

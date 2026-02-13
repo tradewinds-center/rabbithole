@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db, conversations, messages, users, projects } from "@/db";
+import { db, conversations, messages, users, projects, personas, perspectives } from "@/db";
 import { eq, and } from "drizzle-orm";
-import { buildSystemPrompt, sendMessage, type ChatMessage, type ProjectContext } from "@/lib/claude";
+import { buildSystemPrompt, sendMessage, type ChatMessage, type ProjectContext, type PersonaContext, type PerspectiveContext } from "@/lib/claude";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
@@ -27,15 +27,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify conversation belongs to user
+    // Verify conversation access: teachers can send in any conversation, scholars only their own
+    const isTeacher = session.user.role === "teacher" || session.user.role === "admin";
     const conversation = await db
       .select()
       .from(conversations)
       .where(
-        and(
-          eq(conversations.id, conversationId),
-          eq(conversations.userId, session.user.id)
-        )
+        isTeacher
+          ? eq(conversations.id, conversationId)
+          : and(
+              eq(conversations.id, conversationId),
+              eq(conversations.userId, session.user.id)
+            )
       )
       .limit(1);
 
@@ -46,13 +49,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save user message
+    // Save user message with dimension snapshots
     const userMessageId = crypto.randomUUID();
     await db.insert(messages).values({
       id: userMessageId,
       conversationId,
       role: "user",
       content: message,
+      personaId: conversation[0].personaId || null,
+      projectId: conversation[0].projectId || null,
+      perspectiveId: conversation[0].perspectiveId || null,
       createdAt: new Date(),
     });
 
@@ -70,11 +76,12 @@ export async function POST(req: NextRequest) {
         content: m.content,
       }));
 
-    // Fetch user's reading level
+    // Fetch the scholar's reading level (use conversation owner, not session user)
+    const scholarId = conversation[0].userId;
     const user = await db
       .select({ readingLevel: users.readingLevel })
       .from(users)
-      .where(eq(users.id, session.user.id))
+      .where(eq(users.id, scholarId))
       .limit(1);
 
     const readingLevel = user.length > 0 ? user[0].readingLevel : null;
@@ -99,8 +106,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build system prompt with teacher whisper, reading level, and project context
-    const systemPrompt = buildSystemPrompt(conversation[0].teacherWhisper, readingLevel, projectContext);
+    // Fetch persona context
+    let personaContext: PersonaContext | null = null;
+    if (conversation[0].personaId) {
+      const persona = await db
+        .select()
+        .from(personas)
+        .where(eq(personas.id, conversation[0].personaId))
+        .limit(1);
+
+      if (persona.length > 0) {
+        personaContext = {
+          title: persona[0].title,
+          emoji: persona[0].emoji,
+          systemPrompt: persona[0].systemPrompt,
+        };
+      }
+    }
+
+    // Fetch perspective context
+    let perspectiveContext: PerspectiveContext | null = null;
+    if (conversation[0].perspectiveId) {
+      const perspective = await db
+        .select()
+        .from(perspectives)
+        .where(eq(perspectives.id, conversation[0].perspectiveId))
+        .limit(1);
+
+      if (perspective.length > 0) {
+        perspectiveContext = {
+          title: perspective[0].title,
+          icon: perspective[0].icon,
+          systemPrompt: perspective[0].systemPrompt,
+        };
+      }
+    }
+
+    // Build system prompt with all context dimensions
+    const systemPrompt = buildSystemPrompt(
+      conversation[0].teacherWhisper,
+      readingLevel,
+      projectContext,
+      personaContext,
+      perspectiveContext
+    );
 
     // Create streaming response
     const encoder = new TextEncoder();
@@ -130,7 +179,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Save assistant message
+          // Save assistant message with dimension snapshots
           const assistantMessageId = crypto.randomUUID();
           await db.insert(messages).values({
             id: assistantMessageId,
@@ -139,6 +188,9 @@ export async function POST(req: NextRequest) {
             content: fullContent,
             model,
             tokensUsed,
+            personaId: conversation[0].personaId || null,
+            projectId: conversation[0].projectId || null,
+            perspectiveId: conversation[0].perspectiveId || null,
             createdAt: new Date(),
           });
 

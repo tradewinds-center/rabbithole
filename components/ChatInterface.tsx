@@ -14,12 +14,30 @@ import {
 import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
+import { ChatHeader } from "./ChatHeader";
 
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+  personaId?: string | null;
+  projectId?: string | null;
+  perspectiveId?: string | null;
+}
+
+interface DimensionOption {
+  id: string;
+  title: string;
+  emoji?: string | null;
+  icon?: string | null;
+}
+
+interface ConversationData {
+  title: string;
+  personaId: string | null;
+  projectId: string | null;
+  perspectiveId: string | null;
 }
 
 interface ChatInterfaceProps {
@@ -39,6 +57,17 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Dimension state
+  const [conversationData, setConversationData] = useState<ConversationData>({
+    title: "New Conversation",
+    personaId: null,
+    projectId: null,
+    perspectiveId: null,
+  });
+  const [personaOptions, setPersonaOptions] = useState<DimensionOption[]>([]);
+  const [projectOptions, setProjectOptions] = useState<DimensionOption[]>([]);
+  const [perspectiveOptions, setPerspectiveOptions] = useState<DimensionOption[]>([]);
+
   const sendMessageRef = useRef<(text: string) => void>(() => {});
 
   const { state: dictationState, error: dictationError, toggleRecording } =
@@ -55,7 +84,46 @@ export function ChatInterface({
     scrollToBottom();
   }, [messages, streamingContent]);
 
-  // Fetch messages when conversation changes
+  // Fetch dimension options (once)
+  useEffect(() => {
+    const fetchDimensions = async () => {
+      try {
+        const [personaRes, projectRes, perspectiveRes] = await Promise.all([
+          fetch("/api/personas"),
+          fetch("/api/projects"),
+          fetch("/api/perspectives"),
+        ]);
+        if (personaRes.ok) {
+          const data = await personaRes.json();
+          setPersonaOptions(data.personas.map((p: { id: string; title: string; emoji: string }) => ({
+            id: p.id,
+            title: p.title,
+            emoji: p.emoji,
+          })));
+        }
+        if (projectRes.ok) {
+          const data = await projectRes.json();
+          setProjectOptions(data.projects.map((p: { id: string; title: string }) => ({
+            id: p.id,
+            title: p.title,
+          })));
+        }
+        if (perspectiveRes.ok) {
+          const data = await perspectiveRes.json();
+          setPerspectiveOptions(data.perspectives.map((p: { id: string; title: string; icon: string | null }) => ({
+            id: p.id,
+            title: p.title,
+            icon: p.icon,
+          })));
+        }
+      } catch (error) {
+        console.error("Error fetching dimensions:", error);
+      }
+    };
+    fetchDimensions();
+  }, []);
+
+  // Fetch messages and conversation data when conversation changes
   const fetchMessages = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -63,6 +131,14 @@ export function ChatInterface({
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
+        if (data.conversation) {
+          setConversationData({
+            title: data.conversation.title || "New Conversation",
+            personaId: data.conversation.personaId || null,
+            projectId: data.conversation.projectId || null,
+            perspectiveId: data.conversation.perspectiveId || null,
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -74,6 +150,35 @@ export function ChatInterface({
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  // Auto-focus textarea when conversation changes or finishes loading
+  useEffect(() => {
+    if (!isLoading && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isLoading, conversationId]);
+
+  // Handle dimension changes (PATCH conversation)
+  const handleDimensionChange = async (
+    field: "personaId" | "projectId" | "perspectiveId",
+    value: string | null
+  ) => {
+    // Optimistic update
+    setConversationData((prev) => ({ ...prev, [field]: value }));
+
+    try {
+      await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      onConversationUpdate?.();
+    } catch (error) {
+      console.error("Error updating dimension:", error);
+      // Revert on error
+      fetchMessages();
+    }
+  };
 
   // Send message (optionally with direct text, e.g. from voice dictation)
   const handleSend = async (directText?: string) => {
@@ -186,6 +291,20 @@ export function ChatInterface({
 
   return (
     <Flex flex={1} flexDir="column" overflow="hidden" bg="white">
+      {/* Chat Header with dimension selectors */}
+      <ChatHeader
+        conversationTitle={conversationData.title}
+        personaId={conversationData.personaId}
+        projectId={conversationData.projectId}
+        perspectiveId={conversationData.perspectiveId}
+        personaOptions={personaOptions}
+        projectOptions={projectOptions}
+        perspectiveOptions={perspectiveOptions}
+        onPersonaChange={(id) => handleDimensionChange("personaId", id)}
+        onProjectChange={(id) => handleDimensionChange("projectId", id)}
+        onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
+      />
+
       {/* Messages */}
       <Box flex={1} overflowY="auto" p={4}>
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
@@ -215,7 +334,11 @@ export function ChatInterface({
           {messages
             .filter((m) => m.role !== "system")
             .map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                personaOptions={personaOptions}
+              />
             ))}
 
           {/* Streaming message */}
@@ -226,7 +349,9 @@ export function ChatInterface({
                 role: "assistant",
                 content: streamingContent,
                 createdAt: new Date().toISOString(),
+                personaId: conversationData.personaId,
               }}
+              personaOptions={personaOptions}
               isStreaming
             />
           )}
@@ -343,12 +468,23 @@ export function ChatInterface({
 // Message Bubble Component
 function MessageBubble({
   message,
+  personaOptions = [],
   isStreaming = false,
 }: {
   message: Message;
+  personaOptions?: DimensionOption[];
   isStreaming?: boolean;
 }) {
   const isUser = message.role === "user";
+
+  // Look up persona from message snapshot
+  const messagePersona = message.personaId
+    ? personaOptions.find((p) => p.id === message.personaId)
+    : null;
+
+  const assistantLabel = messagePersona
+    ? `${messagePersona.emoji} ${messagePersona.title}`
+    : "Makawulu";
 
   return (
     <Box
@@ -395,7 +531,7 @@ function MessageBubble({
         textAlign={isUser ? "right" : "left"}
         fontFamily="heading"
       >
-        {isUser ? "You" : "Makawulu"}
+        {isUser ? "You" : assistantLabel}
       </Text>
     </Box>
   );

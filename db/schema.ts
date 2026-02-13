@@ -29,6 +29,10 @@ export const conversations = sqliteTable("conversations", {
     .references(() => users.id, { onDelete: "cascade" }),
   // Optional project this conversation belongs to (null = general chat)
   projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+  // Sticky persona selection (current persona for this conversation)
+  personaId: text("persona_id").references(() => personas.id, { onDelete: "set null" }),
+  // Sticky perspective selection (current perspective for this conversation)
+  perspectiveId: text("perspective_id").references(() => perspectives.id, { onDelete: "set null" }),
   title: text("title").default("New Conversation"),
   // Status indicator: green = on track, yellow = needs attention, red = requires intervention
   status: text("status", { enum: ["green", "yellow", "red"] })
@@ -58,6 +62,10 @@ export const messages = sqliteTable("messages", {
     .references(() => conversations.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["user", "assistant", "system"] }).notNull(),
   content: text("content").notNull(),
+  // Snapshot of active dimensions when this message was sent
+  personaId: text("persona_id"),
+  projectId: text("project_id"),
+  perspectiveId: text("perspective_id"),
   // For tracking AI responses
   model: text("model"), // e.g., "claude-3-5-sonnet-20241022"
   tokensUsed: integer("tokens_used"),
@@ -135,6 +143,44 @@ export const scholarTopics = sqliteTable("scholar_topics", {
     .$defaultFn(() => new Date()),
 });
 
+// Personas - AI character/personality for conversations
+export const personas = sqliteTable("personas", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  teacherId: text("teacher_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  emoji: text("emoji").notNull(), // Required emoji for avatar display
+  description: text("description"),
+  systemPrompt: text("system_prompt"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Perspectives - thinking lens / Depth & Complexity framework
+export const perspectives = sqliteTable("perspectives", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  teacherId: text("teacher_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  icon: text("icon"), // Emoji icon for display
+  description: text("description"),
+  systemPrompt: text("system_prompt"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // Projects/Assignments - teacher-created with custom prompts and rubrics
 export const projects = sqliteTable("projects", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -193,6 +239,24 @@ export const usersRelations = relations(users, ({ many }) => ({
   suggestedTopicsReceived: many(suggestedTopics, { relationName: "scholarSuggestions" }),
   suggestedTopicsGiven: many(suggestedTopics, { relationName: "teacherSuggestions" }),
   projectsCreated: many(projects),
+  personasCreated: many(personas),
+  perspectivesCreated: many(perspectives),
+}));
+
+export const personasRelations = relations(personas, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [personas.teacherId],
+    references: [users.id],
+  }),
+  conversations: many(conversations),
+}));
+
+export const perspectivesRelations = relations(perspectives, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [perspectives.teacherId],
+    references: [users.id],
+  }),
+  conversations: many(conversations),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -235,6 +299,14 @@ export const conversationsRelations = relations(conversations, ({ one, many }) =
   project: one(projects, {
     fields: [conversations.projectId],
     references: [projects.id],
+  }),
+  persona: one(personas, {
+    fields: [conversations.personaId],
+    references: [personas.id],
+  }),
+  perspective: one(perspectives, {
+    fields: [conversations.perspectiveId],
+    references: [perspectives.id],
   }),
   messages: many(messages),
   observations: many(observations),
@@ -287,3 +359,7 @@ export type SuggestedTopic = typeof suggestedTopics.$inferSelect;
 export type NewSuggestedTopic = typeof suggestedTopics.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
+export type Persona = typeof personas.$inferSelect;
+export type NewPersona = typeof personas.$inferInsert;
+export type Perspective = typeof perspectives.$inferSelect;
+export type NewPerspective = typeof perspectives.$inferInsert;

@@ -68,15 +68,42 @@ export interface ProjectContext {
   targetBloomLevel?: string | null;
 }
 
-// Generate the full system prompt with teacher whispers, reading level, and project context
+// Context for a persona
+export interface PersonaContext {
+  title: string;
+  emoji: string;
+  systemPrompt?: string | null;
+}
+
+// Context for a perspective
+export interface PerspectiveContext {
+  title: string;
+  icon?: string | null;
+  systemPrompt?: string | null;
+}
+
+// Generate the full system prompt with all context dimensions
 export function buildSystemPrompt(
   teacherWhisper?: string | null,
   readingLevel?: string | null,
-  project?: ProjectContext | null
+  project?: ProjectContext | null,
+  persona?: PersonaContext | null,
+  perspective?: PerspectiveContext | null
 ): string {
   let prompt = BASE_SYSTEM_PROMPT;
 
-  // Add project context if this is a project-based conversation
+  // 1. PERSONA — WHO the AI is
+  if (persona) {
+    prompt += `
+
+## Your Persona: ${persona.title} ${persona.emoji}`;
+    if (persona.systemPrompt) {
+      prompt += `
+${persona.systemPrompt}`;
+    }
+  }
+
+  // 2. PROJECT — WHAT they're working on
   if (project) {
     prompt += `
 
@@ -132,7 +159,18 @@ Aim for discussions at the "${project.targetBloomLevel}" level (${bloomDescripti
     }
   }
 
-  // Add reading level context if specified
+  // 3. PERSPECTIVE — HOW to approach it
+  if (perspective) {
+    prompt += `
+
+## Current Lens: ${perspective.title} ${perspective.icon || ""}`;
+    if (perspective.systemPrompt) {
+      prompt += `
+${perspective.systemPrompt}`;
+    }
+  }
+
+  // 4. Reading level
   if (readingLevel && READING_LEVEL_DESCRIPTIONS[readingLevel]) {
     prompt += `
 
@@ -140,7 +178,7 @@ Aim for discussions at the "${project.targetBloomLevel}" level (${bloomDescripti
 This scholar is at a ${READING_LEVEL_DESCRIPTIONS[readingLevel]}. Adjust your vocabulary, sentence complexity, and explanations accordingly. You can still explore advanced topics, but frame them in accessible language. Challenge the scholar appropriately for their level.`;
   }
 
-  // Add teacher whisper if present
+  // 5. Teacher whisper (highest priority)
   if (teacherWhisper) {
     prompt += `
 

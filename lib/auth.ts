@@ -20,20 +20,44 @@ export const TEST_USERS = {
   },
   scholar1: {
     id: "test-scholar-001",
-    email: "kai@example.com",
+    email: "kai.nakamura@example.com",
     name: "Kai Nakamura",
     role: "scholar" as const,
   },
   scholar2: {
     id: "test-scholar-002",
-    email: "lani@example.com",
+    email: "lani.kealoha@example.com",
     name: "Lani Kealoha",
     role: "scholar" as const,
   },
   scholar3: {
     id: "test-scholar-003",
-    email: "noah@example.com",
+    email: "noah.takahashi@example.com",
     name: "Noah Takahashi",
+    role: "scholar" as const,
+  },
+  scholar4: {
+    id: "test-scholar-004",
+    email: "sophie.anderson@example.com",
+    name: "Sophie Anderson",
+    role: "scholar" as const,
+  },
+  scholar5: {
+    id: "test-scholar-005",
+    email: "koa.medeiros@example.com",
+    name: "Koa Medeiros",
+    role: "scholar" as const,
+  },
+  scholar6: {
+    id: "test-scholar-006",
+    email: "lily.murphy@example.com",
+    name: "Lily Murphy",
+    role: "scholar" as const,
+  },
+  scholar7: {
+    id: "test-scholar-007",
+    email: "jack.davis@example.com",
+    name: "Jack Davis",
     role: "scholar" as const,
   },
 };

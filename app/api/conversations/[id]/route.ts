@@ -76,15 +76,18 @@ export async function DELETE(
 
     const { id } = params;
 
-    // Only allow users to archive their own conversations
+    // Teachers can archive any conversation; scholars only their own
+    const isTeacher = session.user.role === "teacher" || session.user.role === "admin";
     const conversation = await db
       .select()
       .from(conversations)
       .where(
-        and(
-          eq(conversations.id, id),
-          eq(conversations.userId, session.user.id)
-        )
+        isTeacher
+          ? eq(conversations.id, id)
+          : and(
+              eq(conversations.id, id),
+              eq(conversations.userId, session.user.id)
+            )
       )
       .limit(1);
 
@@ -131,18 +134,24 @@ export async function PATCH(
       session.user.role === "teacher" || session.user.role === "admin";
 
     if (!isTeacher) {
-      // Scholars can only update title
-      const { title } = body;
-      if (title === undefined) {
+      // Scholars can update title + dimension IDs (project, persona, perspective)
+      const { title, projectId, personaId, perspectiveId } = body;
+      if (title === undefined && projectId === undefined && personaId === undefined && perspectiveId === undefined) {
         return NextResponse.json(
           { error: "No valid fields to update" },
           { status: 400 }
         );
       }
 
+      const updateData: Record<string, unknown> = { updatedAt: new Date() };
+      if (title !== undefined) updateData.title = title;
+      if (projectId !== undefined) updateData.projectId = projectId || null;
+      if (personaId !== undefined) updateData.personaId = personaId || null;
+      if (perspectiveId !== undefined) updateData.perspectiveId = perspectiveId || null;
+
       await db
         .update(conversations)
-        .set({ title, updatedAt: new Date() })
+        .set(updateData)
         .where(
           and(
             eq(conversations.id, id),
@@ -150,13 +159,17 @@ export async function PATCH(
           )
         );
     } else {
-      // Teachers can update whisper, status, and analysis
-      const { teacherWhisper, status, analysisSummary } = body;
+      // Teachers can update whisper, status, analysis, and dimension fields (for remote mode)
+      const { teacherWhisper, status, analysisSummary, title, projectId, personaId, perspectiveId } = body;
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() };
       if (teacherWhisper !== undefined) updateData.teacherWhisper = teacherWhisper;
       if (status !== undefined) updateData.status = status;
       if (analysisSummary !== undefined) updateData.analysisSummary = analysisSummary;
+      if (title !== undefined) updateData.title = title;
+      if (projectId !== undefined) updateData.projectId = projectId || null;
+      if (personaId !== undefined) updateData.personaId = personaId || null;
+      if (perspectiveId !== undefined) updateData.perspectiveId = perspectiveId || null;
 
       await db
         .update(conversations)

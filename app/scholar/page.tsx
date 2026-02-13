@@ -1,8 +1,8 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import {
   Box,
   Flex,
@@ -21,8 +21,6 @@ import {
   FiTrash2,
   FiMenu,
   FiX,
-  FiBook,
-  FiHome,
 } from "react-icons/fi";
 import { ChatInterface } from "@/components/ChatInterface";
 
@@ -31,45 +29,36 @@ interface Conversation {
   title: string;
   status: "green" | "yellow" | "red";
   updatedAt: string;
-  projectId?: string | null;
-  projectTitle?: string | null;
+  personaEmoji?: string | null;
 }
 
-interface Project {
-  id: string;
-  title: string;
-  description?: string | null;
-}
-
-export default function ScholarPage() {
+function ScholarPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null); // null = "General" (no project)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Fetch projects
-  const fetchProjects = useCallback(async () => {
-    try {
-      const res = await fetch("/api/projects");
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data.projects);
-      }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    }
-  }, []);
+  // Remote mode: teacher viewing as a scholar
+  const remoteUserId = searchParams.get("remote");
+  const [scholarInfo, setScholarInfo] = useState<{ name: string; image?: string } | null>(null);
+  const isRemoteMode = !!(remoteUserId && session?.user && (session.user.role === "teacher" || session.user.role === "admin"));
 
-  // Fetch conversations (optionally filtered by project)
+  // Fetch scholar info for remote mode banner
+  useEffect(() => {
+    if (!isRemoteMode || !remoteUserId) return;
+    fetch(`/api/users/${remoteUserId}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setScholarInfo({ name: data.name, image: data.image }); })
+      .catch(() => {});
+  }, [isRemoteMode, remoteUserId]);
+
+  // Fetch all conversations (no project filtering)
   const fetchConversations = useCallback(async () => {
     try {
-      const url = selectedProjectId === null
-        ? "/api/conversations?projectId=none"
-        : `/api/conversations?projectId=${selectedProjectId}`;
+      const url = isRemoteMode ? `/api/conversations?userId=${remoteUserId}` : "/api/conversations";
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -87,7 +76,7 @@ export default function ScholarPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProjectId, activeConversationId]);
+  }, [activeConversationId, isRemoteMode, remoteUserId]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -95,30 +84,25 @@ export default function ScholarPage() {
       router.push("/login");
       return;
     }
-    if (session.user.role === "teacher" || session.user.role === "admin") {
+    // Only redirect teachers if NOT in remote mode
+    if ((session.user.role === "teacher" || session.user.role === "admin") && !remoteUserId) {
       router.push("/teacher");
       return;
     }
-    fetchProjects();
     fetchConversations();
-  }, [session, status, router, fetchProjects, fetchConversations]);
-
-  // Re-fetch conversations when selected project changes
-  useEffect(() => {
-    if (status !== "loading" && session) {
-      fetchConversations();
-    }
-  }, [selectedProjectId]);
+  }, [session, status, router, fetchConversations, remoteUserId]);
 
   // Create new conversation (optionally linked to a project)
   const handleNewConversation = async () => {
     try {
+      const body: Record<string, string> = {};
+      if (isRemoteMode && remoteUserId) {
+        body.userId = remoteUserId;
+      }
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: selectedProjectId || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const data = await res.json();
@@ -157,6 +141,9 @@ export default function ScholarPage() {
       </Flex>
     );
   }
+
+  const displayName = isRemoteMode ? (scholarInfo?.name || "Scholar") : (session?.user?.name || "Scholar");
+  const displayImage = isRemoteMode ? (scholarInfo?.image || undefined) : (session?.user?.image || undefined);
 
   return (
     <Flex h="100vh" bg="gray.50">
@@ -226,51 +213,6 @@ export default function ScholarPage() {
           </IconButton>
         </Flex>
 
-        {/* Project Selector */}
-        <Box px={3} pt={3} pb={1}>
-          <Text fontSize="xs" fontWeight="600" color="whiteAlpha.600" fontFamily="heading" mb={2}>
-            PROJECT
-          </Text>
-          <VStack gap={1} align="stretch">
-            <HStack
-              p={2}
-              borderRadius="md"
-              cursor="pointer"
-              bg={selectedProjectId === null ? "whiteAlpha.200" : "transparent"}
-              _hover={{ bg: "whiteAlpha.100" }}
-              onClick={() => setSelectedProjectId(null)}
-            >
-              <FiHome color="white" opacity={0.7} size={14} />
-              <Text color="white" fontSize="sm" fontFamily="heading">
-                General
-              </Text>
-            </HStack>
-            {projects.map((project) => (
-              <HStack
-                key={project.id}
-                p={2}
-                borderRadius="md"
-                cursor="pointer"
-                bg={selectedProjectId === project.id ? "whiteAlpha.200" : "transparent"}
-                _hover={{ bg: "whiteAlpha.100" }}
-                onClick={() => setSelectedProjectId(project.id)}
-              >
-                <FiBook color="white" opacity={0.7} size={14} />
-                <Text
-                  color="white"
-                  fontSize="sm"
-                  fontFamily="heading"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                  whiteSpace="nowrap"
-                >
-                  {project.title}
-                </Text>
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-
         {/* New Chat Button */}
         <Box p={3}>
           <Button
@@ -283,7 +225,7 @@ export default function ScholarPage() {
             onClick={handleNewConversation}
           >
             <FiPlus style={{ marginRight: "8px" }} />
-            {selectedProjectId ? "New Project Chat" : "New Chat"}
+            New Chat
           </Button>
         </Box>
 
@@ -354,8 +296,8 @@ export default function ScholarPage() {
             <HStack gap={3}>
               <Avatar
                 size="sm"
-                name={session?.user?.name || "Scholar"}
-                src={session?.user?.image || undefined}
+                name={displayName}
+                src={displayImage}
               />
               <VStack gap={0} align="start">
                 <Text
@@ -364,23 +306,25 @@ export default function ScholarPage() {
                   fontFamily="heading"
                   fontWeight="500"
                 >
-                  {session?.user?.name || "Scholar"}
+                  {displayName}
                 </Text>
                 <Text color="whiteAlpha.600" fontSize="xs" fontFamily="heading">
-                  Scholar
+                  {isRemoteMode ? "Scholar (Remote)" : "Scholar"}
                 </Text>
               </VStack>
             </HStack>
-            <IconButton
-              aria-label="Sign out"
-              size="sm"
-              variant="ghost"
-              color="white"
-              _hover={{ bg: "whiteAlpha.200" }}
-              onClick={() => signOut({ callbackUrl: "/login" })}
-            >
-              <FiLogOut />
-            </IconButton>
+            {!isRemoteMode && (
+              <IconButton
+                aria-label="Sign out"
+                size="sm"
+                variant="ghost"
+                color="white"
+                _hover={{ bg: "whiteAlpha.200" }}
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                <FiLogOut />
+              </IconButton>
+            )}
           </HStack>
         </Box>
       </Box>
@@ -477,5 +421,17 @@ export default function ScholarPage() {
         )}
       </Flex>
     </Flex>
+  );
+}
+
+export default function ScholarPage() {
+  return (
+    <Suspense fallback={
+      <Flex minH="100vh" bg="gray.50" align="center" justify="center">
+        <Spinner size="xl" color="violet.500" />
+      </Flex>
+    }>
+      <ScholarPageInner />
+    </Suspense>
   );
 }
