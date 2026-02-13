@@ -131,6 +131,39 @@ export const seedAll = internalMutation({
       });
     }
 
+    // ── Seed Projects ─────────────────────────────────────────────
+
+    const projects = [
+      {
+        title: "Animal Adaptations",
+        description:
+          "Explore how animals develop physical and behavioral traits to survive in their environments. Compare adaptations across species and habitats.",
+        targetBloomLevel: "analyze" as const,
+      },
+      {
+        title: "The Wild Robot",
+        description:
+          "Read and discuss Peter Brown's novel. Explore themes of nature vs. technology, belonging, and what it means to be alive.",
+        targetBloomLevel: "evaluate" as const,
+      },
+      {
+        title: "Prime Numbers",
+        description:
+          "Investigate prime numbers — what makes them special, how to find them, and why mathematicians have been fascinated by them for thousands of years.",
+        targetBloomLevel: "apply" as const,
+      },
+    ];
+
+    for (const p of projects) {
+      await ctx.db.insert("projects", {
+        teacherId: systemTeacherId,
+        title: p.title,
+        description: p.description,
+        targetBloomLevel: p.targetBloomLevel,
+        isActive: true,
+      });
+    }
+
     // ── Seed Test Users (dev only) ─────────────────────────────────
 
     const testUsers = [
@@ -203,9 +236,204 @@ export const seedAll = internalMutation({
       await ctx.db.insert("users", u);
     }
 
+    // ── Seed Scholar Topics (interests discovered in conversations) ──
+
+    // We'll look up the test scholars we just created
+    const scholarEmails: Record<string, { topics: Array<{ topic: string; bloomLevel: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create"; mentionCount: number }> }> = {
+      "kai.nakamura@example.com": {
+        topics: [
+          { topic: "volcanoes", bloomLevel: "analyze", mentionCount: 5 },
+          { topic: "robotics", bloomLevel: "apply", mentionCount: 3 },
+          { topic: "ocean currents", bloomLevel: "understand", mentionCount: 2 },
+        ],
+      },
+      "lani.kealoha@example.com": {
+        topics: [
+          { topic: "mythology", bloomLevel: "evaluate", mentionCount: 4 },
+          { topic: "creative writing", bloomLevel: "create", mentionCount: 6 },
+          { topic: "constellations", bloomLevel: "remember", mentionCount: 2 },
+        ],
+      },
+      "noah.takahashi@example.com": {
+        topics: [
+          { topic: "prime numbers", bloomLevel: "apply", mentionCount: 7 },
+          { topic: "chess strategy", bloomLevel: "analyze", mentionCount: 4 },
+          { topic: "cryptography", bloomLevel: "understand", mentionCount: 2 },
+        ],
+      },
+      "sophie.anderson@example.com": {
+        topics: [
+          { topic: "animal behavior", bloomLevel: "analyze", mentionCount: 5 },
+          { topic: "ecosystems", bloomLevel: "evaluate", mentionCount: 3 },
+          { topic: "sketching", bloomLevel: "create", mentionCount: 4 },
+        ],
+      },
+      "koa.medeiros@example.com": {
+        topics: [
+          { topic: "dinosaurs", bloomLevel: "remember", mentionCount: 8 },
+          { topic: "bugs and insects", bloomLevel: "understand", mentionCount: 3 },
+        ],
+      },
+      "lily.murphy@example.com": {
+        topics: [
+          { topic: "fairy tales", bloomLevel: "understand", mentionCount: 5 },
+          { topic: "butterflies", bloomLevel: "remember", mentionCount: 3 },
+          { topic: "drawing", bloomLevel: "apply", mentionCount: 4 },
+        ],
+      },
+      "jack.davis@example.com": {
+        topics: [
+          { topic: "space exploration", bloomLevel: "evaluate", mentionCount: 6 },
+          { topic: "engineering", bloomLevel: "apply", mentionCount: 4 },
+          { topic: "ancient Rome", bloomLevel: "analyze", mentionCount: 3 },
+        ],
+      },
+    };
+
+    for (const [email, { topics }] of Object.entries(scholarEmails)) {
+      const scholar = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+      if (scholar) {
+        for (const t of topics) {
+          await ctx.db.insert("scholarTopics", {
+            scholarId: scholar._id,
+            topic: t.topic,
+            bloomLevel: t.bloomLevel,
+            teacherRating: 0,
+            mentionCount: t.mentionCount,
+          });
+        }
+      }
+    }
+
     console.log(
-      "Seeded: 5 personas, 7 perspectives, 1 system teacher, 8 test users"
+      "Seeded: 5 personas, 7 perspectives, 3 projects, scholar topics, 1 system teacher, 8 test users"
     );
+  },
+});
+
+/**
+ * Add projects and scholar topics to an already-seeded database.
+ * Run once: npx convex run seed:seedProjectsAndTopics
+ */
+export const seedProjectsAndTopics = internalMutation({
+  handler: async (ctx) => {
+    // Find system teacher (or any teacher) for project ownership
+    const systemTeacher = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .first();
+    const teacher = systemTeacher ?? await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed projects.");
+      return;
+    }
+
+    // Seed projects if none exist
+    const existingProjects = await ctx.db.query("projects").first();
+    if (!existingProjects) {
+      const projects = [
+        {
+          title: "Animal Adaptations",
+          description:
+            "Explore how animals develop physical and behavioral traits to survive in their environments. Compare adaptations across species and habitats.",
+          targetBloomLevel: "analyze" as const,
+        },
+        {
+          title: "The Wild Robot",
+          description:
+            "Read and discuss Peter Brown's novel. Explore themes of nature vs. technology, belonging, and what it means to be alive.",
+          targetBloomLevel: "evaluate" as const,
+        },
+        {
+          title: "Prime Numbers",
+          description:
+            "Investigate prime numbers — what makes them special, how to find them, and why mathematicians have been fascinated by them for thousands of years.",
+          targetBloomLevel: "apply" as const,
+        },
+      ];
+      for (const p of projects) {
+        await ctx.db.insert("projects", {
+          teacherId: teacher._id,
+          title: p.title,
+          description: p.description,
+          targetBloomLevel: p.targetBloomLevel,
+          isActive: true,
+        });
+      }
+      console.log("Seeded 3 projects.");
+    } else {
+      console.log("Projects already exist, skipping.");
+    }
+
+    // Seed scholar topics if none exist
+    const existingTopics = await ctx.db.query("scholarTopics").first();
+    if (!existingTopics) {
+      const scholarTopicData: Record<string, Array<{ topic: string; bloomLevel: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create"; mentionCount: number }>> = {
+        "kai.nakamura@example.com": [
+          { topic: "volcanoes", bloomLevel: "analyze", mentionCount: 5 },
+          { topic: "robotics", bloomLevel: "apply", mentionCount: 3 },
+          { topic: "ocean currents", bloomLevel: "understand", mentionCount: 2 },
+        ],
+        "lani.kealoha@example.com": [
+          { topic: "mythology", bloomLevel: "evaluate", mentionCount: 4 },
+          { topic: "creative writing", bloomLevel: "create", mentionCount: 6 },
+          { topic: "constellations", bloomLevel: "remember", mentionCount: 2 },
+        ],
+        "noah.takahashi@example.com": [
+          { topic: "prime numbers", bloomLevel: "apply", mentionCount: 7 },
+          { topic: "chess strategy", bloomLevel: "analyze", mentionCount: 4 },
+          { topic: "cryptography", bloomLevel: "understand", mentionCount: 2 },
+        ],
+        "sophie.anderson@example.com": [
+          { topic: "animal behavior", bloomLevel: "analyze", mentionCount: 5 },
+          { topic: "ecosystems", bloomLevel: "evaluate", mentionCount: 3 },
+          { topic: "sketching", bloomLevel: "create", mentionCount: 4 },
+        ],
+        "koa.medeiros@example.com": [
+          { topic: "dinosaurs", bloomLevel: "remember", mentionCount: 8 },
+          { topic: "bugs and insects", bloomLevel: "understand", mentionCount: 3 },
+        ],
+        "lily.murphy@example.com": [
+          { topic: "fairy tales", bloomLevel: "understand", mentionCount: 5 },
+          { topic: "butterflies", bloomLevel: "remember", mentionCount: 3 },
+          { topic: "drawing", bloomLevel: "apply", mentionCount: 4 },
+        ],
+        "jack.davis@example.com": [
+          { topic: "space exploration", bloomLevel: "evaluate", mentionCount: 6 },
+          { topic: "engineering", bloomLevel: "apply", mentionCount: 4 },
+          { topic: "ancient Rome", bloomLevel: "analyze", mentionCount: 3 },
+        ],
+      };
+
+      let topicCount = 0;
+      for (const [email, topics] of Object.entries(scholarTopicData)) {
+        const scholar = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", email))
+          .first();
+        if (scholar) {
+          for (const t of topics) {
+            await ctx.db.insert("scholarTopics", {
+              scholarId: scholar._id,
+              topic: t.topic,
+              bloomLevel: t.bloomLevel,
+              teacherRating: 0,
+              mentionCount: t.mentionCount,
+            });
+            topicCount++;
+          }
+        }
+      }
+      console.log(`Seeded ${topicCount} scholar topics.`);
+    } else {
+      console.log("Scholar topics already exist, skipping.");
+    }
   },
 });
 
