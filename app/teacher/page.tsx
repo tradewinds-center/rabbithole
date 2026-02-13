@@ -40,18 +40,18 @@ import { ConversationViewer, ScholarProfile, EntityManager } from "@/components"
 
 interface Scholar {
   id: string;
-  email: string;
-  name: string;
+  email?: string;
+  name?: string;
   image?: string;
   conversationCount: number;
   messageCount: number;
   overallStatus: "green" | "yellow" | "red";
-  lastActive: string;
+  lastActive: number;
   recentConversations: {
     id: string;
     title: string;
     status: "green" | "yellow" | "red";
-    updatedAt: string;
+    updatedAt: number;
   }[];
 }
 

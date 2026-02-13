@@ -37,6 +37,7 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -143,6 +144,7 @@ export function ChatInterface({
     setInput("");
     setIsStreaming(true);
     setStreamingContent("");
+    setStreamingMsgId(null);
 
     try {
       // Send message via Convex mutation (creates user msg + placeholder assistant msg)
@@ -150,6 +152,9 @@ export function ChatInterface({
         conversationId: conversationId as Id<"conversations">,
         message: userMessage,
       });
+
+      // Track the placeholder message ID so we can hide it while streaming
+      setStreamingMsgId(result.assistantMsgId);
 
       // Stream from HTTP action
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
@@ -189,6 +194,7 @@ export function ChatInterface({
                   // Stream finalized on the server side.
                   // Convex reactive query will auto-update messages.
                   setStreamingContent("");
+                  setStreamingMsgId(null);
                   onConversationUpdate?.();
                 }
               } catch {
@@ -200,6 +206,7 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      setStreamingMsgId(null);
     } finally {
       setIsStreaming(false);
     }
@@ -279,6 +286,7 @@ export function ChatInterface({
 
           {messages
             .filter((m) => m.role !== "system")
+            .filter((m) => !(streamingMsgId && m.id === streamingMsgId))
             .map((message) => (
               <MessageBubble
                 key={message.id}

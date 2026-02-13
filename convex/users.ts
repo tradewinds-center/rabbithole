@@ -90,7 +90,7 @@ export const listScholars = teacherQuery({
         // Determine overall status (worst status)
         const hasRed = activeConvos.some((c) => c.status === "red");
         const hasYellow = activeConvos.some((c) => c.status === "yellow");
-        const overallStatus = hasRed
+        const overallStatus: "green" | "yellow" | "red" = hasRed
           ? "red"
           : hasYellow
             ? "yellow"

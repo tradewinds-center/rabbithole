@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
@@ -29,6 +30,14 @@ import {
 import { ChatInterface } from "@/components/ChatInterface";
 
 export default function ScholarPage() {
+  return (
+    <Suspense fallback={<Flex minH="100vh" bg="gray.50" align="center" justify="center"><Spinner size="xl" color="violet.500" /></Flex>}>
+      <ScholarPageInner />
+    </Suspense>
+  );
+}
+
+function ScholarPageInner() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
   const { signOut } = useAuthActions();
   const router = useRouter();
