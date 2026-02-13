@@ -13,6 +13,11 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
 - [ ] **Best Quote of the Day → FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
+- [ ] **Focus Mode** - Teacher can "lock" a particular project so scholars must work in it
+- [ ] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
+- [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
+- [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
+- [ ] **Scholar Projects UI Redesign** - Replace current project UI with dropdown selector; current IA is confusing
 
 ---
 

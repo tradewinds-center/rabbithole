@@ -11,7 +11,8 @@ import {
   IconButton,
   Spinner,
 } from "@chakra-ui/react";
-import { FiSend } from "react-icons/fi";
+import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
+import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -37,6 +38,13 @@ export function ChatInterface({
   const [streamingContent, setStreamingContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
+
+  const { state: dictationState, error: dictationError, toggleRecording } =
+    useVoiceDictation((text) => {
+      sendMessageRef.current(text);
+    });
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -67,11 +75,11 @@ export function ChatInterface({
     fetchMessages();
   }, [fetchMessages]);
 
-  // Send message
-  const handleSend = async () => {
-    if (!input.trim() || isStreaming) return;
+  // Send message (optionally with direct text, e.g. from voice dictation)
+  const handleSend = async (directText?: string) => {
+    const userMessage = directText?.trim() || input.trim();
+    if (!userMessage || isStreaming) return;
 
-    const userMessage = input.trim();
     setInput("");
     setIsStreaming(true);
     setStreamingContent("");
@@ -145,6 +153,9 @@ export function ChatInterface({
       setIsStreaming(false);
     }
   };
+
+  // Keep ref in sync so dictation callback can call latest handleSend
+  sendMessageRef.current = handleSend;
 
   // Handle keyboard
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -274,6 +285,27 @@ export function ChatInterface({
             disabled={isStreaming}
           />
           <IconButton
+            aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
+            bg={dictationState === "recording" ? "red.500" : "gray.200"}
+            color={dictationState === "recording" ? "white" : "charcoal.500"}
+            _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+            borderRadius="xl"
+            h="auto"
+            minW={12}
+            onClick={toggleRecording}
+            disabled={isStreaming || dictationState === "transcribing"}
+            className={dictationState === "recording" ? "recording-pulse" : undefined}
+          >
+            {dictationState === "transcribing" ? (
+              <Spinner size="sm" />
+            ) : dictationState === "recording" ? (
+              <FiMicOff />
+            ) : (
+              <FiMic />
+            )}
+          </IconButton>
+          <IconButton
             aria-label="Send message"
             bg="violet.500"
             color="white"
@@ -282,12 +314,17 @@ export function ChatInterface({
             borderRadius="xl"
             h="auto"
             minW={12}
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={!input.trim() || isStreaming}
           >
             <FiSend />
           </IconButton>
         </Flex>
+        {dictationError && (
+          <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
+            {dictationError}
+          </Text>
+        )}
         <Text
           fontSize="xs"
           color="charcoal.300"
