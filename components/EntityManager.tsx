@@ -486,11 +486,9 @@ export function EntityManager({ entityType }: EntityManagerProps) {
               bg="white"
               shadow="sm"
               borderWidth="1px"
-              borderColor="transparent"
-              borderLeft="3px solid"
-              borderLeftColor={entity.isActive ? "violet.500" : "gray.300"}
+              borderColor="gray.200"
               opacity={entity.isActive ? 1 : 0.6}
-              _hover={{ shadow: "md", borderColor: "violet.200" }}
+              _hover={{ shadow: "md", borderColor: "gray.300" }}
               transition="all 0.15s"
             >
               <Card.Body p={4}>

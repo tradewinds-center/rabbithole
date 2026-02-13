@@ -19,19 +19,18 @@ import {
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
-  FiX,
   FiThumbsUp,
   FiThumbsDown,
   FiPlus,
   FiTrash2,
-  FiUser,
   FiBookOpen,
   FiTarget,
+  FiFileText,
+  FiExternalLink,
 } from "react-icons/fi";
 
 interface ScholarProfileProps {
   scholarId: string;
-  onClose: () => void;
 }
 
 const BLOOM_COLORS: Record<string, string> = {
@@ -70,12 +69,15 @@ const READING_LEVELS = [
   { value: "college", label: "College" },
 ];
 
-export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
+export function ScholarProfile({ scholarId }: ScholarProfileProps) {
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
+  const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const rateTopic = useMutation(api.scholars.rateTopic);
   const addSuggestion = useMutation(api.scholars.addSuggestion);
   const removeSuggestion = useMutation(api.scholars.removeSuggestion);
+  const addObservation = useMutation(api.observations.add);
+  const removeObservation = useMutation(api.observations.remove);
 
   const { scholar, topics, suggestions, stats } = profile ?? {
     scholar: null,
@@ -89,6 +91,8 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
   const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
+  const [newObservation, setNewObservation] = useState({ type: "praise" as "praise" | "concern" | "suggestion" | "intervention", note: "" });
+  const [isAddingObservation, setIsAddingObservation] = useState(false);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
@@ -148,13 +152,38 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
     }
   };
 
+  // Add an observation
+  const handleAddObservation = async () => {
+    if (!newObservation.note.trim()) return;
+    setIsAddingObservation(true);
+    try {
+      await addObservation({
+        scholarId: scholarId as Id<"users">,
+        type: newObservation.type,
+        note: newObservation.note,
+      });
+      setNewObservation({ type: "praise", note: "" });
+    } catch (error) {
+      console.error("Error adding observation:", error);
+    } finally {
+      setIsAddingObservation(false);
+    }
+  };
+
+  // Delete an observation
+  const handleDeleteObservation = async (observationId: string) => {
+    try {
+      await removeObservation({ observationId: observationId as Id<"observations"> });
+    } catch (error) {
+      console.error("Error deleting observation:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <Box
-        w={{ base: "full", md: "400px" }}
+        w="full"
         bg="white"
-        borderLeft="1px solid"
-        borderColor="gray.200"
         h="full"
         display="flex"
         alignItems="center"
@@ -166,318 +195,423 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   }
 
   return (
-    <Box
-      w={{ base: "full", md: "400px" }}
-      bg="white"
-      borderLeft="1px solid"
-      borderColor="gray.200"
-      h="full"
-      display="flex"
-      flexDir="column"
-      position={{ base: "absolute", md: "relative" }}
-      right={0}
-      zIndex={30}
-    >
-      {/* Header */}
+    <Box w="full" bg="gray.50" h="full" display="flex" flexDir="column">
+      {/* Compact header bar */}
       <Flex
-        p={4}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        justify="space-between"
+        px={5}
+        py={4}
         align="center"
-        bg="navy.500"
+        gap={6}
+        flexWrap="wrap"
       >
-        <HStack gap={3}>
+        <HStack gap={3} minW="200px">
           <Avatar
             size="md"
             name={scholar?.name || "Scholar"}
             src={scholar?.image || undefined}
           />
           <VStack gap={0} align="start">
-            <Text fontWeight="600" fontFamily="heading" color="white" fontSize="lg">
+            <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
               {scholar?.name}
             </Text>
-            <Text color="whiteAlpha.700" fontSize="xs" fontFamily="heading">
+            <Text color="charcoal.400" fontSize="xs" fontFamily="heading">
               {scholar?.email}
             </Text>
           </VStack>
         </HStack>
-        <IconButton
-          aria-label="Close"
+
+        {/* Inline stats */}
+        <HStack gap={5}>
+          {[
+            { value: stats.conversationCount, label: "Chats" },
+            { value: stats.messageCount, label: "Messages" },
+            { value: stats.topicCount, label: "Topics" },
+          ].map((stat) => (
+            <HStack key={stat.label} gap={1}>
+              <Text fontSize="lg" fontWeight="bold" fontFamily="heading" color="navy.500">
+                {stat.value}
+              </Text>
+              <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                {stat.label}
+              </Text>
+            </HStack>
+          ))}
+        </HStack>
+
+        <Button
+          size="sm"
           variant="ghost"
-          color="white"
-          _hover={{ bg: "whiteAlpha.200" }}
-          onClick={onClose}
+          color="violet.500"
+          fontFamily="heading"
+          fontSize="xs"
+          ml="auto"
+          _hover={{ bg: "violet.50" }}
+          onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
         >
-          <FiX />
-        </IconButton>
+          <FiExternalLink style={{ marginRight: "4px" }} />
+          Remote View
+        </Button>
+
       </Flex>
 
-      {/* Stats */}
-      <HStack p={4} borderBottom="1px solid" borderColor="gray.200" justify="space-around">
-        <VStack gap={0}>
-          <Text fontSize="2xl" fontWeight="bold" fontFamily="heading" color="navy.500">
-            {stats.conversationCount}
-          </Text>
-          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-            Chats
-          </Text>
-        </VStack>
-        <VStack gap={0}>
-          <Text fontSize="2xl" fontWeight="bold" fontFamily="heading" color="navy.500">
-            {stats.messageCount}
-          </Text>
-          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-            Messages
-          </Text>
-        </VStack>
-        <VStack gap={0}>
-          <Text fontSize="2xl" fontWeight="bold" fontFamily="heading" color="navy.500">
-            {stats.topicCount}
-          </Text>
-          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-            Topics
-          </Text>
-        </VStack>
-      </HStack>
-
-      {/* Reading Level */}
-      <Box p={4} borderBottom="1px solid" borderColor="gray.200">
-        <HStack mb={2}>
-          <FiUser color="#AD60BF" />
-          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-            Reading Level
-          </Text>
-          {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
-        </HStack>
-        <select
-          value={scholar?.readingLevel || ""}
-          onChange={(e) => handleReadingLevelChange(e.target.value)}
-          disabled={isSavingReadingLevel}
-          style={{
-            width: "100%",
-            padding: "8px 10px",
-            borderRadius: "6px",
-            border: "1px solid #e2e8f0",
-            fontSize: "14px",
-            fontFamily: "inherit",
-            backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
-          }}
-        >
-          {READING_LEVELS.map((level) => (
-            <option key={level.value} value={level.value}>
-              {level.label}
-            </option>
-          ))}
-        </select>
-        <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-          Adjusts vocabulary and complexity in conversations
-        </Text>
-      </Box>
-
-      {/* Content */}
-      <Box flex={1} overflow="auto" p={4}>
-        <VStack gap={6} align="stretch">
-          {/* Topics of Interest */}
-          <Box>
-            <HStack mb={3}>
-              <FiBookOpen color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500">
-                Topics of Interest
-              </Text>
-            </HStack>
-            {topics.length > 0 ? (
-              <VStack gap={2} align="stretch">
-                {topics.map((topic) => (
-                  <Box
-                    key={topic.id}
-                    p={3}
-                    bg="gray.50"
-                    borderRadius="lg"
-                    borderLeft="3px solid"
-                    borderColor={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.500`}
-                  >
-                    <HStack justify="space-between">
-                      <VStack gap={1} align="start" flex={1}>
-                        <HStack>
-                          <Text fontFamily="heading" fontSize="sm" fontWeight="600">
-                            {topic.topic}
-                          </Text>
-                          <Badge
-                            bg={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.100`}
-                            color={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.700`}
-                            fontSize="xs"
-                          >
-                            {topic.bloomLevel}
-                          </Badge>
-                        </HStack>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                          Mentioned {topic.mentionCount} time{topic.mentionCount !== 1 ? "s" : ""}
-                        </Text>
-                      </VStack>
-                      <HStack gap={1}>
-                        <IconButton
-                          aria-label="Thumbs up"
-                          size="sm"
-                          variant={topic.teacherRating === 1 ? "solid" : "ghost"}
-                          bg={topic.teacherRating === 1 ? "green.500" : "transparent"}
-                          color={topic.teacherRating === 1 ? "white" : "green.500"}
-                          _hover={{ bg: topic.teacherRating === 1 ? "green.600" : "green.50" }}
-                          onClick={() => handleRateTopic(topic.id, topic.teacherRating === 1 ? 0 : 1)}
-                        >
-                          <FiThumbsUp />
-                        </IconButton>
-                        <IconButton
-                          aria-label="Thumbs down"
-                          size="sm"
-                          variant={topic.teacherRating === -1 ? "solid" : "ghost"}
-                          bg={topic.teacherRating === -1 ? "red.500" : "transparent"}
-                          color={topic.teacherRating === -1 ? "white" : "red.500"}
-                          _hover={{ bg: topic.teacherRating === -1 ? "red.600" : "red.50" }}
-                          onClick={() => handleRateTopic(topic.id, topic.teacherRating === -1 ? 0 : -1)}
-                        >
-                          <FiThumbsDown />
-                        </IconButton>
-                      </HStack>
-                    </HStack>
-                  </Box>
-                ))}
-              </VStack>
-            ) : (
-              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
-                No topics tracked yet. Run an analysis on a conversation to detect topics.
-              </Text>
-            )}
-          </Box>
-
-          {/* Suggested Follow-up Topics */}
-          <Box>
-            <HStack mb={3}>
-              <FiTarget color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500">
-                Suggested Follow-ups
-              </Text>
-            </HStack>
-
-            {/* Add new suggestion */}
-            <Box p={4} bg="violet.50" borderRadius="lg" mb={3}>
-              <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="violet.700" mb={3}>
-                Add a topic to push {scholar?.name?.split(" ")[0]} intellectually:
-              </Text>
-              <VStack gap={3} align="stretch">
-                <Input
-                  size="sm"
-                  placeholder="Topic (e.g., 'Design a triple-decker aircraft')"
-                  value={newSuggestion.topic}
-                  onChange={(e) => setNewSuggestion((prev) => ({ ...prev, topic: e.target.value }))}
-                  bg="white"
-                  fontFamily="body"
-                />
-                <Textarea
-                  size="sm"
-                  placeholder="Why this topic? (optional)"
-                  value={newSuggestion.rationale}
-                  onChange={(e) => setNewSuggestion((prev) => ({ ...prev, rationale: e.target.value }))}
-                  rows={2}
-                  bg="white"
-                  fontFamily="body"
-                />
-                <HStack>
-                  <Box flex={1}>
-                    <select
-                      value={newSuggestion.targetBloomLevel}
-                      onChange={(e) => setNewSuggestion((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
-                      style={{
-                        width: "100%",
-                        padding: "6px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                        fontSize: "12px",
-                        fontFamily: "inherit",
-                      }}
+      {/* Two-column content */}
+      <Box flex={1} overflow="auto" p={5}>
+        <Flex gap={5} align="start" direction={{ base: "column", md: "row" }}>
+          {/* Left column: Topics + Observations */}
+          <VStack flex={1} gap={5} align="stretch" minW={0}>
+            {/* Topics of Interest */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={3}>
+                <FiBookOpen color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Topics of Interest
+                </Text>
+              </HStack>
+              {topics.length > 0 ? (
+                <VStack gap={2} align="stretch">
+                  {topics.map((topic) => (
+                    <Box
+                      key={topic.id}
+                      p={3}
+                      bg="gray.50"
+                      borderRadius="md"
+                      borderLeft="3px solid"
+                      borderColor={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.500`}
                     >
-                      {BLOOM_LEVELS.map((level) => (
-                        <option key={level.value} value={level.value}>
-                          {level.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Box>
+                      <HStack justify="space-between">
+                        <VStack gap={1} align="start" flex={1}>
+                          <HStack>
+                            <Text fontFamily="heading" fontSize="sm" fontWeight="600">
+                              {topic.topic}
+                            </Text>
+                            <Badge
+                              bg={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.100`}
+                              color={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.700`}
+                              fontSize="xs"
+                            >
+                              {topic.bloomLevel}
+                            </Badge>
+                          </HStack>
+                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                            Mentioned {topic.mentionCount} time{topic.mentionCount !== 1 ? "s" : ""}
+                          </Text>
+                        </VStack>
+                        <HStack gap={1}>
+                          <IconButton
+                            aria-label="Thumbs up"
+                            size="sm"
+                            variant={topic.teacherRating === 1 ? "solid" : "ghost"}
+                            bg={topic.teacherRating === 1 ? "green.500" : "transparent"}
+                            color={topic.teacherRating === 1 ? "white" : "green.500"}
+                            _hover={{ bg: topic.teacherRating === 1 ? "green.600" : "green.50" }}
+                            onClick={() => handleRateTopic(topic.id, topic.teacherRating === 1 ? 0 : 1)}
+                          >
+                            <FiThumbsUp />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Thumbs down"
+                            size="sm"
+                            variant={topic.teacherRating === -1 ? "solid" : "ghost"}
+                            bg={topic.teacherRating === -1 ? "red.500" : "transparent"}
+                            color={topic.teacherRating === -1 ? "white" : "red.500"}
+                            _hover={{ bg: topic.teacherRating === -1 ? "red.600" : "red.50" }}
+                            onClick={() => handleRateTopic(topic.id, topic.teacherRating === -1 ? 0 : -1)}
+                          >
+                            <FiThumbsDown />
+                          </IconButton>
+                        </HStack>
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              ) : (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
+                  No topics tracked yet. Run an analysis on a conversation to detect topics.
+                </Text>
+              )}
+            </Box>
+
+            {/* Teacher Observations */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={3}>
+                <FiFileText color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Observations
+                </Text>
+              </HStack>
+
+              {/* Add new observation */}
+              <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
+                <HStack gap={2} mb={2}>
+                  <select
+                    value={newObservation.type}
+                    onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
+                    style={{
+                      padding: "5px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #e2e8f0",
+                      fontSize: "12px",
+                      fontFamily: "inherit",
+                      width: "140px",
+                    }}
+                  >
+                    <option value="praise">Praise</option>
+                    <option value="concern">Concern</option>
+                    <option value="suggestion">Suggestion</option>
+                    <option value="intervention">Intervention</option>
+                  </select>
                   <Button
                     size="sm"
                     bg="violet.500"
                     color="white"
                     _hover={{ bg: "violet.600" }}
                     fontFamily="heading"
-                    onClick={handleAddSuggestion}
-                    disabled={isAddingSuggestion || !newSuggestion.topic.trim()}
+                    onClick={handleAddObservation}
+                    disabled={isAddingObservation || !newObservation.note.trim()}
+                    ml="auto"
                   >
                     <FiPlus style={{ marginRight: "4px" }} />
                     Add
                   </Button>
                 </HStack>
-              </VStack>
-            </Box>
+                <Textarea
+                  size="sm"
+                  placeholder="Record an observation..."
+                  value={newObservation.note}
+                  onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
+                  rows={2}
+                  bg="white"
+                  fontFamily="body"
+                />
+              </Box>
 
-            {/* Existing suggestions */}
-            {suggestions.length > 0 ? (
-              <VStack gap={2} align="stretch">
-                {suggestions.map((suggestion) => (
-                  <Box
-                    key={suggestion.id}
-                    p={3}
-                    bg="cyan.50"
-                    borderRadius="lg"
-                    opacity={suggestion.explored ? 0.6 : 1}
-                  >
-                    <HStack justify="space-between" align="start">
-                      <VStack gap={1} align="start" flex={1}>
-                        <HStack>
-                          <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="cyan.700">
-                            {suggestion.topic}
-                          </Text>
-                          {suggestion.targetBloomLevel && (
+              {/* Existing observations */}
+              {observations.length > 0 ? (
+                <VStack gap={2} align="stretch">
+                  {observations.map((obs) => (
+                    <Box
+                      key={obs._id}
+                      p={3}
+                      bg="gray.50"
+                      borderRadius="md"
+                    >
+                      <HStack justify="space-between" align="start">
+                        <VStack gap={1} align="start" flex={1}>
+                          <HStack>
                             <Badge
-                              bg={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.100`}
-                              color={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.700`}
+                              bg={
+                                obs.type === "praise" ? "green.100" :
+                                obs.type === "concern" ? "red.100" :
+                                obs.type === "suggestion" ? "blue.100" :
+                                "orange.100"
+                              }
+                              color={
+                                obs.type === "praise" ? "green.700" :
+                                obs.type === "concern" ? "red.700" :
+                                obs.type === "suggestion" ? "blue.700" :
+                                "orange.700"
+                              }
                               fontSize="xs"
                             >
-                              {suggestion.targetBloomLevel}
+                              {obs.type}
                             </Badge>
-                          )}
-                          {suggestion.explored && (
-                            <Badge bg="green.100" color="green.700" fontSize="xs">
-                              explored
-                            </Badge>
-                          )}
-                        </HStack>
-                        {suggestion.rationale && (
-                          <Text fontSize="xs" color="charcoal.500" fontFamily="body">
-                            {suggestion.rationale}
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                              {new Date(obs._creationTime).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
+                            {obs.note}
                           </Text>
-                        )}
-                      </VStack>
-                      <IconButton
-                        aria-label="Delete"
-                        size="xs"
-                        variant="ghost"
-                        color="red.500"
-                        _hover={{ bg: "red.50" }}
-                        onClick={() => handleDeleteSuggestion(suggestion.id)}
-                      >
-                        <FiTrash2 />
-                      </IconButton>
-                    </HStack>
-                  </Box>
+                        </VStack>
+                        <IconButton
+                          aria-label="Delete"
+                          size="xs"
+                          variant="ghost"
+                          color="red.400"
+                          _hover={{ bg: "red.50", color: "red.600" }}
+                          onClick={() => handleDeleteObservation(obs._id)}
+                        >
+                          <FiTrash2 />
+                        </IconButton>
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              ) : (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
+                  No observations yet.
+                </Text>
+              )}
+            </Box>
+          </VStack>
+
+          {/* Right column: Reading Level + Suggested Follow-ups */}
+          <VStack flex={1} gap={5} align="stretch" minW={0}>
+            {/* Reading Level */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={2}>
+                <FiBookOpen color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Reading Level
+                </Text>
+                {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+              </HStack>
+              <select
+                value={scholar?.readingLevel || ""}
+                onChange={(e) => handleReadingLevelChange(e.target.value)}
+                disabled={isSavingReadingLevel}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "14px",
+                  fontFamily: "inherit",
+                  backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
+                }}
+              >
+                {READING_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
                 ))}
-              </VStack>
-            ) : (
-              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
-                No suggestions yet. Add topics above to guide learning.
+              </select>
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+                Adjusts vocabulary and complexity in conversations
               </Text>
-            )}
-          </Box>
-        </VStack>
+            </Box>
+
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={3}>
+                <FiTarget color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Suggested Follow-ups
+                </Text>
+              </HStack>
+
+              {/* Add new suggestion */}
+              <Box p={3} bg="violet.50" borderRadius="md" mb={3}>
+                <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="violet.700" mb={2}>
+                  Push {scholar?.name?.split(" ")[0]} intellectually:
+                </Text>
+                <VStack gap={2} align="stretch">
+                  <Input
+                    size="sm"
+                    placeholder="Topic (e.g., 'Design a triple-decker aircraft')"
+                    value={newSuggestion.topic}
+                    onChange={(e) => setNewSuggestion((prev) => ({ ...prev, topic: e.target.value }))}
+                    bg="white"
+                    fontFamily="body"
+                  />
+                  <Textarea
+                    size="sm"
+                    placeholder="Why this topic? (optional)"
+                    value={newSuggestion.rationale}
+                    onChange={(e) => setNewSuggestion((prev) => ({ ...prev, rationale: e.target.value }))}
+                    rows={2}
+                    bg="white"
+                    fontFamily="body"
+                  />
+                  <HStack>
+                    <Box flex={1}>
+                      <select
+                        value={newSuggestion.targetBloomLevel}
+                        onChange={(e) => setNewSuggestion((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
+                        style={{
+                          width: "100%",
+                          padding: "6px 8px",
+                          borderRadius: "6px",
+                          border: "1px solid #e2e8f0",
+                          fontSize: "12px",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {BLOOM_LEVELS.map((level) => (
+                          <option key={level.value} value={level.value}>
+                            {level.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Box>
+                    <Button
+                      size="sm"
+                      bg="violet.500"
+                      color="white"
+                      _hover={{ bg: "violet.600" }}
+                      fontFamily="heading"
+                      onClick={handleAddSuggestion}
+                      disabled={isAddingSuggestion || !newSuggestion.topic.trim()}
+                    >
+                      <FiPlus style={{ marginRight: "4px" }} />
+                      Add
+                    </Button>
+                  </HStack>
+                </VStack>
+              </Box>
+
+              {/* Existing suggestions */}
+              {suggestions.length > 0 ? (
+                <VStack gap={2} align="stretch">
+                  {suggestions.map((suggestion) => (
+                    <Box
+                      key={suggestion.id}
+                      p={3}
+                      bg="cyan.50"
+                      borderRadius="md"
+                      opacity={suggestion.explored ? 0.6 : 1}
+                    >
+                      <HStack justify="space-between" align="start">
+                        <VStack gap={1} align="start" flex={1}>
+                          <HStack flexWrap="wrap">
+                            <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="cyan.700">
+                              {suggestion.topic}
+                            </Text>
+                            {suggestion.targetBloomLevel && (
+                              <Badge
+                                bg={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.100`}
+                                color={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.700`}
+                                fontSize="xs"
+                              >
+                                {suggestion.targetBloomLevel}
+                              </Badge>
+                            )}
+                            {suggestion.explored && (
+                              <Badge bg="green.100" color="green.700" fontSize="xs">
+                                explored
+                              </Badge>
+                            )}
+                          </HStack>
+                          {suggestion.rationale && (
+                            <Text fontSize="xs" color="charcoal.500" fontFamily="body">
+                              {suggestion.rationale}
+                            </Text>
+                          )}
+                        </VStack>
+                        <IconButton
+                          aria-label="Delete"
+                          size="xs"
+                          variant="ghost"
+                          color="red.400"
+                          _hover={{ bg: "red.50", color: "red.600" }}
+                          onClick={() => handleDeleteSuggestion(suggestion.id)}
+                        >
+                          <FiTrash2 />
+                        </IconButton>
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              ) : (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
+                  No suggestions yet. Add topics above to guide learning.
+                </Text>
+              )}
+            </Box>
+          </VStack>
+        </Flex>
       </Box>
     </Box>
   );

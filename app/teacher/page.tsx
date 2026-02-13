@@ -17,6 +17,7 @@ import {
   Spinner,
   Card,
   SimpleGrid,
+  Menu,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -31,10 +32,11 @@ import {
 } from "react-icons/fi";
 import { ScholarProfile, EntityManager } from "@/components";
 
-type Tab = "scholars" | "projects" | "personas" | "perspectives";
+type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives";
 
 const TABS: { key: Tab; label: string; icon: typeof FiUsers }[] = [
   { key: "scholars", label: "Scholars", icon: FiUsers },
+  { key: "live", label: "Live View", icon: FiMessageSquare },
   { key: "projects", label: "Projects", icon: FiBook },
   { key: "personas", label: "Personas", icon: FiSmile },
   { key: "perspectives", label: "Perspectives", icon: FiEye },
@@ -87,60 +89,30 @@ export default function TeacherDashboard() {
 
   return (
     <Flex h="100vh" bg="gray.50" direction="column">
-      {/* Header */}
-      <Box bg="white" borderBottom="1px solid" borderColor="gray.200" px={6} py={3}>
-        <Flex justify="space-between" align="center">
-          <HStack gap={4}>
-            <Box
-              w={10}
-              h={10}
-              borderRadius="full"
-              bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Text fontSize="lg" fontWeight="bold" color="white" fontFamily="heading">
-                M
-              </Text>
-            </Box>
-            <VStack gap={0} align="start">
-              <Text fontSize="xl" fontWeight="600" fontFamily="heading" color="navy.500">
-                Makawulu Dashboard
-              </Text>
-              <Text color="charcoal.400" fontSize="sm" fontFamily="heading">
-                Teacher View
-              </Text>
-            </VStack>
-          </HStack>
-
-          <HStack gap={2}>
-            <Avatar
-              size="sm"
-              name={user?.name || "Teacher"}
-              src={user?.image || undefined}
-            />
-            <Text fontFamily="heading" fontSize="sm" fontWeight="500" color="charcoal.600">
-              {user?.name}
+      {/* Tab Bar with logo + account */}
+      <Flex bg="white" borderBottom="1px solid" borderColor="gray.200" px={6} align="center">
+        {/* Logo */}
+        <HStack gap={2} mr={6}>
+          <Box
+            w={7}
+            h={7}
+            borderRadius="full"
+            bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            flexShrink={0}
+          >
+            <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="heading">
+              M
             </Text>
-            <IconButton
-              aria-label="Sign out"
-              variant="ghost"
-              size="sm"
-              color="charcoal.400"
-              onClick={() => {
-                signOut();
-                router.push("/login");
-              }}
-            >
-              <FiLogOut />
-            </IconButton>
-          </HStack>
-        </Flex>
-      </Box>
+          </Box>
+          <Text fontSize="md" fontWeight="600" fontFamily="heading" color="navy.500" whiteSpace="nowrap">
+            Makawulu
+          </Text>
+        </HStack>
 
-      {/* Tab Bar */}
-      <Box bg="white" borderBottom="1px solid" borderColor="gray.200" px={6}>
+        {/* Tabs */}
         <HStack gap={0}>
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -171,47 +143,152 @@ export default function TeacherDashboard() {
             );
           })}
         </HStack>
-      </Box>
+
+        {/* Account menu */}
+        <Menu.Root positioning={{ placement: "bottom-end" }}>
+          <Menu.Trigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              ml="auto"
+              px={2}
+              _hover={{ bg: "gray.100" }}
+            >
+              <HStack gap={2}>
+                <Avatar
+                  size="sm"
+                  name={user?.name || "Teacher"}
+                  src={user?.image || undefined}
+                />
+                <Text fontFamily="heading" fontSize="xs" fontWeight="500" color="charcoal.500">
+                  {user?.name}
+                </Text>
+              </HStack>
+            </Button>
+          </Menu.Trigger>
+          <Menu.Positioner>
+            <Menu.Content minW="160px">
+              <Menu.Item
+                value="sign-out"
+                cursor="pointer"
+                onClick={() => {
+                  signOut();
+                  router.push("/login");
+                }}
+              >
+                <FiLogOut />
+                Sign Out
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Menu.Root>
+      </Flex>
 
       {/* Content */}
       <Flex flex={1} overflow="hidden">
-        <Box flex={1} overflow="auto" px={6} py={4}>
-          {activeTab === "scholars" && (
-            <>
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
-                {scholars.map((scholar) => (
-                  <ScholarCard
-                    key={scholar.id}
-                    scholar={scholar}
-                    onViewProfile={() => setSelectedScholarId(scholar.id)}
-                  />
-                ))}
-              </SimpleGrid>
-
-              {scholars.length === 0 && (
-                <VStack py={12} gap={4}>
-                  <FiUsers size={48} color="#c1c1c1" />
-                  <Text color="charcoal.400" fontFamily="heading">
-                    No scholars enrolled yet
-                  </Text>
-                </VStack>
+        {/* Scholars dossier tab — list + detail layout */}
+        {activeTab === "scholars" && (
+          <>
+            <Box
+              w="280px"
+              minW="280px"
+              bg="white"
+              borderRight="1px solid"
+              borderColor="gray.200"
+              overflow="auto"
+            >
+              <VStack gap={0} align="stretch">
+                {scholars.map((scholar) => {
+                  const isSelected = selectedScholarId === scholar.id;
+                  return (
+                    <HStack
+                      key={scholar.id}
+                      px={4}
+                      py={3}
+                      gap={3}
+                      cursor="pointer"
+                      bg={isSelected ? "violet.50" : "transparent"}
+                      borderLeft="3px solid"
+                      borderColor={isSelected ? "violet.500" : "transparent"}
+                      _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
+                      transition="all 0.1s"
+                      onClick={() => setSelectedScholarId(scholar.id)}
+                    >
+                      <Avatar
+                        size="sm"
+                        name={scholar.name}
+                        src={scholar.image || undefined}
+                      />
+                      <VStack gap={0} align="start" flex={1}>
+                        <Text
+                          fontWeight={isSelected ? "600" : "500"}
+                          fontFamily="heading"
+                          color={isSelected ? "violet.700" : "navy.500"}
+                          fontSize="sm"
+                        >
+                          {scholar.name}
+                        </Text>
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                          {scholar.conversationCount} chats
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  );
+                })}
+                {scholars.length === 0 && (
+                  <VStack py={12} gap={4}>
+                    <FiUsers size={32} color="#c1c1c1" />
+                    <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
+                      No scholars enrolled yet
+                    </Text>
+                  </VStack>
+                )}
+              </VStack>
+            </Box>
+            <Box flex={1} overflow="auto">
+              {selectedScholarId ? (
+                <ScholarProfile scholarId={selectedScholarId} />
+              ) : (
+                <Flex align="center" justify="center" h="full" color="charcoal.300">
+                  <VStack gap={3}>
+                    <FiUser size={48} />
+                    <Text fontFamily="heading" fontSize="md">
+                      Select a scholar to view their profile
+                    </Text>
+                  </VStack>
+                </Flex>
               )}
-            </>
-          )}
+            </Box>
+          </>
+        )}
 
-          {activeTab === "projects" && <EntityManager entityType="project" />}
-          {activeTab === "personas" && <EntityManager entityType="persona" />}
-          {activeTab === "perspectives" && (
-            <EntityManager entityType="perspective" />
-          )}
-        </Box>
+        {/* Live View tab — real-time scholar cards */}
+        {activeTab === "live" && (
+          <Box flex={1} overflow="auto" px={6} py={4}>
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+              {scholars.map((scholar) => (
+                <ScholarCard key={scholar.id} scholar={scholar} />
+              ))}
+            </SimpleGrid>
 
-        {/* Scholar Profile Sidebar (only on scholars tab) */}
-        {activeTab === "scholars" && selectedScholarId && (
-          <ScholarProfile
-            scholarId={selectedScholarId}
-            onClose={() => setSelectedScholarId(null)}
-          />
+            {scholars.length === 0 && (
+              <VStack py={12} gap={4}>
+                <FiUsers size={48} color="#c1c1c1" />
+                <Text color="charcoal.400" fontFamily="heading">
+                  No scholars enrolled yet
+                </Text>
+              </VStack>
+            )}
+          </Box>
+        )}
+
+        {/* Entity management tabs */}
+        {(activeTab === "projects" || activeTab === "personas" || activeTab === "perspectives") && (
+          <Box flex={1} overflow="auto" px={6} py={4}>
+            {activeTab === "projects" && <EntityManager entityType="project" />}
+            {activeTab === "personas" && <EntityManager entityType="persona" />}
+            {activeTab === "perspectives" && <EntityManager entityType="perspective" />}
+          </Box>
         )}
       </Flex>
     </Flex>
@@ -219,13 +296,7 @@ export default function TeacherDashboard() {
 }
 
 // Scholar Card Component
-function ScholarCard({
-  scholar,
-  onViewProfile,
-}: {
-  scholar: Scholar;
-  onViewProfile: () => void;
-}) {
+function ScholarCard({ scholar }: { scholar: Scholar }) {
   const remoteUrl = `/scholar?remote=${scholar.id}`;
   const score = scholar.progressScore;
   const cardBg = score === null
@@ -268,8 +339,7 @@ function ScholarCard({
     >
       <Card.Body p={4}>
         <VStack align="stretch" gap={3}>
-          <HStack justify="space-between">
-            <HStack gap={3} flex={1}>
+          <HStack gap={3}>
               <Avatar
                 size="md"
                 name={scholar.name}
@@ -297,20 +367,6 @@ function ScholarCard({
                   {scholar.email}
                 </Text>
               </VStack>
-            </HStack>
-            <IconButton
-              aria-label="View Profile"
-              size="sm"
-              variant="ghost"
-              color="violet.500"
-              _hover={{ bg: "violet.50" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewProfile();
-              }}
-            >
-              <FiUser />
-            </IconButton>
           </HStack>
 
           <HStack
