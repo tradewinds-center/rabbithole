@@ -16,9 +16,10 @@ import {
   Textarea,
   Spinner,
   Badge,
+  Card,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import {
-  FiX,
   FiPlus,
   FiTrash2,
   FiEdit2,
@@ -26,6 +27,7 @@ import {
   FiBook,
   FiSmile,
   FiEye,
+  FiArrowLeft,
 } from "react-icons/fi";
 
 type EntityType = "project" | "persona" | "perspective";
@@ -50,7 +52,6 @@ interface Entity {
 
 interface EntityManagerProps {
   entityType: EntityType;
-  onClose: () => void;
 }
 
 const BLOOM_LEVELS = [
@@ -91,7 +92,7 @@ const CONFIG: Record<EntityType, {
   },
 };
 
-export function EntityManager({ entityType, onClose }: EntityManagerProps) {
+export function EntityManager({ entityType }: EntityManagerProps) {
   const config = CONFIG[entityType];
   const Icon = config.icon;
 
@@ -124,12 +125,9 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
     title: "",
     description: "",
     systemPrompt: "",
-    // Project-specific
     rubric: "",
     targetBloomLevel: "",
-    // Persona-specific
     emoji: "",
-    // Perspective-specific
     icon: "",
   });
 
@@ -172,7 +170,6 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
     setIsSaving(true);
     try {
       if (editingEntity) {
-        // Update existing entity
         const entityId = editingEntity._id;
 
         if (entityType === "persona") {
@@ -206,7 +203,6 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
         setIsCreating(false);
         setEditingEntity(null);
       } else {
-        // Create new entity
         if (entityType === "persona") {
           await createPersona({
             title: formData.title,
@@ -262,259 +258,265 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
 
   if (isLoading) {
     return (
-      <Box
-        w={{ base: "full", md: "450px" }}
-        bg="white"
-        borderLeft="1px solid"
-        borderColor="gray.200"
-        h="full"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
+      <Flex minH="200px" align="center" justify="center">
         <Spinner size="lg" color="violet.500" />
+      </Flex>
+    );
+  }
+
+  // Create/Edit Form (full-width, centered)
+  if (isCreating) {
+    return (
+      <Box maxW="640px" mx="auto">
+        <HStack mb={6}>
+          <IconButton
+            aria-label="Back"
+            variant="ghost"
+            size="sm"
+            color="charcoal.400"
+            onClick={handleCancel}
+          >
+            <FiArrowLeft />
+          </IconButton>
+          <Icon color="#AD60BF" size={20} />
+          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
+            {editingEntity ? `Edit ${config.label}` : `New ${config.label}`}
+          </Text>
+        </HStack>
+
+        <Card.Root bg="white" shadow="sm">
+          <Card.Body p={6}>
+            <VStack gap={4} align="stretch">
+              <Box>
+                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                  Title *
+                </Text>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder={`e.g., ${entityType === "project" ? "Hawaiian Ecosystem Research" : entityType === "persona" ? "Sensei" : "Big Ideas"}`}
+                  fontFamily="body"
+                />
+              </Box>
+
+              {/* Persona-specific: emoji */}
+              {entityType === "persona" && (
+                <Box>
+                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                    Emoji *
+                  </Text>
+                  <Input
+                    value={formData.emoji}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
+                    placeholder="e.g., 🥋"
+                    fontFamily="body"
+                    maxW="100px"
+                  />
+                </Box>
+              )}
+
+              {/* Perspective-specific: icon */}
+              {entityType === "perspective" && (
+                <Box>
+                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                    Icon (emoji)
+                  </Text>
+                  <Input
+                    value={formData.icon}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
+                    placeholder="e.g., 💡"
+                    fontFamily="body"
+                    maxW="100px"
+                  />
+                </Box>
+              )}
+
+              <Box>
+                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                  Description
+                </Text>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder={`Brief description of this ${config.label.toLowerCase()}`}
+                  rows={2}
+                  fontFamily="body"
+                />
+              </Box>
+
+              <Box>
+                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                  System Prompt (AI Instructions)
+                </Text>
+                <Textarea
+                  value={formData.systemPrompt}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, systemPrompt: e.target.value }))}
+                  placeholder={entityType === "persona"
+                    ? "How should the AI behave in this persona? e.g., 'You are a calm, patient Sensei...'"
+                    : entityType === "perspective"
+                    ? "How should the AI apply this thinking lens? e.g., 'Help the scholar identify patterns...'"
+                    : "Instructions for the AI tutor for this project."}
+                  rows={5}
+                  fontFamily="body"
+                  fontSize="sm"
+                />
+                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+                  This guides how the AI interacts with scholars.
+                </Text>
+              </Box>
+
+              {/* Project-specific fields */}
+              {entityType === "project" && (
+                <>
+                  <Box>
+                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                      Rubric / Assessment Criteria
+                    </Text>
+                    <Textarea
+                      value={formData.rubric}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, rubric: e.target.value }))}
+                      placeholder="What should scholars demonstrate?"
+                      rows={3}
+                      fontFamily="body"
+                      fontSize="sm"
+                    />
+                  </Box>
+
+                  <Box>
+                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                      Target Bloom Level
+                    </Text>
+                    <select
+                      value={formData.targetBloomLevel}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
+                      style={{
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                        fontSize: "14px",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {BLOOM_LEVELS.map((level) => (
+                        <option key={level.value} value={level.value}>
+                          {level.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Box>
+                </>
+              )}
+
+              <HStack gap={2} pt={4}>
+                <Button
+                  flex={1}
+                  variant="outline"
+                  fontFamily="heading"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  flex={1}
+                  bg="violet.500"
+                  color="white"
+                  _hover={{ bg: "violet.600" }}
+                  fontFamily="heading"
+                  onClick={handleSave}
+                  disabled={isSaving || !formData.title.trim() || (entityType === "persona" && !formData.emoji.trim())}
+                >
+                  {isSaving ? <Spinner size="sm" /> : <><FiSave style={{ marginRight: "8px" }} /> Save</>}
+                </Button>
+              </HStack>
+            </VStack>
+          </Card.Body>
+        </Card.Root>
       </Box>
     );
   }
 
+  // Entity List (full-width grid)
   return (
-    <Box
-      w={{ base: "full", md: "450px" }}
-      bg="white"
-      borderLeft="1px solid"
-      borderColor="gray.200"
-      h="full"
-      display="flex"
-      flexDir="column"
-      position={{ base: "absolute", md: "relative" }}
-      right={0}
-      zIndex={30}
-    >
-      {/* Header */}
-      <Flex
-        p={4}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        justify="space-between"
-        align="center"
-        bg="navy.500"
-      >
-        <HStack gap={3}>
-          <Icon color="white" size={20} />
-          <Text fontWeight="600" fontFamily="heading" color="white" fontSize="lg">
-            {isCreating ? (editingEntity ? `Edit ${config.label}` : `New ${config.label}`) : config.plural}
+    <Box>
+      <Flex justify="space-between" align="center" mb={4}>
+        <HStack gap={2}>
+          <Icon color="#AD60BF" size={22} />
+          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
+            {config.plural}
           </Text>
+          <Badge bg="gray.100" color="charcoal.500" fontFamily="heading" fontSize="xs">
+            {entities.length}
+          </Badge>
         </HStack>
-        <IconButton
-          aria-label="Close"
-          variant="ghost"
+        <Button
+          bg="violet.500"
           color="white"
-          _hover={{ bg: "whiteAlpha.200" }}
-          onClick={onClose}
+          _hover={{ bg: "violet.600" }}
+          fontFamily="heading"
+          size="sm"
+          onClick={handleStartCreate}
         >
-          <FiX />
-        </IconButton>
+          <FiPlus style={{ marginRight: "6px" }} />
+          Create {config.label}
+        </Button>
       </Flex>
 
-      {/* Content */}
-      <Box flex={1} overflow="auto" p={4}>
-        {isCreating ? (
-          <VStack gap={4} align="stretch">
-            <Box>
-              <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                Title *
-              </Text>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder={`e.g., ${entityType === "project" ? "Hawaiian Ecosystem Research" : entityType === "persona" ? "Sensei" : "Big Ideas"}`}
-                fontFamily="body"
-              />
-            </Box>
-
-            {/* Persona-specific: emoji */}
-            {entityType === "persona" && (
-              <Box>
-                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                  Emoji *
-                </Text>
-                <Input
-                  value={formData.emoji}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
-                  placeholder="e.g., 🥋"
-                  fontFamily="body"
-                  maxW="100px"
-                />
-              </Box>
-            )}
-
-            {/* Perspective-specific: icon */}
-            {entityType === "perspective" && (
-              <Box>
-                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                  Icon (emoji)
-                </Text>
-                <Input
-                  value={formData.icon}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
-                  placeholder="e.g., 💡"
-                  fontFamily="body"
-                  maxW="100px"
-                />
-              </Box>
-            )}
-
-            <Box>
-              <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                Description
-              </Text>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder={`Brief description of this ${config.label.toLowerCase()}`}
-                rows={2}
-                fontFamily="body"
-              />
-            </Box>
-
-            <Box>
-              <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                System Prompt (AI Instructions)
-              </Text>
-              <Textarea
-                value={formData.systemPrompt}
-                onChange={(e) => setFormData((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-                placeholder={entityType === "persona"
-                  ? "How should the AI behave in this persona? e.g., 'You are a calm, patient Sensei...'"
-                  : entityType === "perspective"
-                  ? "How should the AI apply this thinking lens? e.g., 'Help the scholar identify patterns...'"
-                  : "Instructions for the AI tutor for this project."}
-                rows={4}
-                fontFamily="body"
-                fontSize="sm"
-              />
-              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                This guides how the AI interacts with scholars.
-              </Text>
-            </Box>
-
-            {/* Project-specific fields */}
-            {entityType === "project" && (
-              <>
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Rubric / Assessment Criteria
-                  </Text>
-                  <Textarea
-                    value={formData.rubric}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, rubric: e.target.value }))}
-                    placeholder="What should scholars demonstrate?"
-                    rows={3}
-                    fontFamily="body"
-                    fontSize="sm"
-                  />
-                </Box>
-
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Target Bloom Level
-                  </Text>
-                  <select
-                    value={formData.targetBloomLevel}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 10px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                      fontSize: "14px",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    {BLOOM_LEVELS.map((level) => (
-                      <option key={level.value} value={level.value}>
-                        {level.label}
-                      </option>
-                    ))}
-                  </select>
-                </Box>
-              </>
-            )}
-
-            <HStack gap={2} pt={4}>
-              <Button
-                flex={1}
-                variant="outline"
-                fontFamily="heading"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-              <Button
-                flex={1}
-                bg="violet.500"
-                color="white"
-                _hover={{ bg: "violet.600" }}
-                fontFamily="heading"
-                onClick={handleSave}
-                disabled={isSaving || !formData.title.trim() || (entityType === "persona" && !formData.emoji.trim())}
-              >
-                {isSaving ? <Spinner size="sm" /> : <><FiSave style={{ marginRight: "8px" }} /> Save</>}
-              </Button>
-            </HStack>
-          </VStack>
-        ) : (
-          <VStack gap={3} align="stretch">
-            <Button
-              w="full"
-              bg="violet.500"
-              color="white"
-              _hover={{ bg: "violet.600" }}
-              fontFamily="heading"
-              onClick={handleStartCreate}
+      {entities.length === 0 ? (
+        <VStack py={12} gap={4}>
+          <Icon size={48} color="#c1c1c1" />
+          <Text color="charcoal.400" fontFamily="heading">
+            No {config.plural.toLowerCase()} yet
+          </Text>
+          <Button
+            variant="outline"
+            fontFamily="heading"
+            size="sm"
+            onClick={handleStartCreate}
+          >
+            <FiPlus style={{ marginRight: "6px" }} />
+            Create your first {config.label.toLowerCase()}
+          </Button>
+        </VStack>
+      ) : (
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+          {entities.map((entity) => (
+            <Card.Root
+              key={entity.id}
+              bg="white"
+              shadow="sm"
+              borderWidth="1px"
+              borderColor="transparent"
+              borderLeft="3px solid"
+              borderLeftColor={entity.isActive ? "violet.500" : "gray.300"}
+              opacity={entity.isActive ? 1 : 0.6}
+              _hover={{ shadow: "md", borderColor: "violet.200" }}
+              transition="all 0.15s"
             >
-              <FiPlus style={{ marginRight: "8px" }} />
-              Create {config.label}
-            </Button>
-
-            {entities.length === 0 ? (
-              <VStack py={8} gap={2}>
-                <Icon size={32} color="#c1c1c1" />
-                <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
-                  No {config.plural.toLowerCase()} yet
-                </Text>
-              </VStack>
-            ) : (
-              entities.map((entity) => (
-                <Box
-                  key={entity.id}
-                  p={4}
-                  bg="gray.50"
-                  borderRadius="lg"
-                  borderLeft="3px solid"
-                  borderColor={entity.isActive ? "violet.500" : "gray.300"}
-                  opacity={entity.isActive ? 1 : 0.6}
-                >
-                  <HStack justify="space-between" mb={2}>
-                    <VStack gap={0} align="start">
-                      <HStack gap={2}>
-                        {entity.emoji && <Text fontSize="lg">{entity.emoji}</Text>}
-                        {entity.icon && !entity.emoji && <Text fontSize="lg">{entity.icon}</Text>}
+              <Card.Body p={4}>
+                <VStack align="stretch" gap={3}>
+                  <HStack justify="space-between">
+                    <HStack gap={2} flex={1}>
+                      {entity.emoji && <Text fontSize="xl">{entity.emoji}</Text>}
+                      {entity.icon && !entity.emoji && <Text fontSize="xl">{entity.icon}</Text>}
+                      <VStack gap={0} align="start">
                         <Text fontWeight="600" fontFamily="heading" color="navy.500">
                           {entity.title}
                         </Text>
-                      </HStack>
-                      {entityType === "project" && entity.targetBloomLevel && (
-                        <Badge bg="violet.100" color="violet.700" fontSize="xs">
-                          {entity.targetBloomLevel}
-                        </Badge>
-                      )}
-                    </VStack>
+                        {entityType === "project" && entity.targetBloomLevel && (
+                          <Badge bg="violet.100" color="violet.700" fontSize="xs">
+                            {entity.targetBloomLevel}
+                          </Badge>
+                        )}
+                      </VStack>
+                    </HStack>
                     <HStack gap={1}>
                       <IconButton
                         aria-label="Edit"
                         size="sm"
                         variant="ghost"
+                        color="charcoal.400"
+                        _hover={{ color: "violet.500", bg: "violet.50" }}
                         onClick={() => handleStartEdit(entity)}
                       >
                         <FiEdit2 />
@@ -524,7 +526,8 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
                           aria-label="Delete"
                           size="sm"
                           variant="ghost"
-                          color="red.500"
+                          color="charcoal.400"
+                          _hover={{ color: "red.500", bg: "red.50" }}
                           onClick={() => handleDelete(entity.id)}
                         >
                           <FiTrash2 />
@@ -532,22 +535,41 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
                       )}
                     </HStack>
                   </HStack>
+
                   {entity.description && (
-                    <Text fontSize="sm" color="charcoal.500" fontFamily="body" mb={2}>
+                    <Text fontSize="sm" color="charcoal.500" fontFamily="body">
                       {entity.description}
                     </Text>
                   )}
+
+                  {entity.systemPrompt && (
+                    <Text
+                      fontSize="xs"
+                      color="charcoal.400"
+                      fontFamily="body"
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      css={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {entity.systemPrompt}
+                    </Text>
+                  )}
+
                   {!entity.isActive && (
-                    <Badge bg="gray.200" color="gray.600" fontSize="xs">
+                    <Badge bg="gray.200" color="gray.600" fontSize="xs" w="fit-content">
                       Archived
                     </Badge>
                   )}
-                </Box>
-              ))
-            )}
-          </VStack>
-        )}
-      </Box>
+                </VStack>
+              </Card.Body>
+            </Card.Root>
+          ))}
+        </SimpleGrid>
+      )}
     </Box>
   );
 }
