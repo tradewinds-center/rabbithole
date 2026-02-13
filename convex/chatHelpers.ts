@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 /**
@@ -139,5 +140,10 @@ export const finalizeStream = internalMutation({
         await ctx.db.patch(args.conversationId, { title });
       }
     }
+
+    // Auto-trigger observer analysis in background
+    await ctx.scheduler.runAfter(0, internal.analysisActions.runObserverAnalysis, {
+      conversationId: args.conversationId,
+    });
   },
 });

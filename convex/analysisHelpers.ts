@@ -25,6 +25,7 @@ export const saveAnalysis = internalMutation({
     summary: v.string(),
     suggestedIntervention: v.optional(v.string()),
     status: v.union(v.literal("green"), v.literal("yellow"), v.literal("red")),
+    progressScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Save the analysis record
@@ -40,10 +41,11 @@ export const saveAnalysis = internalMutation({
       suggestedIntervention: args.suggestedIntervention,
     });
 
-    // Update conversation status
+    // Update conversation status + progress score
     await ctx.db.patch(args.conversationId, {
       status: args.status,
       analysisSummary: args.summary,
+      progressScore: args.progressScore,
     });
   },
 });

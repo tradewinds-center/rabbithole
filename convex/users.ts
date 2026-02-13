@@ -96,6 +96,26 @@ export const listScholars = teacherQuery({
             ? "yellow"
             : "green";
 
+        // Get status summary, progress score, and last student message from most recent conversation
+        const mostRecent = activeConvos[0];
+        const statusSummary = mostRecent?.analysisSummary ?? null;
+        const progressScore = mostRecent?.progressScore ?? null;
+        let lastMessage: string | null = null;
+        if (mostRecent) {
+          const msgs = await ctx.db
+            .query("messages")
+            .withIndex("by_conversation", (q) =>
+              q.eq("conversationId", mostRecent._id)
+            )
+            .order("desc")
+            .collect();
+          const lastUserMsg = msgs.find((m) => m.role === "user");
+          if (lastUserMsg) {
+            const text = lastUserMsg.content;
+            lastMessage = text.length > 120 ? text.slice(0, 120) + "..." : text;
+          }
+        }
+
         return {
           _id: scholar._id,
           id: scholar._id,
@@ -105,13 +125,10 @@ export const listScholars = teacherQuery({
           conversationCount: activeConvos.length,
           messageCount,
           overallStatus,
-          lastActive: activeConvos[0]?._creationTime ?? scholar._creationTime,
-          recentConversations: activeConvos.map((c) => ({
-            id: c._id,
-            title: c.title,
-            status: c.status,
-            updatedAt: c._creationTime,
-          })),
+          lastActive: mostRecent?._creationTime ?? scholar._creationTime,
+          statusSummary,
+          progressScore,
+          lastMessage,
         };
       })
     );

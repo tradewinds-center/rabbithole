@@ -39,9 +39,17 @@ Evaluate the conversation on these dimensions:
    - YELLOW: Some concerns, may benefit from teacher awareness
    - RED: Requires teacher intervention (significant off-task, distress, inappropriate content)
 
-8. **Summary**: 2-3 sentence summary of what's happening in this conversation.
+8. **Summary**: 1 terse sentence for the teacher dashboard. State what the scholar is exploring and any notable insight or concern. No filler, no "the scholar is...", no "the tutor is...". Example: "Exploring penguin migration patterns, made a strong connection to climate data." or "Off-task, testing boundaries with silly questions."
 
 9. **Suggested Intervention** (if applicable): If yellow or red, what might a teacher do to help?
+
+10. **Progress Score** (0-5 integer): Overall learning progress indicator:
+   - 0 = Off-task or needs intervention
+   - 1 = Minimal engagement
+   - 2 = Surface-level participation
+   - 3 = Solid engagement and learning
+   - 4 = Strong progress with deeper thinking
+   - 5 = Exceptional curiosity and intellectual depth
 
 Respond in JSON format:
 {
@@ -53,7 +61,8 @@ Respond in JSON format:
   "concernFlags": ["concern1"] or [],
   "status": "green" | "yellow" | "red",
   "summary": "Brief summary...",
-  "suggestedIntervention": "Suggestion..." or null
+  "suggestedIntervention": "Suggestion..." or null,
+  "progressScore": 0-5
 }`;
 
 /**
@@ -71,7 +80,15 @@ export const runObserverAnalysis = internalAction({
       return null;
     }
 
-    const conversationText = context.chatHistory
+    // Limit to last 20 messages for cost/speed
+    const recentHistory = context.chatHistory.length > 20
+      ? context.chatHistory.slice(-20)
+      : context.chatHistory;
+    const truncationNote = context.chatHistory.length > 20
+      ? `[Earlier messages omitted — showing last 20 of ${context.chatHistory.length}]\n\n`
+      : "";
+
+    const conversationText = truncationNote + recentHistory
       .map(
         (m: { role: string; content: string }) =>
           `${m.role.toUpperCase()}: ${m.content}`
@@ -113,6 +130,7 @@ export const runObserverAnalysis = internalAction({
         status: "green",
         summary: "Analysis unavailable",
         suggestedIntervention: null,
+        progressScore: 3,
       };
     }
 
@@ -128,11 +146,13 @@ export const runObserverAnalysis = internalAction({
       summary: analysis.summary || "Analysis unavailable",
       suggestedIntervention: analysis.suggestedIntervention || undefined,
       status: analysis.status || "green",
+      progressScore: typeof analysis.progressScore === "number" ? analysis.progressScore : 3,
     });
 
     return analysis;
   },
 });
+
 
 /**
  * Run detailed AI analysis (with Bloom's taxonomy, nudges, follow-ups).

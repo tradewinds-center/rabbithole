@@ -178,6 +178,27 @@ npx convex dev       # Convex dev server (run alongside npm run dev)
 npx convex run seed:seedAll  # Seed personas, perspectives, test users
 ```
 
+## DevOps / Type-Checking Without Interactive Terminal
+
+`npx convex dev` requires an interactive terminal (prompts for input) — it won't work from Claude Code directly.
+
+**To type-check Convex functions without deploying:**
+
+```bash
+# 1. Generate types (needs CONVEX_DEPLOYMENT env var — the slug from the URL)
+CONVEX_DEPLOYMENT=perceptive-husky-735 npx convex codegen
+
+# 2. Type-check Convex backend
+npx tsc --noEmit --project convex/tsconfig.json
+
+# 3. Type-check full Next.js frontend
+npx tsc --noEmit
+```
+
+The deployment slug (`perceptive-husky-735`) comes from `NEXT_PUBLIC_CONVEX_URL` in `.env.local` — strip `https://` and `.convex.cloud`.
+
+**To deploy:** Andy runs `npx convex dev` in a terminal (interactive), or `npx convex deploy` for production.
+
 ---
 
 ## Environment Variables

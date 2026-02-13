@@ -49,12 +49,9 @@ interface Scholar {
   messageCount: number;
   overallStatus: "green" | "yellow" | "red";
   lastActive: number;
-  recentConversations: {
-    id: string;
-    title: string;
-    status: "green" | "yellow" | "red";
-    updatedAt: number;
-  }[];
+  statusSummary: string | null;
+  progressScore: number | null;
+  lastMessage: string | null;
 }
 
 export default function TeacherDashboard() {
@@ -229,22 +226,39 @@ function ScholarCard({
   scholar: Scholar;
   onViewProfile: () => void;
 }) {
-  const statusColors = {
-    green: { bg: "green.500", text: "On Track" },
-    yellow: { bg: "yellow.500", text: "Attention" },
-    red: { bg: "red.500", text: "Intervention" },
-  };
-
   const remoteUrl = `/scholar?remote=${scholar.id}`;
+  const score = scholar.progressScore;
+  const cardBg = score === null
+    ? "white"
+    : score <= 1
+      ? "red.50"
+      : score <= 2
+        ? "yellow.50"
+        : score <= 3
+          ? "white"
+          : score <= 4
+            ? "green.50"
+            : "violet.50";
+  const cardBorder = score === null
+    ? "transparent"
+    : score <= 1
+      ? "red.200"
+      : score <= 2
+        ? "yellow.200"
+        : score <= 3
+          ? "transparent"
+          : score <= 4
+            ? "green.200"
+            : "violet.200";
 
   return (
     <Card.Root
-      bg="white"
+      bg={cardBg}
       shadow="sm"
       cursor="pointer"
-      _hover={{ shadow: "md", borderColor: "violet.200" }}
+      _hover={{ shadow: "md", borderColor: "violet.300" }}
       borderWidth="1px"
-      borderColor="transparent"
+      borderColor={cardBorder}
       transition="all 0.15s"
       onClick={() => window.open(remoteUrl, "_blank")}
       css={{
@@ -284,28 +298,19 @@ function ScholarCard({
                 </Text>
               </VStack>
             </HStack>
-            <HStack gap={2}>
-              <IconButton
-                aria-label="View Profile"
-                size="sm"
-                variant="ghost"
-                color="violet.500"
-                _hover={{ bg: "violet.50" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewProfile();
-                }}
-              >
-                <FiUser />
-              </IconButton>
-              <Box
-                w={3}
-                h={3}
-                borderRadius="full"
-                bg={statusColors[scholar.overallStatus].bg}
-                title={statusColors[scholar.overallStatus].text}
-              />
-            </HStack>
+            <IconButton
+              aria-label="View Profile"
+              size="sm"
+              variant="ghost"
+              color="violet.500"
+              _hover={{ bg: "violet.50" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProfile();
+              }}
+            >
+              <FiUser />
+            </IconButton>
           </HStack>
 
           <HStack
@@ -321,46 +326,29 @@ function ScholarCard({
             <Text>{scholar.messageCount} messages</Text>
           </HStack>
 
-          {scholar.recentConversations.length > 0 && (
+          {scholar.lastMessage ? (
             <VStack align="stretch" gap={1}>
               <Text
-                fontSize="xs"
-                fontWeight="600"
-                color="charcoal.400"
+                fontSize="sm"
+                color="charcoal.600"
                 fontFamily="heading"
+                lineHeight="1.4"
               >
-                Recent Conversations
+                {scholar.lastMessage}
               </Text>
-              {scholar.recentConversations.slice(0, 3).map((conv) => (
-                <HStack
-                  key={conv.id}
-                  p={2}
-                  bg="gray.50"
-                  borderRadius="md"
-                  justify="space-between"
+              {scholar.statusSummary && (
+                <Text
+                  fontSize="xs"
+                  color="charcoal.400"
+                  fontFamily="heading"
+                  fontStyle="italic"
+                  lineHeight="1.3"
                 >
-                  <Text
-                    fontSize="sm"
-                    fontFamily="heading"
-                    overflow="hidden"
-                    textOverflow="ellipsis"
-                    whiteSpace="nowrap"
-                    flex={1}
-                  >
-                    {conv.title}
-                  </Text>
-                  <Box
-                    w={2}
-                    h={2}
-                    borderRadius="full"
-                    bg={statusColors[conv.status].bg}
-                  />
-                </HStack>
-              ))}
+                  {scholar.statusSummary}
+                </Text>
+              )}
             </VStack>
-          )}
-
-          {scholar.recentConversations.length === 0 && (
+          ) : (
             <Text
               fontSize="sm"
               color="charcoal.300"
@@ -368,7 +356,7 @@ function ScholarCard({
               textAlign="center"
               py={2}
             >
-              No conversations yet
+              No activity yet
             </Text>
           )}
         </VStack>

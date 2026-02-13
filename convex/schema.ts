@@ -43,6 +43,7 @@ export default defineSchema({
       v.literal("red")
     ),
     analysisSummary: v.optional(v.string()),
+    progressScore: v.optional(v.number()),
     teacherWhisper: v.optional(v.string()),
     isArchived: v.boolean(),
   })
