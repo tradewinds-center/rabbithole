@@ -152,7 +152,7 @@ export default function TeacherDashboard() {
               </VStack>
             </HStack>
 
-            <HStack gap={4}>
+            <HStack gap={2}>
               {(["project", "persona", "perspective"] as const).map((type) => {
                 const isActive = activeEntityPanel === type;
                 const icons = { project: FiBook, persona: FiSmile, perspective: FiEye };
@@ -162,36 +162,39 @@ export default function TeacherDashboard() {
                   <Button
                     key={type}
                     size="sm"
-                    bg={isActive ? "violet.500" : "white"}
-                    color={isActive ? "white" : "navy.500"}
-                    border="1px solid"
-                    borderColor={isActive ? "violet.500" : "gray.200"}
-                    _hover={{ bg: isActive ? "violet.600" : "gray.50" }}
+                    variant={isActive ? "solid" : "outline"}
+                    colorPalette={isActive ? "violet" : "gray"}
                     fontFamily="heading"
+                    fontWeight="500"
                     onClick={() => {
                       setSelectedConversationId(null);
                       setSelectedScholarId(null);
                       setActiveEntityPanel(isActive ? null : type);
                     }}
                   >
-                    <TypeIcon style={{ marginRight: "6px" }} />
+                    <TypeIcon />
                     {labels[type]}
                   </Button>
                 );
               })}
+
+              <Box w="1px" h={6} bg="gray.200" mx={1} />
+
               <HStack gap={2}>
                 <Avatar
                   size="sm"
                   name={user?.name || "Teacher"}
                   src={user?.image || undefined}
                 />
-                <Text fontFamily="heading" fontSize="sm" fontWeight="500">
+                <Text fontFamily="heading" fontSize="sm" fontWeight="500" color="charcoal.600">
                   {user?.name}
                 </Text>
               </HStack>
               <IconButton
                 aria-label="Sign out"
                 variant="ghost"
+                size="sm"
+                color="charcoal.400"
                 onClick={() => {
                   signOut();
                   router.push("/login");

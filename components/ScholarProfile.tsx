@@ -360,11 +360,11 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
             </HStack>
 
             {/* Add new suggestion */}
-            <Box p={3} bg="violet.50" borderRadius="lg" mb={3}>
-              <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="violet.700" mb={2}>
+            <Box p={4} bg="violet.50" borderRadius="lg" mb={3}>
+              <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="violet.700" mb={3}>
                 Add a topic to push {scholar?.name?.split(" ")[0]} intellectually:
               </Text>
-              <VStack gap={2} align="stretch">
+              <VStack gap={3} align="stretch">
                 <Input
                   size="sm"
                   placeholder="Topic (e.g., 'Design a triple-decker aircraft')"
