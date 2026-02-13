@@ -1,29 +1,49 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Box, Spinner, VStack, Text } from "@chakra-ui/react";
+import { useConvexAuth } from "convex/react";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { isAuthenticated: isConvexAuthed, isLoading: isAuthLoading } =
+    useConvexAuth();
+  const { user, isLoading: isUserLoading } = useCurrentUser();
   const router = useRouter();
 
+  // Debug: log auth state to understand redirect loop
   useEffect(() => {
-    if (status === "loading") return;
+    console.log("[Home] auth state:", { isAuthLoading, isConvexAuthed, isUserLoading, user: user ? { role: user.role, name: user.name } : user });
+  }, [isAuthLoading, isConvexAuthed, isUserLoading, user]);
 
-    if (!session) {
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    if (!isConvexAuthed) {
+      console.log("[Home] Not authed, redirecting to /login");
       router.push("/login");
       return;
     }
 
+    // Auth confirmed but user doc still loading — wait
+    if (isUserLoading) return;
+
+    // Auth confirmed but user doc is null — could be brief race condition,
+    // the reactive query will re-fire soon. Don't redirect to /login.
+    if (!user) {
+      console.log("[Home] Authed but user is null — waiting for query...");
+      return;
+    }
+
     // Route based on user role
-    if (session.user.role === "teacher" || session.user.role === "admin") {
+    console.log("[Home] Routing to", user.role === "teacher" || user.role === "admin" ? "/teacher" : "/scholar");
+    if (user.role === "teacher" || user.role === "admin") {
       router.push("/teacher");
     } else {
       router.push("/scholar");
     }
-  }, [session, status, router]);
+  }, [isConvexAuthed, isAuthLoading, user, isUserLoading, router]);
 
   return (
     <Box

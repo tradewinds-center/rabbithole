@@ -1,8 +1,11 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useQuery } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "@/convex/_generated/api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Flex,
@@ -53,64 +56,35 @@ interface Scholar {
 }
 
 export default function TeacherDashboard() {
-  const { data: session, status } = useSession();
+  const { user, isLoading: isUserLoading } = useCurrentUser();
+  const { signOut } = useAuthActions();
   const router = useRouter();
-  const [scholars, setScholars] = useState<Scholar[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const scholars = useQuery(api.users.listScholars) ?? [];
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversationId, setSelectedConversationId] = useState<
     string | null
   >(null);
   const [selectedScholarId, setSelectedScholarId] = useState<string | null>(null);
   const [activeEntityPanel, setActiveEntityPanel] = useState<"project" | "persona" | "perspective" | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch scholars
-  const fetchScholars = useCallback(async () => {
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) {
-        const data = await res.json();
-        setScholars(data.scholars);
-      }
-    } catch (error) {
-      console.error("Error fetching scholars:", error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
+  // Auth redirect
   useEffect(() => {
-    if (status === "loading") return;
-    if (!session) {
+    if (isUserLoading) return;
+    if (!user) {
       router.push("/login");
       return;
     }
-    if (session.user.role !== "teacher" && session.user.role !== "admin") {
+    if (user.role !== "teacher" && user.role !== "admin") {
       router.push("/scholar");
       return;
     }
-    fetchScholars();
-  }, [session, status, router, fetchScholars]);
-
-  // Refresh data
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchScholars();
-  };
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchScholars, 30000);
-    return () => clearInterval(interval);
-  }, [fetchScholars]);
+  }, [user, isUserLoading, router]);
 
   // Filter scholars
   const filteredScholars = scholars.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchQuery.toLowerCase())
+      (s.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.email ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Count by status
@@ -120,7 +94,7 @@ export default function TeacherDashboard() {
     red: scholars.filter((s) => s.overallStatus === "red").length,
   };
 
-  if (status === "loading" || isLoading) {
+  if (isUserLoading || scholars === undefined) {
     return (
       <Flex minH="100vh" bg="gray.50" align="center" justify="center">
         <Spinner size="xl" color="violet.500" />
@@ -205,30 +179,23 @@ export default function TeacherDashboard() {
                   </Button>
                 );
               })}
-              <IconButton
-                aria-label="Refresh"
-                variant="ghost"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <FiRefreshCw
-                  className={isRefreshing ? "animate-spin" : ""}
-                />
-              </IconButton>
               <HStack gap={2}>
                 <Avatar
                   size="sm"
-                  name={session?.user?.name || "Teacher"}
-                  src={session?.user?.image || undefined}
+                  name={user?.name || "Teacher"}
+                  src={user?.image || undefined}
                 />
                 <Text fontFamily="heading" fontSize="sm" fontWeight="500">
-                  {session?.user?.name}
+                  {user?.name}
                 </Text>
               </HStack>
               <IconButton
                 aria-label="Sign out"
                 variant="ghost"
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => {
+                  signOut();
+                  router.push("/login");
+                }}
               >
                 <FiLogOut />
               </IconButton>
@@ -329,7 +296,7 @@ export default function TeacherDashboard() {
         <ConversationViewer
           conversationId={selectedConversationId}
           onClose={() => setSelectedConversationId(null)}
-          onUpdate={fetchScholars}
+          onUpdate={() => {}}
         />
       )}
 

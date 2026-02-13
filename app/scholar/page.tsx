@@ -1,8 +1,12 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Box,
   Flex,
@@ -24,90 +28,67 @@ import {
 } from "react-icons/fi";
 import { ChatInterface } from "@/components/ChatInterface";
 
-interface Conversation {
-  id: string;
-  title: string;
-  status: "green" | "yellow" | "red";
-  updatedAt: string;
-  personaEmoji?: string | null;
-}
-
-function ScholarPageInner() {
-  const { data: session, status } = useSession();
+export default function ScholarPage() {
+  const { user, isLoading: isUserLoading } = useCurrentUser();
+  const { signOut } = useAuthActions();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Remote mode: teacher viewing as a scholar
   const remoteUserId = searchParams.get("remote");
-  const [scholarInfo, setScholarInfo] = useState<{ name: string; image?: string } | null>(null);
-  const isRemoteMode = !!(remoteUserId && session?.user && (session.user.role === "teacher" || session.user.role === "admin"));
+  const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
+
+  // Fetch conversations reactively via Convex
+  const conversations = useQuery(
+    api.conversations.list,
+    isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
+  ) ?? [];
 
   // Fetch scholar info for remote mode banner
-  useEffect(() => {
-    if (!isRemoteMode || !remoteUserId) return;
-    fetch(`/api/users/${remoteUserId}`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => { if (data) setScholarInfo({ name: data.name, image: data.image }); })
-      .catch(() => {});
-  }, [isRemoteMode, remoteUserId]);
+  const remoteUser = useQuery(
+    api.users.getUser,
+    isRemoteMode && remoteUserId ? { userId: remoteUserId as Id<"users"> } : "skip"
+  );
 
-  // Fetch all conversations (no project filtering)
-  const fetchConversations = useCallback(async () => {
-    try {
-      const url = isRemoteMode ? `/api/conversations?userId=${remoteUserId}` : "/api/conversations";
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data.conversations);
-        // Auto-select first conversation if none selected or if current is not in list
-        const currentExists = data.conversations.some((c: Conversation) => c.id === activeConversationId);
-        if (!currentExists && data.conversations.length > 0) {
-          setActiveConversationId(data.conversations[0].id);
-        } else if (!currentExists) {
-          setActiveConversationId(null);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeConversationId, isRemoteMode, remoteUserId]);
+  const createConversation = useMutation(api.conversations.create);
+  const archiveConversation = useMutation(api.conversations.archive);
 
+  // Redirect logic
   useEffect(() => {
-    if (status === "loading") return;
-    if (!session) {
+    if (isUserLoading) return;
+    if (!user) {
       router.push("/login");
       return;
     }
     // Only redirect teachers if NOT in remote mode
-    if ((session.user.role === "teacher" || session.user.role === "admin") && !remoteUserId) {
+    if ((user.role === "teacher" || user.role === "admin") && !remoteUserId) {
       router.push("/teacher");
       return;
     }
-    fetchConversations();
-  }, [session, status, router, fetchConversations, remoteUserId]);
+  }, [user, isUserLoading, router, remoteUserId]);
 
-  // Create new conversation (optionally linked to a project)
+  // Auto-select first conversation if none selected or current is not in list
+  useEffect(() => {
+    if (conversations.length === 0) {
+      if (activeConversationId) setActiveConversationId(null);
+      return;
+    }
+    const currentExists = conversations.some((c) => c._id === activeConversationId);
+    if (!currentExists) {
+      setActiveConversationId(conversations[0]._id);
+    }
+  }, [conversations, activeConversationId]);
+
+  // Create new conversation
   const handleNewConversation = async () => {
     try {
-      const body: Record<string, string> = {};
-      if (isRemoteMode && remoteUserId) {
-        body.userId = remoteUserId;
-      }
-      const res = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setConversations((prev) => [data.conversation, ...prev]);
-        setActiveConversationId(data.conversation.id);
+      const result = await createConversation(
+        isRemoteMode && remoteUserId ? { userId: remoteUserId as Id<"users"> } : {}
+      );
+      if (result) {
+        setActiveConversationId(result.id as string);
       }
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -117,19 +98,16 @@ function ScholarPageInner() {
   // Archive conversation
   const handleArchiveConversation = async (id: string) => {
     try {
-      const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setConversations((prev) => prev.filter((c) => c.id !== id));
-        if (activeConversationId === id) {
-          setActiveConversationId(conversations[0]?.id || null);
-        }
+      await archiveConversation({ id: id as Id<"conversations"> });
+      if (activeConversationId === id) {
+        setActiveConversationId(null);
       }
     } catch (error) {
       console.error("Error archiving conversation:", error);
     }
   };
 
-  if (status === "loading" || isLoading) {
+  if (isUserLoading || conversations === undefined) {
     return (
       <Flex
         minH="100vh"
@@ -142,8 +120,8 @@ function ScholarPageInner() {
     );
   }
 
-  const displayName = isRemoteMode ? (scholarInfo?.name || "Scholar") : (session?.user?.name || "Scholar");
-  const displayImage = isRemoteMode ? (scholarInfo?.image || undefined) : (session?.user?.image || undefined);
+  const displayName = isRemoteMode ? (remoteUser?.name || "Scholar") : (user?.name || "Scholar");
+  const displayImage = isRemoteMode ? (remoteUser?.image || undefined) : (user?.image || undefined);
 
   return (
     <Flex h="100vh" bg="gray.50">
@@ -239,13 +217,13 @@ function ScholarPageInner() {
         >
           {conversations.map((conv) => (
             <HStack
-              key={conv.id}
+              key={conv._id}
               p={3}
               borderRadius="lg"
               cursor="pointer"
-              bg={activeConversationId === conv.id ? "whiteAlpha.200" : "transparent"}
+              bg={activeConversationId === conv._id ? "whiteAlpha.200" : "transparent"}
               _hover={{ bg: "whiteAlpha.100" }}
-              onClick={() => setActiveConversationId(conv.id)}
+              onClick={() => setActiveConversationId(conv._id)}
               justify="space-between"
             >
               <HStack gap={3} flex={1} overflow="hidden">
@@ -270,7 +248,7 @@ function ScholarPageInner() {
                 _hover={{ opacity: 1, bg: "whiteAlpha.200" }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleArchiveConversation(conv.id);
+                  handleArchiveConversation(conv._id);
                 }}
               >
                 <FiTrash2 />
@@ -320,7 +298,7 @@ function ScholarPageInner() {
                 variant="ghost"
                 color="white"
                 _hover={{ bg: "whiteAlpha.200" }}
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={() => signOut()}
               >
                 <FiLogOut />
               </IconButton>
@@ -357,7 +335,7 @@ function ScholarPageInner() {
         {activeConversationId ? (
           <ChatInterface
             conversationId={activeConversationId}
-            onConversationUpdate={fetchConversations}
+            onConversationUpdate={() => {}}
           />
         ) : (
           <Flex
@@ -421,17 +399,5 @@ function ScholarPageInner() {
         )}
       </Flex>
     </Flex>
-  );
-}
-
-export default function ScholarPage() {
-  return (
-    <Suspense fallback={
-      <Flex minH="100vh" bg="gray.50" align="center" justify="center">
-        <Spinner size="xl" color="violet.500" />
-      </Flex>
-    }>
-      <ScholarPageInner />
-    </Suspense>
   );
 }

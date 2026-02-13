@@ -1,40 +1,67 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
+import { useRouter } from "next/navigation";
 import { Box, Button, Container, Heading, Text, VStack, HStack, Separator } from "@chakra-ui/react";
 import { FcGoogle } from "react-icons/fc";
 import { FiUser, FiBook } from "react-icons/fi";
+import { useState, useEffect } from "react";
 
-// Test users - same as in lib/auth.ts
-const TEST_USERS = {
-  teacher: {
-    id: "test-teacher-001",
-    name: "Test Teacher",
-    role: "teacher",
-  },
-  scholar1: {
-    id: "test-scholar-001",
-    name: "Kai Nakamura",
-    role: "scholar",
-  },
-  scholar2: {
-    id: "test-scholar-002",
-    name: "Lani Kealoha",
-    role: "scholar",
-  },
-  scholar3: {
-    id: "test-scholar-003",
-    name: "Noah Takahashi",
-    role: "scholar",
-  },
-};
+// Test users for dev login
+const TEST_USERS = [
+  { id: "test-teacher-001", name: "Test Teacher", role: "teacher" },
+  { id: "test-scholar-001", name: "Kai Nakamura", role: "scholar" },
+  { id: "test-scholar-002", name: "Lani Kealoha", role: "scholar" },
+  { id: "test-scholar-003", name: "Noah Takahashi", role: "scholar" },
+];
 
 export default function LoginPage() {
-  const handleTestLogin = (testUserId: string) => {
-    signIn("test-login", {
-      testUserId,
-      callbackUrl: "/",
-    });
+  const { signIn } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  // Redirect to home when authenticated (home page routes by role)
+  useEffect(() => {
+    if (isAuthenticated) {
+      window.location.href = "/";
+    }
+  }, [isAuthenticated]);
+
+  const handleGoogleLogin = async () => {
+    setIsSigningIn(true);
+    try {
+      await signIn("google");
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleTestLogin = async (testUser: (typeof TEST_USERS)[number]) => {
+    setIsSigningIn(true);
+    try {
+      await signIn("password", {
+        email: `${testUser.id}@test.makawulu.dev`,
+        password: testUser.id,
+        flow: "signUp",
+      }).catch(() => {
+        // If signup fails (already exists), try sign in
+        return signIn("password", {
+          email: `${testUser.id}@test.makawulu.dev`,
+          password: testUser.id,
+          flow: "signIn",
+        });
+      });
+      // signIn resolved — token stored. Hard navigate so ConvexAuthProvider
+      // initializes fresh with the stored token on page load.
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Test login error:", error);
+      setIsSigningIn(false);
+    }
   };
 
   return (
@@ -147,7 +174,8 @@ export default function LoginPage() {
             fontFamily="heading"
             fontWeight="500"
             h={14}
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            disabled={isSigningIn}
+            onClick={handleGoogleLogin}
           >
             <FcGoogle style={{ marginRight: "12px", fontSize: "24px" }} />
             Sign in with Google
@@ -182,7 +210,8 @@ export default function LoginPage() {
               _hover={{ bg: "violet.600" }}
               fontFamily="heading"
               fontWeight="500"
-              onClick={() => handleTestLogin(TEST_USERS.teacher.id)}
+              disabled={isSigningIn}
+              onClick={() => handleTestLogin(TEST_USERS[0])}
             >
               <FiUser style={{ marginRight: "8px" }} />
               Login as Teacher
@@ -199,26 +228,25 @@ export default function LoginPage() {
                 Test Scholars:
               </Text>
               <HStack gap={2} w="full" flexWrap="wrap">
-                {[TEST_USERS.scholar1, TEST_USERS.scholar2, TEST_USERS.scholar3].map(
-                  (scholar) => (
-                    <Button
-                      key={scholar.id}
-                      size="sm"
-                      flex={1}
-                      minW="120px"
-                      bg="navy.500"
-                      color="white"
-                      _hover={{ bg: "navy.600" }}
-                      fontFamily="heading"
-                      fontWeight="400"
-                      fontSize="xs"
-                      onClick={() => handleTestLogin(scholar.id)}
-                    >
-                      <FiBook style={{ marginRight: "4px" }} />
-                      {scholar.name.split(" ")[0]}
-                    </Button>
-                  )
-                )}
+                {TEST_USERS.slice(1).map((scholar) => (
+                  <Button
+                    key={scholar.id}
+                    size="sm"
+                    flex={1}
+                    minW="120px"
+                    bg="navy.500"
+                    color="white"
+                    _hover={{ bg: "navy.600" }}
+                    fontFamily="heading"
+                    fontWeight="400"
+                    fontSize="xs"
+                    disabled={isSigningIn}
+                    onClick={() => handleTestLogin(scholar)}
+                  >
+                    <FiBook style={{ marginRight: "4px" }} />
+                    {scholar.name.split(" ")[0]}
+                  </Button>
+                ))}
               </HStack>
             </VStack>
           </VStack>

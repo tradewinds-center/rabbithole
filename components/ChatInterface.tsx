@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Flex,
   VStack,
-  HStack,
   Text,
   Textarea,
   IconButton,
@@ -15,29 +14,15 @@ import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: string;
-  personaId?: string | null;
-  projectId?: string | null;
-  perspectiveId?: string | null;
-}
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 interface DimensionOption {
   id: string;
   title: string;
   emoji?: string | null;
   icon?: string | null;
-}
-
-interface ConversationData {
-  title: string;
-  personaId: string | null;
-  projectId: string | null;
-  perspectiveId: string | null;
 }
 
 interface ChatInterfaceProps {
@@ -49,24 +34,64 @@ export function ChatInterface({
   conversationId,
   onConversationUpdate,
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Dimension state
-  const [conversationData, setConversationData] = useState<ConversationData>({
-    title: "New Conversation",
-    personaId: null,
-    projectId: null,
-    perspectiveId: null,
-  });
-  const [personaOptions, setPersonaOptions] = useState<DimensionOption[]>([]);
-  const [projectOptions, setProjectOptions] = useState<DimensionOption[]>([]);
-  const [perspectiveOptions, setPerspectiveOptions] = useState<DimensionOption[]>([]);
+  // Convex queries for dimension options (reactive, auto-updating)
+  const personas = useQuery(api.personas.list) ?? [];
+  const projects = useQuery(api.projects.list) ?? [];
+  const perspectives = useQuery(api.perspectives.list) ?? [];
+
+  const personaOptions: DimensionOption[] = personas.map((p) => ({
+    id: p._id,
+    title: p.title,
+    emoji: p.emoji,
+  }));
+  const projectOptions: DimensionOption[] = projects.map((p) => ({
+    id: p._id,
+    title: p.title,
+  }));
+  const perspectiveOptions: DimensionOption[] = perspectives.map((p) => ({
+    id: p._id,
+    title: p.title,
+    icon: p.icon ?? null,
+  }));
+
+  // Convex query for conversation + messages (reactive, auto-updating)
+  const convData = useQuery(
+    api.conversations.getWithMessages,
+    { id: conversationId as Id<"conversations"> }
+  );
+
+  const messages = convData?.messages ?? [];
+  const conversationData = convData?.conversation
+    ? {
+        title: convData.conversation.title,
+        personaId: convData.conversation.personaId
+          ? String(convData.conversation.personaId)
+          : null,
+        projectId: convData.conversation.projectId
+          ? String(convData.conversation.projectId)
+          : null,
+        perspectiveId: convData.conversation.perspectiveId
+          ? String(convData.conversation.perspectiveId)
+          : null,
+      }
+    : {
+        title: "New Conversation",
+        personaId: null,
+        projectId: null,
+        perspectiveId: null,
+      };
+
+  // Convex mutation for updating conversation dimensions
+  const updateConversation = useMutation(api.conversations.update);
+
+  // Convex mutation for sending messages
+  const sendMsg = useMutation(api.chat.sendMessage);
 
   const sendMessageRef = useRef<(text: string) => void>(() => {});
 
@@ -74,6 +99,9 @@ export function ChatInterface({
     useVoiceDictation((text) => {
       sendMessageRef.current(text);
     });
+
+  // Loading state: convData is undefined while the query is loading
+  const isLoading = convData === undefined;
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -84,73 +112,6 @@ export function ChatInterface({
     scrollToBottom();
   }, [messages, streamingContent]);
 
-  // Fetch dimension options (once)
-  useEffect(() => {
-    const fetchDimensions = async () => {
-      try {
-        const [personaRes, projectRes, perspectiveRes] = await Promise.all([
-          fetch("/api/personas"),
-          fetch("/api/projects"),
-          fetch("/api/perspectives"),
-        ]);
-        if (personaRes.ok) {
-          const data = await personaRes.json();
-          setPersonaOptions(data.personas.map((p: { id: string; title: string; emoji: string }) => ({
-            id: p.id,
-            title: p.title,
-            emoji: p.emoji,
-          })));
-        }
-        if (projectRes.ok) {
-          const data = await projectRes.json();
-          setProjectOptions(data.projects.map((p: { id: string; title: string }) => ({
-            id: p.id,
-            title: p.title,
-          })));
-        }
-        if (perspectiveRes.ok) {
-          const data = await perspectiveRes.json();
-          setPerspectiveOptions(data.perspectives.map((p: { id: string; title: string; icon: string | null }) => ({
-            id: p.id,
-            title: p.title,
-            icon: p.icon,
-          })));
-        }
-      } catch (error) {
-        console.error("Error fetching dimensions:", error);
-      }
-    };
-    fetchDimensions();
-  }, []);
-
-  // Fetch messages and conversation data when conversation changes
-  const fetchMessages = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/conversations/${conversationId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-        if (data.conversation) {
-          setConversationData({
-            title: data.conversation.title || "New Conversation",
-            personaId: data.conversation.personaId || null,
-            projectId: data.conversation.projectId || null,
-            perspectiveId: data.conversation.perspectiveId || null,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [conversationId]);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
   // Auto-focus textarea when conversation changes or finishes loading
   useEffect(() => {
     if (!isLoading && textareaRef.current) {
@@ -158,29 +119,23 @@ export function ChatInterface({
     }
   }, [isLoading, conversationId]);
 
-  // Handle dimension changes (PATCH conversation)
+  // Handle dimension changes via Convex mutation
   const handleDimensionChange = async (
     field: "personaId" | "projectId" | "perspectiveId",
     value: string | null
   ) => {
-    // Optimistic update
-    setConversationData((prev) => ({ ...prev, [field]: value }));
-
     try {
-      await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+      await updateConversation({
+        id: conversationId as Id<"conversations">,
+        [field]: value as Id<"personas"> | Id<"projects"> | Id<"perspectives"> | null,
       });
       onConversationUpdate?.();
     } catch (error) {
       console.error("Error updating dimension:", error);
-      // Revert on error
-      fetchMessages();
     }
   };
 
-  // Send message (optionally with direct text, e.g. from voice dictation)
+  // Send message via Convex mutation + HTTP streaming
   const handleSend = async (directText?: string) => {
     const userMessage = directText?.trim() || input.trim();
     if (!userMessage || isStreaming) return;
@@ -189,28 +144,27 @@ export function ChatInterface({
     setIsStreaming(true);
     setStreamingContent("");
 
-    // Optimistically add user message
-    const tempUserMsg: Message = {
-      id: `temp-${Date.now()}`,
-      role: "user",
-      content: userMessage,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, tempUserMsg]);
-
     try {
-      const res = await fetch("/api/chat", {
+      // Send message via Convex mutation (creates user msg + placeholder assistant msg)
+      const result = await sendMsg({
+        conversationId: conversationId as Id<"conversations">,
+        message: userMessage,
+      });
+
+      // Stream from HTTP action
+      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
+        ".cloud",
+        ".site"
+      );
+      const res = await fetch(`${convexUrl}/chat-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId,
-          message: userMessage,
+          conversationId: result.conversationId,
+          streamId: result.streamId,
+          assistantMsgId: result.assistantMsgId,
         }),
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to send message");
-      }
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -232,14 +186,8 @@ export function ChatInterface({
                   fullContent += data.text;
                   setStreamingContent(fullContent);
                 } else if (data.done) {
-                  // Add assistant message to list
-                  const assistantMsg: Message = {
-                    id: data.messageId,
-                    role: "assistant",
-                    content: fullContent,
-                    createdAt: new Date().toISOString(),
-                  };
-                  setMessages((prev) => [...prev, assistantMsg]);
+                  // Stream finalized on the server side.
+                  // Convex reactive query will auto-update messages.
                   setStreamingContent("");
                   onConversationUpdate?.();
                 }
@@ -252,8 +200,6 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove optimistic message on error
-      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
     } finally {
       setIsStreaming(false);
     }
@@ -348,7 +294,7 @@ export function ChatInterface({
                 id: "streaming",
                 role: "assistant",
                 content: streamingContent,
-                createdAt: new Date().toISOString(),
+                createdAt: Date.now(),
                 personaId: conversationData.personaId,
               }}
               personaOptions={personaOptions}
@@ -465,13 +411,24 @@ export function ChatInterface({
   );
 }
 
+// Message type matching what Convex getWithMessages returns
+interface MessageData {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: number;
+  personaId?: string | null;
+  projectId?: string | null;
+  perspectiveId?: string | null;
+}
+
 // Message Bubble Component
 function MessageBubble({
   message,
   personaOptions = [],
   isStreaming = false,
 }: {
-  message: Message;
+  message: MessageData;
   personaOptions?: DimensionOption[];
   isStreaming?: boolean;
 }) {

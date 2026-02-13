@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   Box,
   Flex,
@@ -29,19 +32,20 @@ type EntityType = "project" | "persona" | "perspective";
 
 interface Entity {
   id: string;
+  _id: string;
   title: string;
-  description: string | null;
-  systemPrompt: string | null;
+  description?: string;
+  systemPrompt?: string;
   isActive: boolean;
   teacherName: string | null;
-  createdAt: string;
+  createdAt: number;
   // Project-specific
-  rubric?: string | null;
-  targetBloomLevel?: string | null;
+  rubric?: string;
+  targetBloomLevel?: string;
   // Persona-specific
-  emoji?: string | null;
+  emoji?: string;
   // Perspective-specific
-  icon?: string | null;
+  icon?: string;
 }
 
 interface EntityManagerProps {
@@ -59,35 +63,29 @@ const BLOOM_LEVELS = [
   { value: "create", label: "Create" },
 ];
 
+const VALID_BLOOM_VALUES = ["remember", "understand", "apply", "analyze", "evaluate", "create"] as const;
+
 const CONFIG: Record<EntityType, {
   label: string;
   plural: string;
-  apiPath: string;
-  responseKey: string;
   icon: typeof FiBook;
   color: string;
 }> = {
   project: {
     label: "Project",
     plural: "Projects",
-    apiPath: "/api/projects",
-    responseKey: "projects",
     icon: FiBook,
     color: "violet",
   },
   persona: {
     label: "Persona",
     plural: "Personas",
-    apiPath: "/api/personas",
-    responseKey: "personas",
     icon: FiSmile,
     color: "orange",
   },
   perspective: {
     label: "Perspective",
     plural: "Perspectives",
-    apiPath: "/api/perspectives",
-    responseKey: "perspectives",
     icon: FiEye,
     color: "teal",
   },
@@ -97,8 +95,26 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
   const config = CONFIG[entityType];
   const Icon = config.icon;
 
-  const [entities, setEntities] = useState<Entity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Convex queries - reactively fetch entities
+  const entities = useQuery(
+    entityType === "persona" ? api.personas.list :
+    entityType === "project" ? api.projects.list :
+    api.perspectives.list
+  ) as Entity[] | undefined;
+
+  // Convex mutations
+  const createPersona = useMutation(api.personas.create);
+  const updatePersona = useMutation(api.personas.update);
+  const deactivatePersona = useMutation(api.personas.deactivate);
+
+  const createProject = useMutation(api.projects.create);
+  const updateProject = useMutation(api.projects.update);
+  const deactivateProject = useMutation(api.projects.deactivate);
+
+  const createPerspective = useMutation(api.perspectives.create);
+  const updatePerspective = useMutation(api.perspectives.update);
+  const deactivatePerspective = useMutation(api.perspectives.deactivate);
+
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -117,24 +133,7 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
     icon: "",
   });
 
-  // Fetch entities
-  const fetchEntities = useCallback(async () => {
-    try {
-      const res = await fetch(config.apiPath);
-      if (res.ok) {
-        const data = await res.json();
-        setEntities(data[config.responseKey]);
-      }
-    } catch (error) {
-      console.error(`Error fetching ${config.plural}:`, error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [config.apiPath, config.responseKey, config.plural]);
-
-  useEffect(() => {
-    fetchEntities();
-  }, [fetchEntities]);
+  const isLoading = entities === undefined;
 
   const resetForm = () => ({
     title: "",
@@ -172,42 +171,68 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
 
     setIsSaving(true);
     try {
-      const payload: Record<string, unknown> = {
-        title: formData.title,
-        description: formData.description,
-        systemPrompt: formData.systemPrompt,
-      };
-
-      if (entityType === "project") {
-        payload.rubric = formData.rubric;
-        payload.targetBloomLevel = formData.targetBloomLevel;
-      } else if (entityType === "persona") {
-        payload.emoji = formData.emoji;
-      } else if (entityType === "perspective") {
-        payload.icon = formData.icon;
-      }
-
       if (editingEntity) {
-        const res = await fetch(`${config.apiPath}/${editingEntity.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-          fetchEntities();
-          setIsCreating(false);
-          setEditingEntity(null);
+        // Update existing entity
+        const entityId = editingEntity._id;
+
+        if (entityType === "persona") {
+          await updatePersona({
+            id: entityId as Id<"personas">,
+            title: formData.title,
+            emoji: formData.emoji,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+          });
+        } else if (entityType === "project") {
+          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
+          await updateProject({
+            id: entityId as Id<"projects">,
+            title: formData.title,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+            rubric: formData.rubric || undefined,
+            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
+          });
+        } else {
+          await updatePerspective({
+            id: entityId as Id<"perspectives">,
+            title: formData.title,
+            icon: formData.icon || undefined,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+          });
         }
+
+        setIsCreating(false);
+        setEditingEntity(null);
       } else {
-        const res = await fetch(config.apiPath, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-          fetchEntities();
-          setIsCreating(false);
+        // Create new entity
+        if (entityType === "persona") {
+          await createPersona({
+            title: formData.title,
+            emoji: formData.emoji,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+          });
+        } else if (entityType === "project") {
+          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
+          await createProject({
+            title: formData.title,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+            rubric: formData.rubric || undefined,
+            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
+          });
+        } else {
+          await createPerspective({
+            title: formData.title,
+            icon: formData.icon || undefined,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+          });
         }
+
+        setIsCreating(false);
       }
     } catch (error) {
       console.error(`Error saving ${config.label}:`, error);
@@ -218,11 +243,12 @@ export function EntityManager({ entityType, onClose }: EntityManagerProps) {
 
   const handleDelete = async (entityId: string) => {
     try {
-      const res = await fetch(`${config.apiPath}/${entityId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        fetchEntities();
+      if (entityType === "persona") {
+        await deactivatePersona({ id: entityId as Id<"personas"> });
+      } else if (entityType === "project") {
+        await deactivateProject({ id: entityId as Id<"projects"> });
+      } else {
+        await deactivatePerspective({ id: entityId as Id<"perspectives"> });
       }
     } catch (error) {
       console.error(`Error deleting ${config.label}:`, error);

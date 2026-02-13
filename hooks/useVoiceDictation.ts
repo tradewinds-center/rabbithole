@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 type DictationState = "idle" | "recording" | "transcribing";
 
@@ -12,11 +14,26 @@ function getSupportedMimeType(): string {
   return "";
 }
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      // Strip the data:audio/...;base64, prefix
+      resolve(dataUrl.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function useVoiceDictation(onTranscript: (text: string) => void) {
   const [state, setState] = useState<DictationState>("idle");
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  const transcribe = useAction(api.audioActions.transcribe);
 
   const toggleRecording = useCallback(async () => {
     if (state === "transcribing") return;
@@ -62,14 +79,9 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
 
       setState("transcribing");
       try {
-        const form = new FormData();
-        form.append("audio", blob, mimeType.includes("mp4") ? "recording.mp4" : "recording.webm");
-
-        const res = await fetch("/api/transcribe", { method: "POST", body: form });
-        if (!res.ok) throw new Error("Transcription failed");
-
-        const data = await res.json();
-        if (data.text) onTranscript(data.text);
+        const audioBase64 = await blobToBase64(blob);
+        const result = await transcribe({ audioBase64, mimeType });
+        if (result.text) onTranscript(result.text);
       } catch {
         setError("Transcription failed. Please try again.");
       } finally {
@@ -80,7 +92,7 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     recorderRef.current = recorder;
     recorder.start();
     setState("recording");
-  }, [state, onTranscript]);
+  }, [state, onTranscript, transcribe]);
 
   return { state, error, toggleRecording };
 }

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   Box,
   Flex,
@@ -13,7 +16,6 @@ import {
   Textarea,
   Spinner,
   Badge,
-  Select,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -26,31 +28,6 @@ import {
   FiBookOpen,
   FiTarget,
 } from "react-icons/fi";
-
-interface ScholarTopic {
-  id: string;
-  topic: string;
-  bloomLevel: string;
-  teacherRating: number;
-  mentionCount: number;
-}
-
-interface SuggestedTopic {
-  id: string;
-  topic: string;
-  rationale: string | null;
-  targetBloomLevel: string | null;
-  explored: boolean;
-}
-
-interface Scholar {
-  id: string;
-  email: string;
-  name: string;
-  image?: string;
-  readingLevel?: string | null;
-  createdAt: string;
-}
 
 interface ScholarProfileProps {
   scholarId: string;
@@ -94,49 +71,33 @@ const READING_LEVELS = [
 ];
 
 export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
-  const [scholar, setScholar] = useState<Scholar | null>(null);
-  const [topics, setTopics] = useState<ScholarTopic[]>([]);
-  const [suggestions, setSuggestions] = useState<SuggestedTopic[]>([]);
-  const [stats, setStats] = useState({ conversationCount: 0, messageCount: 0, topicCount: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
+  const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
+  const rateTopic = useMutation(api.scholars.rateTopic);
+  const addSuggestion = useMutation(api.scholars.addSuggestion);
+  const removeSuggestion = useMutation(api.scholars.removeSuggestion);
+
+  const { scholar, topics, suggestions, stats } = profile ?? {
+    scholar: null,
+    topics: [],
+    suggestions: [],
+    stats: { conversationCount: 0, messageCount: 0, topicCount: 0 },
+  };
+
+  const isLoading = profile === undefined;
+
   const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
   const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
-
-  // Fetch scholar profile
-  const fetchProfile = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/scholars/${scholarId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setScholar(data.scholar);
-        setTopics(data.topics);
-        setSuggestions(data.suggestions);
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error("Error fetching scholar profile:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [scholarId]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
     setIsSavingReadingLevel(true);
     try {
-      const res = await fetch(`/api/scholars/${scholarId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ readingLevel: newLevel || null }),
+      await updateReadingLevel({
+        scholarId: scholarId as Id<"users">,
+        readingLevel: newLevel || null,
       });
-      if (res.ok) {
-        setScholar((prev) => prev ? { ...prev, readingLevel: newLevel || null } : prev);
-      }
     } catch (error) {
       console.error("Error updating reading level:", error);
     } finally {
@@ -147,15 +108,10 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   // Rate a topic
   const handleRateTopic = async (topicId: string, rating: number) => {
     try {
-      await fetch(`/api/scholars/${scholarId}/topics`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId, rating }),
+      await rateTopic({
+        topicId: topicId as Id<"scholarTopics">,
+        rating,
       });
-      // Update local state
-      setTopics((prev) =>
-        prev.map((t) => (t.id === topicId ? { ...t, teacherRating: rating } : t))
-      );
     } catch (error) {
       console.error("Error rating topic:", error);
     }
@@ -167,16 +123,13 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
 
     setIsAddingSuggestion(true);
     try {
-      const res = await fetch(`/api/scholars/${scholarId}/suggestions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newSuggestion),
+      await addSuggestion({
+        scholarId: scholarId as Id<"users">,
+        topic: newSuggestion.topic,
+        ...(newSuggestion.rationale.trim() ? { rationale: newSuggestion.rationale } : {}),
+        ...(newSuggestion.targetBloomLevel ? { targetBloomLevel: newSuggestion.targetBloomLevel as "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" } : {}),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setSuggestions((prev) => [data.suggestion, ...prev]);
-        setNewSuggestion({ topic: "", rationale: "", targetBloomLevel: "apply" });
-      }
+      setNewSuggestion({ topic: "", rationale: "", targetBloomLevel: "apply" });
     } catch (error) {
       console.error("Error adding suggestion:", error);
     } finally {
@@ -187,10 +140,9 @@ export function ScholarProfile({ scholarId, onClose }: ScholarProfileProps) {
   // Delete a suggested topic
   const handleDeleteSuggestion = async (suggestionId: string) => {
     try {
-      await fetch(`/api/scholars/${scholarId}/suggestions?suggestionId=${suggestionId}`, {
-        method: "DELETE",
+      await removeSuggestion({
+        suggestionId: suggestionId as Id<"suggestedTopics">,
       });
-      setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
     } catch (error) {
       console.error("Error deleting suggestion:", error);
     }

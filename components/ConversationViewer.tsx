@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Flex,
@@ -24,12 +24,15 @@ import {
   FiMessageCircle,
 } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
-  createdAt: string;
+  createdAt: number;
   flagged?: boolean;
   flagReason?: string;
 }
@@ -90,102 +93,78 @@ interface ConversationViewerProps {
 export function ConversationViewer({
   conversationId,
   onClose,
-  onUpdate,
 }: ConversationViewerProps) {
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [whisper, setWhisper] = useState("");
   const [isSavingWhisper, setIsSavingWhisper] = useState(false);
   const [activeTab, setActiveTab] = useState<"messages" | "insights">("messages");
 
-  // Fetch conversation data
-  const fetchConversation = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/conversations/${conversationId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setConversation(data.conversation);
-        setMessages(data.messages || []);
-        setWhisper(data.conversation.teacherWhisper || "");
-      }
-    } catch (error) {
-      console.error("Error fetching conversation:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [conversationId]);
+  // Convex queries - reactively update when data changes
+  const convData = useQuery(api.conversations.getWithMessages, {
+    id: conversationId as Id<"conversations">,
+  });
+  const conversation = (convData?.conversation as Conversation | undefined) ?? null;
+  const messages = (convData?.messages as Message[] | undefined) ?? [];
 
-  // Fetch analysis
-  const fetchAnalysis = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/observe?conversationId=${conversationId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.analyses && data.analyses.length > 0) {
-          setAnalysis(data.analyses[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching analysis:", error);
-    }
-  }, [conversationId]);
+  const latestAnalysis = useQuery(api.analyses.getLatest, {
+    conversationId: conversationId as Id<"conversations">,
+  });
 
+  // Map latestAnalysis to the Analysis interface
+  const analysis: Analysis | null = latestAnalysis
+    ? {
+        engagementScore: latestAnalysis.engagementScore ?? 0,
+        complexityLevel: latestAnalysis.complexityLevel ?? 0,
+        onTaskScore: latestAnalysis.onTaskScore ?? 0,
+        topics: latestAnalysis.topics ?? [],
+        learningIndicators: latestAnalysis.learningIndicators ?? [],
+        concernFlags: latestAnalysis.concernFlags ?? [],
+        summary: latestAnalysis.summary ?? "",
+        suggestedIntervention: latestAnalysis.suggestedIntervention ?? null,
+      }
+    : null;
+
+  // Convex mutation for updating conversation
+  const updateConversation = useMutation(api.conversations.update);
+
+  // Sync whisper from conversation data
   useEffect(() => {
-    fetchConversation();
-    fetchAnalysis();
-  }, [fetchConversation, fetchAnalysis]);
+    if (conversation?.teacherWhisper !== undefined) {
+      setWhisper(conversation.teacherWhisper ?? "");
+    }
+  }, [conversation?.teacherWhisper]);
 
-  // Run AI analysis with summary, nudges, and Bloom's taxonomy
+  // Run AI analysis via HTTP action
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     try {
-      // Run the new AI analysis endpoint
-      const aiRes = await fetch(`/api/conversations/${conversationId}/analyze`, {
-        method: "POST",
-      });
-      if (aiRes.ok) {
-        const aiData = await aiRes.json();
-        setAiAnalysis(aiData);
-      }
-
-      // Also run the observer analysis for metrics
-      const res = await fetch("/api/observe", {
+      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(".cloud", ".site");
+      const res = await fetch(`${convexUrl}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId }),
       });
       if (res.ok) {
         const data = await res.json();
-        setAnalysis(data.analysis);
+        if (data.detailed) setAiAnalysis(data.detailed);
+        // Observer analysis is auto-saved to DB, so latestAnalysis query will update reactively
       }
-
-      await fetchConversation();
-      onUpdate();
     } catch (error) {
-      console.error("Error analyzing conversation:", error);
+      console.error("Error analyzing:", error);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Save whisper
+  // Save whisper via Convex mutation
   const handleSaveWhisper = async () => {
     setIsSavingWhisper(true);
     try {
-      const res = await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherWhisper: whisper || null }),
+      await updateConversation({
+        id: conversationId as Id<"conversations">,
+        teacherWhisper: whisper || undefined,
       });
-      if (res.ok) {
-        await fetchConversation();
-        onUpdate();
-      }
     } catch (error) {
       console.error("Error saving whisper:", error);
     } finally {
@@ -193,16 +172,13 @@ export function ConversationViewer({
     }
   };
 
-  // Update status
+  // Update status via Convex mutation
   const handleUpdateStatus = async (status: "green" | "yellow" | "red") => {
     try {
-      await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+      await updateConversation({
+        id: conversationId as Id<"conversations">,
+        status,
       });
-      await fetchConversation();
-      onUpdate();
     } catch (error) {
       console.error("Error updating status:", error);
     }
@@ -214,7 +190,7 @@ export function ConversationViewer({
     red: { icon: FiAlertCircle, label: "Intervention", color: "red" },
   };
 
-  if (isLoading) {
+  if (convData === undefined) {
     return (
       <Box
         w={{ base: "full", md: "450px" }}

@@ -7,20 +7,19 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 ## Roadmap
 
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
-- [x] **Categorize by Assignment** - Link conversations to specific assignments/projects ✅ (Jan 2026)
+- [x] **Categorize by Assignment** - Link conversations to specific assignments/projects
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
-- [x] **Reading Level** - Teacher-settable reading level per scholar ✅ (Jan 2026)
+- [x] **Reading Level** - Teacher-settable reading level per scholar
 - [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
-- [ ] **Best Quote of the Day → FB** - Surface and post exceptional scholar insights to Facebook
+- [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
 - [ ] **Focus Mode** - Teacher can "lock" a particular project so scholars must work in it
-- [ ] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
+- [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
 - [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
-- [ ] **Scholar Projects UI Redesign** - Replace current project UI with dropdown selector; current IA is confusing
 - [ ] **Text-to-Speech** - Click to have Makawulu read responses aloud (OpenAI TTS or browser SpeechSynthesis)
-- [ ] **Stack Migration** - Migrate from SQLite/Next.js to Convex + TanStack Router + Vite
-- [ ] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId}), seeing exactly what the scholar sees using existing routes
+- [x] **Convex Migration** - Migrated from SQLite/Drizzle/NextAuth to Convex (Feb 2026)
+- [x] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId})
 
 ---
 
@@ -39,10 +38,11 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 14, React 18, Chakra UI 3 |
-| Backend | Next.js App Router, NextAuth.js |
-| Database | SQLite (better-sqlite3), Drizzle ORM |
+| Backend | Convex (queries, mutations, actions, HTTP actions) |
+| Database | Convex (real-time, reactive) |
 | AI | Anthropic Claude (claude-sonnet-4-20250514) |
-| Auth | Google OAuth, role-based (scholar/teacher/admin) |
+| Auth | @convex-dev/auth with Google OAuth |
+| Voice | OpenAI Whisper (transcription via Convex action) |
 
 ---
 
@@ -50,44 +50,93 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 ### Scholar Interface
 - Create and manage conversations with AI tutor
-- Real-time streaming chat
+- Real-time streaming chat (HTTP SSE via Convex HTTP action)
+- Voice dictation (OpenAI Whisper)
+- Dimension selectors: persona, project, perspective
 - Archive/rename conversations
 
 ### Teacher Dashboard
-- View all scholars with status indicators (green/yellow/red)
+- View all scholars with real-time status updates (no polling needed)
 - Read any conversation with AI analysis
 - **Teacher Whispers**: Inject private guidance into system prompt
 - **Topic Tracking**: Bloom's taxonomy levels, teacher ratings, mention counts
 - **Suggested Topics**: Curate exploration areas for each scholar
 - **Observations**: Record praise, concerns, suggestions, interventions
+- **Remote Mode**: Open scholar view in new tab (?remote={userId})
 
-### AI Analysis (auto-generated)
-- Engagement score (0-1)
-- Complexity level (0-1)
-- On-task assessment
-- Topic extraction
-- Learning indicators
-- Concern flags
-- Intervention recommendations
+### AI Analysis (triggered by teacher)
+- Observer analysis: engagement score, complexity level, on-task assessment, topics, learning indicators, concern flags
+- Detailed analysis: Bloom's taxonomy level, nudges, follow-up suggestions, topic upsert
+
+---
+
+## Architecture
+
+### Convex Backend (`convex/`)
+
+| File | Purpose |
+|------|---------|
+| `schema.ts` | Database schema (10 tables with indexes) |
+| `auth.config.ts` | Google OAuth provider config |
+| `auth.ts` | Auth functions from @convex-dev/auth |
+| `lib/auth.ts` | Helpers: getCurrentUser, requireTeacher, requireAdmin |
+| `lib/customFunctions.ts` | authedQuery/Mutation, teacherQuery/Mutation wrappers |
+| `users.ts` | User queries: currentUser, listScholars, getUser |
+| `conversations.ts` | CRUD + getWithMessages (reactive) |
+| `messages.ts` | Message queries and insertions |
+| `chat.ts` | sendMessage mutation (creates user msg + placeholder) |
+| `chatHelpers.ts` | System prompt builder, conversation context |
+| `http.ts` | HTTP actions: /chat-stream (SSE), /analyze |
+| `personas.ts` | Persona CRUD |
+| `perspectives.ts` | Perspective CRUD |
+| `projects.ts` | Project CRUD |
+| `scholars.ts` | Scholar profile, topics, suggestions |
+| `observations.ts` | Teacher observation CRUD |
+| `analyses.ts` | Analysis queries |
+| `analysisActions.ts` | "use node" actions for Claude Haiku analysis |
+| `analysisHelpers.ts` | Internal mutations for analysis results |
+| `audioActions.ts` | "use node" action for OpenAI Whisper transcription |
+| `seed.ts` | Seed personas, perspectives, test users |
+
+### Frontend
+
+| File | Purpose |
+|------|---------|
+| `app/providers.tsx` | ConvexAuthProvider + ChakraProvider |
+| `app/page.tsx` | Auth redirect (role-based routing) |
+| `app/login/page.tsx` | Google OAuth + test user login |
+| `app/scholar/page.tsx` | Scholar chat interface with sidebar |
+| `app/teacher/page.tsx` | Teacher dashboard (real-time via useQuery) |
+| `hooks/useCurrentUser.ts` | Current user hook (replaces useSession) |
+| `hooks/useVoiceDictation.ts` | Voice recording + Convex transcription |
+| `components/ChatInterface.tsx` | Streaming chat UI |
+| `components/ChatHeader.tsx` | Dimension selector dropdowns |
+| `components/ConversationViewer.tsx` | Teacher conversation viewer + analysis |
+| `components/ScholarProfile.tsx` | Scholar topics/suggestions panel |
+| `components/EntityManager.tsx` | CRUD for personas/projects/perspectives |
 
 ---
 
 ## Database Schema
 
 ```
-users           → scholars and teachers (role-based)
-conversations   → per-scholar, with status and teacherWhisper
-messages        → conversation history
-analyses        → AI analysis results
-observations    → teacher notes on scholars
-scholar_topics  → topics discovered + Bloom level + teacher rating
-suggested_topics → teacher-curated suggestions
+users             -> scholars and teachers (role-based)
+conversations     -> per-scholar, with status and teacherWhisper
+messages          -> conversation history
+analyses          -> AI analysis results
+observations      -> teacher notes on scholars
+scholarTopics     -> topics discovered + Bloom level + teacher rating
+suggestedTopics   -> teacher-curated suggestions
+personas          -> AI persona configurations
+perspectives      -> learning perspectives (Makawalu lenses)
+projects          -> teacher-created assignments/projects
 ```
 
 **Key relationships:**
-- 1 User → Many Conversations → Many Messages
-- 1 Conversation → Many Analyses
-- 1 Scholar → Many Topics, Many Suggestions, Many Observations
+- 1 User -> Many Conversations -> Many Messages
+- 1 Conversation -> Many Analyses
+- 1 Scholar -> Many Topics, Many Suggestions, Many Observations
+- Conversations reference optional persona, project, perspective
 
 ---
 
@@ -99,20 +148,22 @@ suggested_topics → teacher-curated suggestions
 | Teacher | All scholars, dashboard, whispers, observations |
 | Admin | Full system access |
 
-- `@tradewinds.school` emails → auto-assigned teacher role
-- Others → scholar role
+- `@tradewinds.school` emails -> auto-assigned teacher role
+- Others -> scholar role
 - Admins: andy@tradewinds.school, carl@tradewinds.school
+- Auth via @convex-dev/auth (Google OAuth + password provider for test users)
 
 ---
 
 ## Test Users (Development)
 
 ```
-Teacher: test.teacher@tradewinds.school
-Scholars (K-5):
-  Koa Medeiros (K), Lily Murphy (1st), Lani Kealoha (2nd), Kai Nakamura (3rd),
-  Sophie Anderson (4th), Noah Takahashi (5th), Jack Davis (5th)
-Reset: pnpm db:reset
+Teacher: test-teacher-001@test.makawulu.dev (password: test-teacher-001)
+Scholars:
+  Kai Nakamura: test-scholar-001@test.makawulu.dev
+  Lani Kealoha: test-scholar-002@test.makawulu.dev
+  Noah Takahashi: test-scholar-003@test.makawulu.dev
+Seed data: npx convex run seed:seedAll
 ```
 
 ---
@@ -120,11 +171,11 @@ Reset: pnpm db:reset
 ## Commands
 
 ```bash
-npm run dev          # Development server
+npm run dev          # Next.js dev server (port 1041)
 npm run build        # Production build
-npm run start        # Production server
-npm run db:push      # Run Drizzle migrations
-npm run db:studio    # Open Drizzle Studio UI
+npm run start        # Production server (port 1041)
+npx convex dev       # Convex dev server (run alongside npm run dev)
+npx convex run seed:seedAll  # Seed personas, perspectives, test users
 ```
 
 ---
@@ -132,114 +183,19 @@ npm run db:studio    # Open Drizzle Studio UI
 ## Environment Variables
 
 ```
-ANTHROPIC_API_KEY     # Claude API key
-GOOGLE_CLIENT_ID      # OAuth
-GOOGLE_CLIENT_SECRET  # OAuth
-NEXTAUTH_URL          # e.g., http://localhost:3000
-NEXTAUTH_SECRET       # Random secret for sessions
+NEXT_PUBLIC_CONVEX_URL  # Convex deployment URL
+ANTHROPIC_API_KEY       # Claude API key (set in Convex dashboard)
+OPENAI_API_KEY          # OpenAI Whisper key (set in Convex dashboard)
+GOOGLE_CLIENT_ID        # OAuth (set in Convex dashboard)
+GOOGLE_CLIENT_SECRET    # OAuth (set in Convex dashboard)
 ```
-
----
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `db/schema.ts` | Database schema (7 tables) |
-| `lib/auth.ts` | NextAuth config, roles, test users |
-| `lib/claude.ts` | Claude API, system prompts, analysis |
-| `app/scholar/page.tsx` | Scholar chat interface |
-| `app/teacher/page.tsx` | Teacher dashboard |
-| `components/ChatInterface.tsx` | Streaming chat UI |
-| `components/ScholarProfile.tsx` | Scholar topics/suggestions panel |
-
----
-
-## Google Classroom Integration (TODO)
-
-**Current Status:** No integration - standalone system
-
-**Required for integration:**
-- Google Classroom API OAuth scopes (roster, assignments, grades)
-- Roster sync: Classroom students → makawulu scholars
-- Assignment linking: conversations tied to coursework
-- Grade posting: feedback back to Classroom
-
-**Key API scopes needed:**
-- `classroom.courses.readonly` - List courses
-- `classroom.rosters.readonly` - Get students
-- `classroom.coursework.readonly` - Get assignments
-- `classroom.coursework.students` - Submit/grade work (read/write)
-
----
-
-## Kupuna/Parent Mode (TODO)
-
-Read-only access for family members:
-- View scholar's conversation history
-- See topic progression and Bloom levels
-- View teacher observations (praise type)
-- No chat capability, no whispers, no editing
-
-**Possible implementation:**
-- New role: `kupuna` or `parent`
-- Relationship table: parent_scholar (which parents see which scholars)
-- Filtered dashboard with celebration focus
-
----
-
-## Reading Level System ✅
-
-Teachers can set a reading level for each scholar (K through college):
-- Set via dropdown in Scholar Profile panel
-- Stored in `users.reading_level` column
-- Injected into Claude system prompt to adjust vocabulary/complexity
-- AI still explores advanced topics but frames them appropriately
-
-**TODO:** Auto-increase reading level based on AI analysis of vocabulary complexity over time.
-
----
-
-## Projects/Assignments ✅
-
-Teachers can create projects (assignments) with custom AI context:
-
-**Database:** `projects` table with:
-- `title`, `description`, `system_prompt`, `rubric`
-- `target_bloom_level` (optional cognitive depth target)
-- `is_active` (soft delete)
-
-**Teacher Workflow:**
-1. Click "Projects" button in dashboard header
-2. Create project with title, description, AI instructions, and rubric
-3. Set optional Bloom level (remember → create)
-
-**Scholar Workflow:**
-1. Sidebar shows "PROJECT" selector (General + any active projects)
-2. Select a project to see only conversations for that project
-3. "New Project Chat" creates a conversation linked to that project
-4. AI tutor receives project context, rubric, and cognitive target
-
-**API Endpoints:**
-- `GET/POST /api/projects` - List/create projects
-- `GET/PATCH/DELETE /api/projects/[id]` - Single project operations
-- `GET/POST /api/conversations?projectId=...` - Filter/create by project
-
----
-
-## Best Quote to Facebook (TODO)
-
-Surface and share exceptional insights:
-- AI flags "notable quotes" during analysis
-- Teacher approves/selects best quote
-- Integration with Meta Graph API to post to Tradewinds FB page
-- Include scholar first name (with permission) or anonymous
 
 ---
 
 ## Notes
 
-- Database is SQLite file (`makawulu.db`) - consider PostgreSQL for production
-- Streaming chat uses Server-Sent Events (SSE)
+- Convex provides real-time reactivity -- teacher dashboard updates instantly when scholars send messages (no polling)
+- Chat streaming uses HTTP SSE via Convex HTTP action at /chat-stream
 - Teacher whispers are appended to system prompt, invisible to scholars
-- Bloom's taxonomy: remember → understand → apply → analyze → evaluate → create
+- Bloom's taxonomy: remember -> understand -> apply -> analyze -> evaluate -> create
+- Voice dictation converts audio to base64, sends to Convex action which calls OpenAI Whisper
