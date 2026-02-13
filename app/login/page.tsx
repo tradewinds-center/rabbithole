@@ -112,52 +112,7 @@ export default function LoginPage() {
             >
               Makawulu
             </Heading>
-            <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
-              Learning AI Network
-            </Text>
           </VStack>
-
-          {/* Tagline */}
-          <VStack gap={2}>
-            <Text
-              color="charcoal.500"
-              fontSize="lg"
-              fontFamily="body"
-              lineHeight="tall"
-            >
-              See with eight eyes.
-            </Text>
-            <Text
-              color="charcoal.400"
-              fontSize="md"
-              fontFamily="body"
-              maxW="sm"
-            >
-              A personalized AI tutor for scholars, with real-time oversight for
-              teachers.
-            </Text>
-          </VStack>
-
-          {/* Tradewinds attribution */}
-          <Box
-            py={3}
-            px={5}
-            bg="yellow.200"
-            borderRadius="lg"
-            w="full"
-          >
-            <Text
-              color="charcoal.600"
-              fontSize="sm"
-              fontFamily="heading"
-              fontWeight="500"
-            >
-              Designed for extraordinary minds at{" "}
-              <Text as="span" color="navy.500" fontWeight="600">
-                Tradewinds School
-              </Text>
-            </Text>
-          </Box>
 
           {/* Sign In Button */}
           <Button
@@ -180,11 +135,6 @@ export default function LoginPage() {
             <FcGoogle style={{ marginRight: "12px", fontSize: "24px" }} />
             Sign in with Google
           </Button>
-
-          {/* Footer note */}
-          <Text color="charcoal.300" fontSize="xs" fontFamily="heading">
-            Scholars and teachers sign in with their school Google account
-          </Text>
 
           {/* Dev/Test Login Section */}
           <VStack gap={4} w="full" pt={4}>
