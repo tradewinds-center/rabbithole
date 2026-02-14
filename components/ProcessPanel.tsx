@@ -34,12 +34,9 @@ export function ProcessPanel({
 
   return (
     <Box
-      w="240px"
-      minW="240px"
       bg="gray.50"
-      borderLeft="1px solid"
-      borderColor="gray.200"
       overflow="auto"
+      flexShrink={0}
     >
       <Flex
         px={3}

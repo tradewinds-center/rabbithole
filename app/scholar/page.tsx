@@ -10,12 +10,14 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Box,
+  Drawer,
   Flex,
   VStack,
   HStack,
   Text,
   Button,
   IconButton,
+  Portal,
   Spinner,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
@@ -24,7 +26,6 @@ import {
   FiLogOut,
   FiMessageSquare,
   FiTrash2,
-  FiMenu,
   FiX,
 } from "react-icons/fi";
 import { ChatInterface } from "@/components/ChatInterface";
@@ -43,7 +44,7 @@ function ScholarPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Remote mode: teacher viewing as a scholar
   const remoteUserId = searchParams.get("remote");
@@ -134,217 +135,202 @@ function ScholarPageInner() {
 
   return (
     <Flex h="100vh" bg="gray.50">
-      {/* Sidebar */}
-      <Box
-        w={isSidebarOpen ? { base: "full", md: "280px" } : "0"}
-        bg="navy.500"
-        position={{ base: "absolute", md: "relative" }}
-        zIndex={20}
-        h="full"
-        overflow="hidden"
-        transition="width 0.2s ease"
-        display={isSidebarOpen ? "flex" : "none"}
-        flexDir="column"
+      {/* Sidebar Drawer */}
+      <Drawer.Root
+        open={isSidebarOpen}
+        onOpenChange={(e) => setIsSidebarOpen(e.open)}
+        placement="start"
       >
-        {/* Sidebar Header */}
-        <Flex
-          p={4}
-          borderBottom="1px solid"
-          borderColor="whiteAlpha.200"
-          justify="space-between"
-          align="center"
-        >
-          <HStack gap={3}>
-            <Box
-              w={10}
-              h={10}
-              borderRadius="full"
-              bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Text
-                fontSize="lg"
-                fontWeight="bold"
-                color="white"
-                fontFamily="heading"
+        <Portal>
+          <Drawer.Backdrop />
+          <Drawer.Positioner>
+            <Drawer.Content bg="navy.500" maxW="300px">
+              {/* Sidebar Header */}
+              <Flex
+                p={4}
+                borderBottom="1px solid"
+                borderColor="whiteAlpha.200"
+                justify="space-between"
+                align="center"
               >
-                M
-              </Text>
-            </Box>
-            <VStack gap={0} align="start">
-              <Text
-                color="white"
-                fontWeight="600"
-                fontFamily="heading"
-                fontSize="lg"
-              >
-                Makawulu
-              </Text>
-              <Text color="whiteAlpha.700" fontSize="xs" fontFamily="heading">
-                Learning AI
-              </Text>
-            </VStack>
-          </HStack>
-          <IconButton
-            aria-label="Close sidebar"
-            size="sm"
-            variant="ghost"
-            color="white"
-            _hover={{ bg: "whiteAlpha.200" }}
-            display={{ base: "flex", md: "none" }}
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <FiX />
-          </IconButton>
-        </Flex>
+                <HStack gap={3}>
+                  <Box
+                    w={10}
+                    h={10}
+                    borderRadius="full"
+                    bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <Text
+                      fontSize="lg"
+                      fontWeight="bold"
+                      color="white"
+                      fontFamily="heading"
+                    >
+                      M
+                    </Text>
+                  </Box>
+                  <VStack gap={0} align="start">
+                    <Text
+                      color="white"
+                      fontWeight="600"
+                      fontFamily="heading"
+                      fontSize="lg"
+                    >
+                      Makawulu
+                    </Text>
+                    <Text color="whiteAlpha.700" fontSize="xs" fontFamily="heading">
+                      Learning AI
+                    </Text>
+                  </VStack>
+                </HStack>
+                <Drawer.CloseTrigger asChild>
+                  <IconButton
+                    aria-label="Close sidebar"
+                    size="sm"
+                    variant="ghost"
+                    color="white"
+                    _hover={{ bg: "whiteAlpha.200" }}
+                  >
+                    <FiX />
+                  </IconButton>
+                </Drawer.CloseTrigger>
+              </Flex>
 
-        {/* New Chat Button */}
-        <Box p={3}>
-          <Button
-            w="full"
-            size="md"
-            bg="violet.500"
-            color="white"
-            _hover={{ bg: "violet.700" }}
-            fontFamily="heading"
-            onClick={handleNewConversation}
-          >
-            <FiPlus style={{ marginRight: "8px" }} />
-            New Chat
-          </Button>
-        </Box>
-
-        {/* Conversations List */}
-        <VStack
-          flex={1}
-          overflowY="auto"
-          p={2}
-          gap={1}
-          align="stretch"
-        >
-          {conversations.map((conv) => (
-            <HStack
-              key={conv._id}
-              p={3}
-              borderRadius="lg"
-              cursor="pointer"
-              bg={activeConversationId === conv._id ? "whiteAlpha.200" : "transparent"}
-              _hover={{ bg: "whiteAlpha.100" }}
-              onClick={() => setActiveConversationId(conv._id)}
-              justify="space-between"
-            >
-              <HStack gap={3} flex={1} overflow="hidden">
-                <FiMessageSquare color="white" opacity={0.7} />
-                <Text
+              {/* New Chat Button */}
+              <Box p={3}>
+                <Button
+                  w="full"
+                  size="md"
+                  bg="violet.500"
                   color="white"
-                  fontSize="sm"
+                  _hover={{ bg: "violet.700" }}
                   fontFamily="heading"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                  whiteSpace="nowrap"
+                  onClick={() => {
+                    handleNewConversation();
+                    setIsSidebarOpen(false);
+                  }}
                 >
-                  {conv.title}
-                </Text>
-              </HStack>
-              <IconButton
-                aria-label="Archive"
-                size="xs"
-                variant="ghost"
-                color="white"
-                opacity={0.5}
-                _hover={{ opacity: 1, bg: "whiteAlpha.200" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleArchiveConversation(conv._id);
-                }}
-              >
-                <FiTrash2 />
-              </IconButton>
-            </HStack>
-          ))}
-          {conversations.length === 0 && (
-            <Text
-              color="whiteAlpha.500"
-              fontSize="sm"
-              fontFamily="heading"
-              textAlign="center"
-              py={4}
-            >
-              No conversations yet
-            </Text>
-          )}
-        </VStack>
+                  <FiPlus style={{ marginRight: "8px" }} />
+                  New Chat
+                </Button>
+              </Box>
 
-        {/* User Section */}
-        <Box p={3} borderTop="1px solid" borderColor="whiteAlpha.200">
-          <HStack justify="space-between">
-            <HStack gap={3}>
-              <Avatar
-                size="sm"
-                name={displayName}
-                src={displayImage}
-              />
-              <VStack gap={0} align="start">
-                <Text
-                  color="white"
-                  fontSize="sm"
-                  fontFamily="heading"
-                  fontWeight="500"
-                >
-                  {displayName}
-                </Text>
-                <Text color="whiteAlpha.600" fontSize="xs" fontFamily="heading">
-                  {isRemoteMode ? "Scholar (Remote)" : "Scholar"}
-                </Text>
+              {/* Conversations List */}
+              <VStack
+                flex={1}
+                overflowY="auto"
+                p={2}
+                gap={1}
+                align="stretch"
+              >
+                {conversations.map((conv) => (
+                  <HStack
+                    key={conv._id}
+                    p={3}
+                    borderRadius="lg"
+                    cursor="pointer"
+                    bg={activeConversationId === conv._id ? "whiteAlpha.200" : "transparent"}
+                    _hover={{ bg: "whiteAlpha.100" }}
+                    onClick={() => {
+                      setActiveConversationId(conv._id);
+                      setIsSidebarOpen(false);
+                    }}
+                    justify="space-between"
+                  >
+                    <HStack gap={3} flex={1} overflow="hidden">
+                      <FiMessageSquare color="white" opacity={0.7} />
+                      <Text
+                        color="white"
+                        fontSize="sm"
+                        fontFamily="heading"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                      >
+                        {conv.title}
+                      </Text>
+                    </HStack>
+                    <IconButton
+                      aria-label="Archive"
+                      size="xs"
+                      variant="ghost"
+                      color="white"
+                      opacity={0.5}
+                      _hover={{ opacity: 1, bg: "whiteAlpha.200" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleArchiveConversation(conv._id);
+                      }}
+                    >
+                      <FiTrash2 />
+                    </IconButton>
+                  </HStack>
+                ))}
+                {conversations.length === 0 && (
+                  <Text
+                    color="whiteAlpha.500"
+                    fontSize="sm"
+                    fontFamily="heading"
+                    textAlign="center"
+                    py={4}
+                  >
+                    No conversations yet
+                  </Text>
+                )}
               </VStack>
-            </HStack>
-            {!isRemoteMode && (
-              <IconButton
-                aria-label="Sign out"
-                size="sm"
-                variant="ghost"
-                color="white"
-                _hover={{ bg: "whiteAlpha.200" }}
-                onClick={() => signOut()}
-              >
-                <FiLogOut />
-              </IconButton>
-            )}
-          </HStack>
-        </Box>
-      </Box>
 
-      {/* Main Chat Area */}
+              {/* User Section */}
+              <Box p={3} borderTop="1px solid" borderColor="whiteAlpha.200">
+                <HStack justify="space-between">
+                  <HStack gap={3}>
+                    <Avatar
+                      size="sm"
+                      name={displayName}
+                      src={displayImage}
+                    />
+                    <VStack gap={0} align="start">
+                      <Text
+                        color="white"
+                        fontSize="sm"
+                        fontFamily="heading"
+                        fontWeight="500"
+                      >
+                        {displayName}
+                      </Text>
+                      <Text color="whiteAlpha.600" fontSize="xs" fontFamily="heading">
+                        {isRemoteMode ? "Scholar (Remote)" : "Scholar"}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  {!isRemoteMode && (
+                    <IconButton
+                      aria-label="Sign out"
+                      size="sm"
+                      variant="ghost"
+                      color="white"
+                      _hover={{ bg: "whiteAlpha.200" }}
+                      onClick={() => signOut()}
+                    >
+                      <FiLogOut />
+                    </IconButton>
+                  )}
+                </HStack>
+              </Box>
+            </Drawer.Content>
+          </Drawer.Positioner>
+        </Portal>
+      </Drawer.Root>
+
+      {/* Main Chat Area (full width now) */}
       <Flex flex={1} flexDir="column" overflow="hidden">
-        {/* Mobile Header */}
-        <Flex
-          display={{ base: "flex", md: "none" }}
-          p={3}
-          bg="white"
-          borderBottom="1px solid"
-          borderColor="gray.200"
-          align="center"
-          gap={3}
-        >
-          <IconButton
-            aria-label="Open sidebar"
-            variant="ghost"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            <FiMenu />
-          </IconButton>
-          <Text fontFamily="heading" fontWeight="600" color="navy.500">
-            Makawulu
-          </Text>
-        </Flex>
-
-        {/* Chat Interface */}
         {activeConversationId ? (
           <ChatInterface
             conversationId={activeConversationId}
             onConversationUpdate={() => {}}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
           />
         ) : (
           <Flex

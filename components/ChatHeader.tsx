@@ -9,7 +9,7 @@ import {
   Portal,
   IconButton,
 } from "@chakra-ui/react";
-import { FiBook, FiChevronDown, FiEye, FiLayers, FiLock } from "react-icons/fi";
+import { FiBook, FiChevronDown, FiEye, FiLayers, FiLock, FiMenu } from "react-icons/fi";
 
 interface DimensionOption {
   id: string;
@@ -44,6 +44,8 @@ interface ChatHeaderProps {
   onProcessChange: (id: string | null) => void;
   // Focus lock (optional)
   focusLock?: FocusLock | null;
+  // Hamburger menu to open sidebar drawer
+  onMenuClick?: () => void;
 }
 
 const menuItemCss = {
@@ -78,6 +80,7 @@ export function ChatHeader({
   onPerspectiveChange,
   onProcessChange,
   focusLock,
+  onMenuClick,
 }: ChatHeaderProps) {
   const personaLocked = focusLock?.personaId != null;
   const projectLocked = focusLock?.projectId != null;
@@ -106,6 +109,20 @@ export function ChatHeader({
       gap={3}
       minH="56px"
     >
+      {/* Hamburger menu */}
+      {onMenuClick && (
+        <IconButton
+          aria-label="Open sidebar"
+          size="sm"
+          variant="ghost"
+          color="charcoal.400"
+          _hover={{ bg: "gray.100" }}
+          onClick={onMenuClick}
+        >
+          <FiMenu />
+        </IconButton>
+      )}
+
       {/* Persona Avatar (left) */}
       {personaLocked ? (
         <Box

@@ -30,11 +30,13 @@ interface DimensionOption {
 interface ChatInterfaceProps {
   conversationId: string;
   onConversationUpdate?: () => void;
+  onOpenSidebar?: () => void;
 }
 
 export function ChatInterface({
   conversationId,
   onConversationUpdate,
+  onOpenSidebar,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -131,6 +133,8 @@ export function ChatInterface({
     { conversationId: conversationId as Id<"conversations"> }
   );
   const saveArtifact = useMutation(api.artifacts.scholarUpdate);
+
+  const hasRightPanel = !!(activeProcessDef && processState) || !!artifact;
 
   // Convex mutation for updating conversation dimensions
   const updateConversation = useMutation(api.conversations.update);
@@ -353,115 +357,126 @@ export function ChatInterface({
         onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
         onProcessChange={(id) => handleDimensionChange("processId", id)}
         focusLock={focusLock}
+        onMenuClick={onOpenSidebar}
       />
 
-      {/* Messages area with optional ProcessPanel */}
+      {/* Messages area with optional right panel */}
       <Flex flex={1} overflow="hidden">
-      <Box flex={1} overflowY="auto" p={4}>
-        <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
-          {messages.length === 0 && !streamingContent && (
-            <VStack py={12} gap={4}>
-              <Text
-                fontSize="xl"
-                fontWeight="600"
-                fontFamily="heading"
-                color="navy.500"
-              >
-                What would you like to explore?
-              </Text>
-              <Text
-                color="charcoal.400"
-                fontFamily="body"
-                textAlign="center"
-                maxW="md"
-              >
-                I&apos;m Makawulu, your AI learning companion. Ask me anything -
-                from science and math to history and creative writing. Let&apos;s
-                discover something together.
-              </Text>
-            </VStack>
-          )}
+        {/* Chat messages */}
+        <Box flex={1} overflowY="auto" p={4}>
+          <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
+            {messages.length === 0 && !streamingContent && (
+              <VStack py={12} gap={4}>
+                <Text
+                  fontSize="xl"
+                  fontWeight="600"
+                  fontFamily="heading"
+                  color="navy.500"
+                >
+                  What would you like to explore?
+                </Text>
+                <Text
+                  color="charcoal.400"
+                  fontFamily="body"
+                  textAlign="center"
+                  maxW="md"
+                >
+                  I&apos;m Makawulu, your AI learning companion. Ask me anything -
+                  from science and math to history and creative writing. Let&apos;s
+                  discover something together.
+                </Text>
+              </VStack>
+            )}
 
-          {messages
-            .filter((m) => m.role !== "system")
-            .filter((m) => !(m.role === "user" && m.content === "<start>"))
-            .map((message) => {
-              // Tool messages render as centered gray labels
-              if (message.role === "tool") {
+            {messages
+              .filter((m) => m.role !== "system")
+              .filter((m) => !(m.role === "user" && m.content === "<start>"))
+              .map((message) => {
+                // Tool messages render as centered gray labels
+                if (message.role === "tool") {
+                  return (
+                    <Text
+                      key={message.id}
+                      fontSize="xs"
+                      color="charcoal.300"
+                      fontFamily="heading"
+                      textAlign="center"
+                      py={1}
+                    >
+                      {message.toolAction}
+                    </Text>
+                  );
+                }
+
+                const isActiveStream = streamingMsgId && message.id === streamingMsgId;
                 return (
-                  <Text
+                  <MessageBubble
                     key={message.id}
-                    fontSize="xs"
-                    color="charcoal.300"
-                    fontFamily="heading"
-                    textAlign="center"
-                    py={1}
-                  >
-                    {message.toolAction}
-                  </Text>
+                    message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
+                    personaOptions={personaOptions}
+                    isStreaming={!!isActiveStream && !!streamingContent}
+                  />
                 );
-              }
+              })}
 
-              const isActiveStream = streamingMsgId && message.id === streamingMsgId;
-              return (
-                <MessageBubble
-                  key={message.id}
-                  message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
-                  personaOptions={personaOptions}
-                  isStreaming={!!isActiveStream && !!streamingContent}
-                />
-              );
-            })}
+            {/* Typing indicator */}
+            {isStreaming && !streamingContent && (
+              <Box
+                alignSelf="flex-start"
+                bg="gray.100"
+                px={4}
+                py={3}
+                borderRadius="xl"
+                borderBottomLeftRadius="sm"
+              >
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </Box>
+            )}
 
-          {/* Typing indicator */}
-          {isStreaming && !streamingContent && (
-            <Box
-              alignSelf="flex-start"
-              bg="gray.100"
-              px={4}
-              py={3}
-              borderRadius="xl"
-              borderBottomLeftRadius="sm"
-            >
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </Box>
-          )}
+            <div ref={messagesEndRef} />
+          </VStack>
+        </Box>
 
-          <div ref={messagesEndRef} />
-        </VStack>
-      </Box>
-
-      {/* ProcessPanel (right side) */}
-      {activeProcessDef && processState && (
-        <ProcessPanel
-          process={{
-            title: activeProcessDef.title,
-            emoji: activeProcessDef.emoji ?? null,
-            steps: activeProcessDef.steps,
-          }}
-          currentStep={processState.currentStep}
-          steps={processState.steps}
-        />
-      )}
-
-      {/* ArtifactPanel (right side) */}
-      {artifact && (
-        <ArtifactPanel
-          title={artifact.title}
-          content={artifact.content}
-          lastEditedBy={artifact.lastEditedBy}
-          onSave={(content) => {
-            saveArtifact({
-              conversationId: conversationId as Id<"conversations">,
-              content,
-            }).catch(console.error);
-          }}
-        />
-      )}
+        {/* Right panel column (process tracker + document editor) */}
+        {(hasRightPanel) && (
+          <Flex
+            flex={1}
+            flexDir="column"
+            borderLeft="1px solid"
+            borderColor="gray.200"
+            bg="gray.50"
+            overflow="hidden"
+          >
+            {activeProcessDef && processState && (
+              <ProcessPanel
+                process={{
+                  title: activeProcessDef.title,
+                  emoji: activeProcessDef.emoji ?? null,
+                  steps: activeProcessDef.steps,
+                }}
+                currentStep={processState.currentStep}
+                steps={processState.steps}
+              />
+            )}
+            {artifact && (
+              <ArtifactPanel
+                title={artifact.title}
+                content={artifact.content}
+                lastEditedBy={artifact.lastEditedBy}
+                onSave={(content) => {
+                  saveArtifact({
+                    conversationId: conversationId as Id<"conversations">,
+                    content,
+                  }).catch(console.error);
+                }}
+              />
+            )}
+          </Flex>
+        )}
       </Flex>
 
       {/* Input Area */}

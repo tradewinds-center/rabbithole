@@ -62,11 +62,8 @@ export function ArtifactPanel({
 
   return (
     <Box
-      w="320px"
-      minW="320px"
+      flex={1}
       bg="gray.50"
-      borderLeft="1px solid"
-      borderColor="gray.200"
       display="flex"
       flexDir="column"
       overflow="hidden"
