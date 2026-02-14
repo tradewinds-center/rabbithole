@@ -373,7 +373,7 @@ export function ChatInterface({
         perspectiveOptions={perspectiveOptions}
         processOptions={processOptions}
         personaData={isTestMode ? personas.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
-        projectData={isTestMode ? projects.map((p): DimensionEditData => ({ _id: p._id, title: p.title, description: p.description, systemPrompt: p.systemPrompt, rubric: p.rubric, targetBloomLevel: p.targetBloomLevel })) : undefined}
+        projectData={isTestMode ? projects.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji ?? undefined, description: p.description, systemPrompt: p.systemPrompt, rubric: p.rubric, targetBloomLevel: p.targetBloomLevel })) : undefined}
         perspectiveData={isTestMode ? perspectives.map((p): DimensionEditData => ({ _id: p._id, title: p.title, icon: p.icon ?? undefined, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
         processData={isTestMode ? processes.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji ?? undefined, systemPrompt: p.systemPrompt, description: p.description, steps: p.steps })) : undefined}
         onPersonaChange={(id) => handleDimensionChange("personaId", id)}

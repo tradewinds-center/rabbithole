@@ -51,6 +51,7 @@ export const get = authedQuery({
 export const create = teacherMutation({
   args: {
     title: v.string(),
+    emoji: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
@@ -60,6 +61,7 @@ export const create = teacherMutation({
     return await ctx.db.insert("projects", {
       teacherId: ctx.user._id,
       title: args.title.trim(),
+      emoji: args.emoji?.trim() || undefined,
       description: args.description?.trim() || undefined,
       systemPrompt: args.systemPrompt?.trim() || undefined,
       rubric: args.rubric?.trim() || undefined,
@@ -73,6 +75,7 @@ export const update = teacherMutation({
   args: {
     id: v.id("projects"),
     title: v.optional(v.string()),
+    emoji: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
@@ -82,6 +85,8 @@ export const update = teacherMutation({
     const { id, ...updates } = args;
     const cleaned: Record<string, unknown> = {};
     if (updates.title !== undefined) cleaned.title = updates.title.trim();
+    if (updates.emoji !== undefined)
+      cleaned.emoji = updates.emoji.trim() || undefined;
     if (updates.description !== undefined)
       cleaned.description = updates.description.trim() || undefined;
     if (updates.systemPrompt !== undefined)

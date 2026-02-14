@@ -176,6 +176,7 @@ export default defineSchema({
     teacherId: v.id("users"),
     title: v.string(),
     slug: v.optional(v.string()),
+    emoji: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),

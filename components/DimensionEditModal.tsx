@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -18,8 +18,10 @@ import {
   Portal,
   Timeline,
 } from "@chakra-ui/react";
-import { FiPlus, FiTrash2, FiSave } from "react-icons/fi";
-import { DotsSixVertical } from "@phosphor-icons/react";
+import { FiPlus, FiTrash2 } from "react-icons/fi";
+import { DotsSixVertical, Scroll } from "@phosphor-icons/react";
+import type { EmojiClickData } from "emoji-picker-react";
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import {
   DndContext,
   closestCenter,
@@ -78,6 +80,95 @@ const TYPE_LABELS: Record<DimensionType, string> = {
   perspective: "Perspective",
   process: "Process",
 };
+
+const LABEL_WIDTH = "160px";
+
+function FieldRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <HStack gap={4} align="start" width="100%">
+      <Box flexShrink={0} w={LABEL_WIDTH} pt="10px">
+        <Text fontSize="md" fontWeight="600" fontFamily="heading" color="navy.500">
+          {label}
+        </Text>
+        {hint && (
+          <Text fontSize="sm" color="charcoal.400" fontFamily="body" mt={0.5}>
+            {hint}
+          </Text>
+        )}
+      </Box>
+      <Box flex={1}>{children}</Box>
+    </HStack>
+  );
+}
+
+function EmojiPickerButton({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (emoji: string) => void;
+  label: string;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPicker]);
+
+  return (
+    <Box ref={containerRef} position="relative">
+      {label && (
+        <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+          {label}
+        </Text>
+      )}
+      <Button
+        variant="outline"
+        size="lg"
+        minW="64px"
+        h="48px"
+        fontSize="2xl"
+        onClick={() => setShowPicker((v) => !v)}
+        fontFamily="body"
+      >
+        {value || <Box as="span" w="20px" h="20px" border="2px dashed" borderColor="charcoal.300" borderRadius="sm" display="inline-block" />}
+      </Button>
+      {showPicker && (
+        <Box position="absolute" top="100%" left={0} zIndex={1500} mt={1}>
+          <Suspense fallback={<Spinner size="sm" />}>
+            <EmojiPicker
+              onEmojiClick={(emojiData: EmojiClickData) => {
+                onChange(emojiData.emoji);
+                setShowPicker(false);
+              }}
+              width={300}
+              height={350}
+              skinTonesDisabled
+              searchPlaceholder="Search emoji..."
+            />
+          </Suspense>
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 interface StepWithId {
   _id: string;
@@ -144,23 +235,26 @@ function SortableStep({
             onChange={(e) => onChange("key", e.target.value)}
             placeholder="Key"
             fontFamily="body"
-            fontSize="sm"
+            fontSize="md"
             maxW="60px"
+            bg="white"
           />
           <Input
             value={step.title}
             onChange={(e) => onChange("title", e.target.value)}
             placeholder="Title"
             fontFamily="body"
-            fontSize="sm"
+            fontSize="md"
             flex={1}
+            bg="white"
           />
           <Input
             value={step.description}
             onChange={(e) => onChange("description", e.target.value)}
             placeholder="Description (optional)"
             fontFamily="body"
-            fontSize="sm"
+            fontSize="md"
+            bg="white"
             flex={2}
           />
           <IconButton
@@ -270,6 +364,7 @@ export function DimensionEditModal({
           await updateProject({
             id: entityId as Id<"projects">,
             title: formData.title,
+            emoji: formData.emoji || undefined,
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
@@ -305,6 +400,7 @@ export function DimensionEditModal({
           const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
           await createProject({
             title: formData.title,
+            emoji: formData.emoji || undefined,
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
@@ -345,88 +441,70 @@ export function DimensionEditModal({
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content maxW="640px" maxH="85vh" overflow="auto">
+          <Dialog.Content maxW="80vw" maxH="85vh" overflow="auto" bg="yellow.100">
             <Dialog.Header px={6} pt={6} pb={2}>
-              <Dialog.Title fontFamily="heading" color="navy.500" fontWeight="600">
-                {isEditing ? `Edit ${label}` : `New ${label}`}
+              <Dialog.Title fontFamily="heading" color="navy.500" fontWeight="600" fontSize="xl">
+                <HStack gap={2} align="center">
+                  <Scroll size={22} weight="duotone" color="var(--chakra-colors-yellow-500)" />
+                  {isEditing ? `Edit ${label}` : `New ${label}`}
+                </HStack>
               </Dialog.Title>
             </Dialog.Header>
             <Dialog.Body px={6} pb={6}>
               <VStack gap={4} align="stretch">
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Title *
-                  </Text>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder={`e.g., ${dimensionType === "project" ? "Hawaiian Ecosystem Research" : dimensionType === "persona" ? "Sensei" : "Big Ideas"}`}
-                    fontFamily="body"
-                  />
-                </Box>
-
-                {dimensionType === "persona" && (
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                      Emoji *
+                <HStack gap={4} align="start">
+                  <Box pt="10px" flexShrink={0} w={LABEL_WIDTH}>
+                    <Text fontSize="lg" fontWeight="600" fontFamily="heading" color="navy.500">
+                      {dimensionType === "perspective" ? "Icon & Title" : "Emoji & Title"}
                     </Text>
-                    <Input
-                      value={formData.emoji}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
-                      placeholder="e.g., 🥋"
-                      fontFamily="body"
-                      maxW="100px"
-                    />
                   </Box>
-                )}
-
-                {dimensionType === "process" && (
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                      Emoji
-                    </Text>
-                    <Input
-                      value={formData.emoji}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
-                      placeholder="e.g., ✍️"
-                      fontFamily="body"
-                      maxW="100px"
+                  <HStack gap={3} flex={1} align="center">
+                    <EmojiPickerButton
+                      value={dimensionType === "perspective" ? formData.icon : formData.emoji}
+                      onChange={(emoji) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [dimensionType === "perspective" ? "icon" : "emoji"]: emoji,
+                        }))
+                      }
+                      label=""
                     />
-                  </Box>
-                )}
-
-                {dimensionType === "perspective" && (
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                      Icon (emoji)
-                    </Text>
                     <Input
-                      value={formData.icon}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
-                      placeholder="e.g., 💡"
-                      fontFamily="body"
-                      maxW="100px"
+                      value={formData.title}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                      placeholder={
+                        dimensionType === "persona" ? "e.g., Sensei"
+                        : dimensionType === "process" ? "e.g., CRAFT Writing"
+                        : dimensionType === "perspective" ? "e.g., Big Ideas"
+                        : "e.g., Hawaiian Ecosystem Research"
+                      }
+                      fontFamily="heading"
+                      fontSize="lg"
+                      flex={1}
+                      bg="white"
                     />
-                  </Box>
-                )}
+                  </HStack>
+                </HStack>
 
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Description
-                  </Text>
+                <FieldRow
+                  label="Description"
+                  hint="Visible to students and teachers. Does not affect AI behavior."
+                >
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder={`Brief description of this ${label.toLowerCase()}`}
                     rows={2}
                     fontFamily="body"
+                    fontSize="md"
+                    bg="white"
                   />
-                </Box>
+                </FieldRow>
 
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    System Prompt (AI Instructions)
-                  </Text>
+                <FieldRow
+                  label="System Prompt"
+                  hint="Governs how the AI behaves. Not visible to students."
+                >
                   <Textarea
                     value={formData.systemPrompt}
                     onChange={(e) => setFormData((prev) => ({ ...prev, systemPrompt: e.target.value }))}
@@ -435,43 +513,39 @@ export function DimensionEditModal({
                       : dimensionType === "perspective"
                       ? "How should the AI apply this thinking lens? e.g., 'Help the scholar identify patterns...'"
                       : "Instructions for the AI tutor for this project."}
-                    rows={5}
+                    rows={10}
                     fontFamily="body"
-                    fontSize="sm"
+                    fontSize="md"
+                    bg="white"
                   />
-                  <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                    This guides how the AI interacts with scholars.
-                  </Text>
-                </Box>
+                </FieldRow>
 
                 {dimensionType === "project" && (
                   <>
-                    <Box>
-                      <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                        Rubric / Assessment Criteria
-                      </Text>
+                    <FieldRow
+                      label="Rubric"
+                      hint="Assessment criteria sent to the AI. Not visible to students."
+                    >
                       <Textarea
                         value={formData.rubric}
                         onChange={(e) => setFormData((prev) => ({ ...prev, rubric: e.target.value }))}
                         placeholder="What should scholars demonstrate?"
                         rows={3}
                         fontFamily="body"
-                        fontSize="sm"
+                        fontSize="md"
+                        bg="white"
                       />
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                        Target Bloom Level
-                      </Text>
+                    </FieldRow>
+                    <FieldRow label="Target Bloom Level">
                       <select
                         value={formData.targetBloomLevel}
                         onChange={(e) => setFormData((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
                         style={{
                           width: "100%",
-                          padding: "8px 10px",
+                          padding: "10px 12px",
                           borderRadius: "6px",
                           border: "1px solid #e2e8f0",
-                          fontSize: "14px",
+                          fontSize: "16px",
                           fontFamily: "inherit",
                         }}
                       >
@@ -481,15 +555,12 @@ export function DimensionEditModal({
                           </option>
                         ))}
                       </select>
-                    </Box>
+                    </FieldRow>
                   </>
                 )}
 
                 {dimensionType === "process" && (
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={2}>
-                      Steps *
-                    </Text>
+                  <FieldRow label="Steps">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -544,7 +615,7 @@ export function DimensionEditModal({
                       <FiPlus style={{ marginRight: "6px" }} />
                       Add Step
                     </Button>
-                  </Box>
+                  </FieldRow>
                 )}
 
                 <HStack gap={2} pt={4}>
@@ -558,14 +629,12 @@ export function DimensionEditModal({
                   </Button>
                   <Button
                     flex={1}
-                    bg="violet.500"
-                    color="white"
-                    _hover={{ bg: "violet.600" }}
+                    colorPalette="yellow"
                     fontFamily="heading"
                     onClick={handleSave}
                     disabled={isSaving || !canSave}
                   >
-                    {isSaving ? <Spinner size="sm" /> : <><FiSave style={{ marginRight: "8px" }} /> Save</>}
+                    {isSaving ? <Spinner size="sm" /> : "Save"}
                   </Button>
                 </HStack>
               </VStack>

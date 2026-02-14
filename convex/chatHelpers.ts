@@ -297,9 +297,6 @@ Guidelines:
   // Project context
   if (projectContext) {
     parts.push(`\n\nPROJECT: "${projectContext.title}"`);
-    if (projectContext.description) {
-      parts.push(`Description: ${projectContext.description}`);
-    }
     if (projectContext.systemPrompt) {
       parts.push(`Instructions: ${projectContext.systemPrompt}`);
     }

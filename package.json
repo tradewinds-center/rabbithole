@@ -23,6 +23,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "convex": "^1.31.7",
     "convex-helpers": "^0.1.112",
+    "emoji-picker-react": "^4.18.0",
     "next": "14.2.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
