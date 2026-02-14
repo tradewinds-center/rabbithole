@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Box, Flex, Text, Textarea, Button } from "@chakra-ui/react";
-import { FiSave } from "react-icons/fi";
+import { Box, Flex, Text, Textarea, Button, Spinner } from "@chakra-ui/react";
+import { FiCheck } from "react-icons/fi";
 
 interface ArtifactPanelProps {
   title: string;
@@ -18,42 +18,51 @@ export function ArtifactPanel({
   onSave,
 }: ArtifactPanelProps) {
   const [localContent, setLocalContent] = useState(content);
-  const [isDirty, setIsDirty] = useState(false);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const lastKnownContentRef = useRef(content);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Sync from server when content changes externally
+  // Sync from server when content changes externally (AI edits)
   useEffect(() => {
     if (content !== lastKnownContentRef.current) {
+      const hasLocalEdits = localContent !== lastKnownContentRef.current;
       lastKnownContentRef.current = content;
-      if (isDirty) {
-        // Scholar has unsaved edits and AI updated — show conflict banner
+
+      if (hasLocalEdits) {
+        // Scholar is mid-edit and AI pushed an update — show conflict
         setShowUpdateBanner(true);
       } else {
         // No local edits — silently sync
         setLocalContent(content);
       }
     }
-  }, [content, isDirty]);
+  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Debounced auto-save on every keystroke
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLocalContent(e.target.value);
-    setIsDirty(true);
+    const newContent = e.target.value;
+    setLocalContent(newContent);
+    setShowUpdateBanner(false);
+
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      onSave(newContent);
+      lastKnownContentRef.current = newContent;
+    }, 500);
   };
 
-  const handleSave = () => {
-    onSave(localContent);
-    setIsDirty(false);
-    lastKnownContentRef.current = localContent;
-    setShowUpdateBanner(false);
-  };
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => clearTimeout(saveTimeoutRef.current);
+  }, []);
 
   const handleAcceptUpdate = () => {
     setLocalContent(content);
-    setIsDirty(false);
     lastKnownContentRef.current = content;
     setShowUpdateBanner(false);
   };
+
+  const isSynced = localContent === content;
 
   const wordCount = localContent
     .trim()
@@ -87,18 +96,17 @@ export function ArtifactPanel({
         >
           {title}
         </Text>
-        <Text
-          fontSize="xs"
-          fontFamily="heading"
-          color={lastEditedBy === "ai" ? "violet.500" : "charcoal.400"}
-          flexShrink={0}
-          ml={2}
-        >
-          {lastEditedBy === "ai" ? "AI" : "You"}
-        </Text>
+        {/* Sync status indicator */}
+        <Box flexShrink={0} ml={2}>
+          {isSynced ? (
+            <FiCheck color="var(--chakra-colors-green-500)" size={16} />
+          ) : (
+            <Spinner size="xs" color="charcoal.300" />
+          )}
+        </Box>
       </Flex>
 
-      {/* Update banner (conflict) */}
+      {/* Update banner (conflict — AI edited while scholar is typing) */}
       {showUpdateBanner && (
         <Flex
           px={3}
@@ -133,7 +141,7 @@ export function ArtifactPanel({
           resize="none"
           h="100%"
           fontFamily="body"
-          fontSize="sm"
+          fontSize="lg"
           lineHeight="1.6"
           border="none"
           bg="white"
@@ -143,30 +151,18 @@ export function ArtifactPanel({
         />
       </Box>
 
-      {/* Footer */}
+      {/* Footer — word count only */}
       <Flex
         px={3}
-        py={2}
+        py={1}
         borderTop="1px solid"
         borderColor="gray.200"
         align="center"
-        justify="space-between"
         flexShrink={0}
       >
         <Text fontSize="xs" fontFamily="heading" color="charcoal.300">
           {wordCount} {wordCount === 1 ? "word" : "words"}
         </Text>
-        <Button
-          size="xs"
-          bg="violet.500"
-          color="white"
-          _hover={{ bg: "violet.600" }}
-          disabled={!isDirty}
-          onClick={handleSave}
-        >
-          <FiSave />
-          Save
-        </Button>
       </Flex>
     </Box>
   );
