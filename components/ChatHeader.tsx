@@ -11,7 +11,7 @@ import {
   Portal,
 } from "@chakra-ui/react";
 import { FiMenu } from "react-icons/fi";
-import { CloudCheck, SquaresFour } from "@phosphor-icons/react";
+import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
 import { Avatar } from "./Avatar";
 import { DimensionPicker } from "./DimensionPicker";
 import type { DimensionOption } from "./DimensionPicker";
@@ -59,6 +59,9 @@ interface ChatHeaderProps {
   isTestMode?: boolean;
   // Current process step key (e.g. "C", "R", "A") for badge display
   currentStepKey?: string | null;
+  // Right panel toggle
+  showRightPanel?: boolean;
+  onToggleRightPanel?: () => void;
 }
 
 export function ChatHeader({
@@ -86,6 +89,8 @@ export function ChatHeader({
   userImage,
   isTestMode,
   currentStepKey,
+  showRightPanel,
+  onToggleRightPanel,
 }: ChatHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
@@ -260,6 +265,20 @@ export function ChatHeader({
           onEdit={isTestMode && processData ? (id) => openEdit("process", id, processData) : undefined}
           stepBadge={currentStepKey || undefined}
         />
+        {onToggleRightPanel && (
+          <IconButton
+            aria-label={showRightPanel ? "Hide side panel" : "Show side panel"}
+            size="xs"
+            variant="ghost"
+            color={showRightPanel ? "violet.500" : "charcoal.400"}
+            _hover={{ bg: "gray.100" }}
+            onClick={onToggleRightPanel}
+            ml="auto"
+            flexShrink={0}
+          >
+            <SidebarSimple size={16} weight={showRightPanel ? "fill" : "regular"} />
+          </IconButton>
+        )}
       </Flex>
 
       {/* Dimension edit modal (shared) */}

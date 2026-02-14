@@ -145,7 +145,7 @@ http.route({
 
           const editDocumentTool = betaTool({
             name: "edit_document",
-            description: "Create, view, rename, or edit the scholar's working document using targeted edits. Use this to help the scholar build written work.",
+            description: "Create, view, rename, or edit the scholar's working documents using targeted edits. Use this to help the scholar build written work. Multiple documents can exist — use document_id to target a specific one.",
             inputSchema: {
               type: "object" as const,
               properties: {
@@ -153,6 +153,10 @@ http.route({
                   type: "string" as const,
                   enum: ["create", "view", "rename", "str_replace", "insert"] as const,
                   description: "The operation to perform on the document",
+                },
+                document_id: {
+                  type: "string" as const,
+                  description: "ID of specific document to edit. If omitted, edits the most recent document. Required for str_replace, insert, and rename when multiple documents exist.",
                 },
                 title: {
                   type: "string" as const,
@@ -182,15 +186,17 @@ http.route({
               required: ["command"] as const,
             },
             run: async (input) => {
+              const docId = (input as { document_id?: string }).document_id as Id<"artifacts"> | undefined;
+
               switch (input.command) {
                 case "create": {
-                  await ctx.runMutation(internal.artifacts.aiCreate, {
+                  const newArtifactId = await ctx.runMutation(internal.artifacts.aiCreate, {
                     conversationId: convId,
                     title: (input as { title?: string }).title || "Document",
                     content: (input as { file_text?: string }).file_text || "",
                   });
                   controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
                   );
                   const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
                     currentMessageId: assistantMsgId as Id<"messages">,
@@ -204,15 +210,31 @@ http.route({
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`)
                   );
-                  return "Document created successfully.";
+                  return `Document created successfully. Document ID: ${String(newArtifactId)}`;
                 }
                 case "view": {
-                  const artifact = await ctx.runQuery(internal.artifacts.aiGetContent, {
+                  if (docId) {
+                    const artifact = await ctx.runQuery(internal.artifacts.aiGetContent, {
+                      conversationId: convId,
+                      artifactId: docId,
+                    });
+                    if (!artifact || Array.isArray(artifact)) return "Error: Document not found.";
+                    const lines = artifact.content.split("\n");
+                    return `[${String(artifact._id)}] Title: ${artifact.title}\n` + lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                  }
+                  // No document_id — return all documents
+                  const allDocs = await ctx.runQuery(internal.artifacts.aiGetContent, {
                     conversationId: convId,
                   });
-                  if (!artifact) return "Error: No document exists yet. Use create first.";
-                  const lines = artifact.content.split("\n");
-                  return `Title: ${artifact.title}\n` + lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                  if (!allDocs || (Array.isArray(allDocs) && allDocs.length === 0)) {
+                    return "No documents exist yet. Use create to make one.";
+                  }
+                  const docs = Array.isArray(allDocs) ? allDocs : [allDocs];
+                  return docs.map((doc: { _id: Id<"artifacts">; title: string; content: string }) => {
+                    const lines = doc.content.split("\n");
+                    const preview = lines.slice(0, 5).map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                    return `[${String(doc._id)}] "${doc.title}" (${lines.length} lines)\n${preview}${lines.length > 5 ? "\n..." : ""}`;
+                  }).join("\n\n");
                 }
                 case "rename": {
                   const newTitle = (input as { title?: string }).title;
@@ -220,6 +242,7 @@ http.route({
                   await ctx.runMutation(internal.artifacts.aiRename, {
                     conversationId: convId,
                     title: newTitle,
+                    ...(docId ? { artifactId: docId } : {}),
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
@@ -236,6 +259,7 @@ http.route({
                     conversationId: convId,
                     oldStr,
                     newStr,
+                    ...(docId ? { artifactId: docId } : {}),
                   });
                   if (result.error) return result.error;
                   controller.enqueue(
@@ -267,6 +291,7 @@ http.route({
                     conversationId: convId,
                     insertLine,
                     insertText,
+                    ...(docId ? { artifactId: docId } : {}),
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
@@ -296,7 +321,7 @@ http.route({
           // Build tools array based on active features
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
           if (hasProcess) tools.push(processStepTool);
-          if (conversation.projectContext) tools.push(editDocumentTool);
+          if (conversation.projectContext || (conversation.artifactData && conversation.artifactData.length > 0)) tools.push(editDocumentTool);
 
           // ── Stream with tool runner ──────────────────────────────────
 

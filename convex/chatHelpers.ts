@@ -101,21 +101,21 @@ export const getConversationContext = internalQuery({
       }
     }
 
-    // Get artifact data
-    let artifactData = null;
-    const artifact = await ctx.db
+    // Get artifact data (multi-document)
+    const allArtifacts = await ctx.db
       .query("artifacts")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId)
       )
-      .first();
-    if (artifact) {
-      artifactData = {
-        title: artifact.title,
-        content: artifact.content,
-        lastEditedBy: artifact.lastEditedBy,
-      };
-    }
+      .collect();
+    const artifactData = allArtifacts.length > 0
+      ? allArtifacts.map((a) => ({
+          id: a._id,
+          title: a.title,
+          content: a.content,
+          lastEditedBy: a.lastEditedBy,
+        }))
+      : null;
 
     return {
       teacherWhisper: conversation.teacherWhisper ?? null,
@@ -238,10 +238,11 @@ export function buildSystemPrompt(
     steps: { key: string; status: string; commentary?: string }[];
   } | null = null,
   artifactData: {
+    id: string;
     title: string;
     content: string;
     lastEditedBy: string;
-  } | null = null
+  }[] | null = null
 ): string {
   const parts: string[] = [];
 
@@ -337,19 +338,21 @@ Guidelines:
 Guide the scholar naturally through the steps. You can move them back to revisit earlier steps if needed. Don't announce step transitions mechanically — weave them into the conversation naturally.`);
   }
 
-  // Artifact (shared document)
-  if (artifactData) {
-    const lines = artifactData.content.split("\n");
-    const numberedContent = lines.map((l, i) => `${i + 1}: ${l}`).join("\n");
-    parts.push(`\n\nDOCUMENT: "${artifactData.title}" (last edited by ${artifactData.lastEditedBy})
-Current content:
-${numberedContent}
+  // Artifacts (shared documents — supports multiple)
+  if (artifactData && artifactData.length > 0) {
+    parts.push(`\n\nDOCUMENTS (${artifactData.length}):`);
+    for (const doc of artifactData) {
+      const lines = doc.content.split("\n");
+      const numberedContent = lines.map((l, i) => `${i + 1}: ${l}`).join("\n");
+      parts.push(`\n[Document ID: ${doc.id}] "${doc.title}" (last edited by ${doc.lastEditedBy})
+Content:
+${numberedContent}`);
+    }
+    parts.push(`\nYou have a tool called "edit_document" to create, view, rename, and edit documents. When editing an existing document, pass the document_id to target the correct one. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit documents and titles directly.
 
-You have a tool called "edit_document" to create, view, rename, and edit this document. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit the document and title directly.
-
-IMPORTANT: The document is plain text only — do NOT use markdown formatting in the document. The document title is shown separately in the UI header. Do NOT include a title, headline, or byline at the top of the document content — that would be redundant. The document body should start directly with the actual content.`);
+IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header. Do NOT include a title, headline, or byline at the top of document content — that would be redundant. Document body should start directly with the actual content.`);
   } else if (projectContext) {
-    parts.push(`\n\nYou have a tool called "edit_document" to create a shared working document that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create the document early so the scholar can see their work take shape. The document is plain text only — do NOT use markdown formatting in the document. The document title is shown separately in the UI header, so do NOT include a title or byline in the document content itself.`);
+    parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
   }
 
   // Teacher whisper (private guidance)

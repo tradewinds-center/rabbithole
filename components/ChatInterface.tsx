@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Flex,
@@ -18,7 +18,6 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
 import type { DimensionEditData } from "./DimensionEditModal";
-import { ProcessPanel } from "./ProcessPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -147,15 +146,45 @@ export function ChatInterface({
     ? processes.find((p) => p._id === conversationData.processId)
     : null;
 
-  // Artifact (reactive query, updates when AI edits document)
-  const artifact = useQuery(
+  // Artifacts (reactive query, returns array)
+  const artifacts = useQuery(
     api.artifacts.getByConversation,
     { conversationId: conversationId as Id<"conversations"> }
-  );
+  ) ?? [];
   const saveArtifact = useMutation(api.artifacts.scholarUpdate);
+  const createArtifact = useMutation(api.artifacts.scholarCreate);
+  const deleteArtifactMut = useMutation(api.artifacts.deleteArtifact);
   const [artifactSynced, setArtifactSynced] = useState(true);
 
-  const hasRightPanel = !!(activeProcessDef && processState) || !!artifact;
+  // Active artifact tab
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+
+  // Auto-select last artifact when artifacts change
+  useEffect(() => {
+    if (artifacts.length > 0) {
+      const currentStillExists = artifacts.some((a) => a._id === activeArtifactId);
+      if (!currentStillExists) {
+        setActiveArtifactId(artifacts[artifacts.length - 1]._id);
+      }
+    } else {
+      setActiveArtifactId(null);
+    }
+  }, [artifacts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Right panel state
+  const hasProcess = !!(activeProcessDef && processState);
+  const hasArtifacts = artifacts.length > 0;
+  const hasRightPanelContent = hasProcess || hasArtifacts;
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+
+  // Auto-open when content appears
+  useEffect(() => {
+    if (hasRightPanelContent) {
+      setRightPanelOpen(true);
+    }
+  }, [hasRightPanelContent]);
+
+  const showRightPanel = rightPanelOpen && hasRightPanelContent;
 
   // Convex mutation for updating conversation dimensions
   const updateConversation = useMutation(api.conversations.update);
@@ -289,6 +318,10 @@ export function ChatInterface({
                 if (data.text) {
                   fullContent += data.text;
                   setStreamingContent(fullContent);
+                } else if (data.newArtifactId) {
+                  // AI created a new document — select it and open panel
+                  setActiveArtifactId(data.newArtifactId);
+                  setRightPanelOpen(true);
                 } else if (data.newAssistantMsg) {
                   // Tool fired — server split the message. Switch streaming target.
                   setStreamingMsgId(data.newAssistantMsg);
@@ -352,6 +385,26 @@ export function ChatInterface({
     }
   }, [input]);
 
+  // Artifact callbacks
+  const handleCreateArtifact = useCallback(async () => {
+    const newId = await createArtifact({
+      conversationId: conversationId as Id<"conversations">,
+    });
+    setActiveArtifactId(newId);
+    setRightPanelOpen(true);
+  }, [conversationId, createArtifact]);
+
+  const handleDeleteArtifact = useCallback(async (id: string) => {
+    await deleteArtifactMut({ artifactId: id as Id<"artifacts"> });
+  }, [deleteArtifactMut]);
+
+  const handleSaveArtifact = useCallback((artifactId: string, updates: { content?: string; title?: string }) => {
+    saveArtifact({
+      artifactId: artifactId as Id<"artifacts">,
+      ...updates,
+    }).catch(console.error);
+  }, [saveArtifact]);
+
   if (isLoading) {
     return (
       <Flex flex={1} align="center" justify="center">
@@ -383,15 +436,17 @@ export function ChatInterface({
         onProcessChange={(id) => handleDimensionChange("processId", id)}
         focusLock={focusLock}
         onMenuClick={onOpenSidebar}
-        isSynced={artifact ? artifactSynced : undefined}
+        isSynced={hasArtifacts ? artifactSynced : undefined}
         userName={userName}
         userImage={userImage}
         isTestMode={isTestMode}
         currentStepKey={processState?.currentStep ?? null}
+        showRightPanel={showRightPanel}
+        onToggleRightPanel={hasRightPanelContent ? () => setRightPanelOpen((v) => !v) : undefined}
       />
 
       {/* Main content area with optional right panel */}
-      {hasRightPanel ? (
+      {showRightPanel ? (
         <Splitter.Root
           flex={1}
           overflow="hidden"
@@ -428,31 +483,22 @@ export function ChatInterface({
               borderColor="gray.200"
               overflow="hidden"
             >
-              {activeProcessDef && processState && (
-                <ProcessPanel
-                  process={{
-                    title: activeProcessDef.title,
-                    emoji: activeProcessDef.emoji ?? null,
-                    steps: activeProcessDef.steps,
-                  }}
-                  currentStep={processState.currentStep}
-                  steps={processState.steps}
-                />
-              )}
-              {artifact && (
-                <ArtifactPanel
-                  title={artifact.title}
-                  content={artifact.content}
-                  lastEditedBy={artifact.lastEditedBy}
-                  onSave={(updates) => {
-                    saveArtifact({
-                      conversationId: conversationId as Id<"conversations">,
-                      ...updates,
-                    }).catch(console.error);
-                  }}
-                  onSyncChange={setArtifactSynced}
-                />
-              )}
+              <ArtifactPanel
+                artifacts={artifacts}
+                activeArtifactId={activeArtifactId}
+                onSelectArtifact={setActiveArtifactId}
+                onSave={handleSaveArtifact}
+                onCreateArtifact={handleCreateArtifact}
+                onDeleteArtifact={handleDeleteArtifact}
+                onSyncChange={setArtifactSynced}
+                process={hasProcess ? {
+                  title: activeProcessDef!.title,
+                  emoji: activeProcessDef!.emoji ?? null,
+                  steps: activeProcessDef!.steps,
+                } : null}
+                processCurrentStep={hasProcess ? processState!.currentStep : undefined}
+                processSteps={hasProcess ? processState!.steps : undefined}
+              />
             </Flex>
           </Splitter.Panel>
         </Splitter.Root>
@@ -680,7 +726,7 @@ function ChatColumn({
           mt={2}
           fontFamily="heading"
         >
-          Makawulu is an AI assistant. Verify important information with your
+          AI can make mistakes. Verify important information with your
           teachers.
         </Text>
       </Box>
