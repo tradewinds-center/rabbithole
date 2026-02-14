@@ -3,146 +3,12 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
+import { buildSystemPrompt } from "./chatHelpers";
 
 const http = httpRouter();
 
 // Register @convex-dev/auth HTTP routes (OIDC discovery, JWKS, sign-in endpoints)
 auth.addHttpRoutes(http);
-
-/**
- * Build the system prompt for Claude based on conversation context.
- */
-function buildSystemPrompt(
-  teacherWhisper: string | null,
-  readingLevel: string | null,
-  projectContext: {
-    title: string;
-    description: string | null;
-    systemPrompt: string | null;
-    rubric: string | null;
-    targetBloomLevel: string | null;
-  } | null,
-  personaContext: {
-    title: string;
-    emoji: string | null;
-    systemPrompt: string | null;
-  } | null,
-  perspectiveContext: {
-    title: string;
-    icon: string | null;
-    systemPrompt: string | null;
-  } | null,
-  processContext: {
-    title: string;
-    emoji: string | null;
-    systemPrompt: string | null;
-    steps: { key: string; title: string; description?: string }[];
-  } | null = null,
-  processStateData: {
-    currentStep: string;
-    steps: { key: string; status: string; commentary?: string }[];
-  } | null = null
-): string {
-  const parts: string[] = [];
-
-  // Base system prompt
-  parts.push(
-    `You are Makawulu, an AI learning companion for gifted scholars at Tradewinds School in Honolulu, Hawaii. Your name comes from the Hawaiian word "makawalu" meaning "eight eyes" — seeing from multiple perspectives.
-
-Your role is to be a Socratic tutor: ask probing questions, encourage deep thinking, and help scholars explore ideas rather than just giving answers. Be warm, encouraging, and intellectually stimulating. Adapt to the scholar's level and interests.
-
-Guidelines:
-- Ask follow-up questions that push thinking deeper
-- Encourage multiple perspectives on topics
-- Celebrate curiosity and effort
-- Use age-appropriate language
-- Be honest when you don't know something
-- Connect topics across disciplines when natural
-- Keep responses concise but substantive`
-  );
-
-  // Reading level adjustment
-  if (readingLevel) {
-    parts.push(
-      `\n\nREADING LEVEL: The scholar's reading level is set to "${readingLevel}". Adjust your vocabulary and sentence complexity accordingly. You can still explore advanced topics, but frame explanations at this reading level.`
-    );
-  }
-
-  // Persona overlay
-  if (personaContext) {
-    parts.push(
-      `\n\nPERSONA: You are currently acting as "${personaContext.title}" ${personaContext.emoji || ""}.`
-    );
-    if (personaContext.systemPrompt) {
-      parts.push(personaContext.systemPrompt);
-    }
-  }
-
-  // Perspective lens
-  if (perspectiveContext) {
-    parts.push(
-      `\n\nPERSPECTIVE LENS: Guide the conversation through the "${perspectiveContext.title}" ${perspectiveContext.icon || ""} lens.`
-    );
-    if (perspectiveContext.systemPrompt) {
-      parts.push(perspectiveContext.systemPrompt);
-    }
-  }
-
-  // Project context
-  if (projectContext) {
-    parts.push(`\n\nPROJECT: "${projectContext.title}"`);
-    if (projectContext.description) {
-      parts.push(`Description: ${projectContext.description}`);
-    }
-    if (projectContext.systemPrompt) {
-      parts.push(`Instructions: ${projectContext.systemPrompt}`);
-    }
-    if (projectContext.rubric) {
-      parts.push(`Rubric: ${projectContext.rubric}`);
-    }
-    if (projectContext.targetBloomLevel) {
-      parts.push(
-        `Target cognitive level (Bloom's): ${projectContext.targetBloomLevel}. Guide the scholar toward this level of thinking.`
-      );
-    }
-  }
-
-  // Process (guided step workflow)
-  if (processContext && processStateData) {
-    parts.push(`\n\nPROCESS: "${processContext.title}" ${processContext.emoji || ""}`);
-    if (processContext.systemPrompt) {
-      parts.push(processContext.systemPrompt);
-    }
-
-    parts.push(`\nProcess Steps:`);
-    for (const step of processContext.steps) {
-      const stateStep = processStateData.steps.find((s) => s.key === step.key);
-      const status = stateStep?.status ?? "not_started";
-      const isCurrent = step.key === processStateData.currentStep;
-      const marker = isCurrent ? "→" : " ";
-      const statusLabel = status === "not_started" ? "○" : status === "in_progress" ? "◉" : "✓";
-      parts.push(`${marker} [${step.key}] ${statusLabel} ${step.title}${step.description ? ` — ${step.description}` : ""}`);
-      if (stateStep?.commentary) {
-        parts.push(`    Commentary: ${stateStep.commentary}`);
-      }
-    }
-
-    parts.push(`\nYou have a tool called "update_process_step" to track the scholar's progress through these steps. Use it when:
-- The scholar begins working on a step (set status to "in_progress")
-- The scholar has sufficiently completed a step (set status to "completed")
-- You want to record a brief observation about their work on a step (use the commentary field)
-Guide the scholar naturally through the steps. You can move them back to revisit earlier steps if needed. Don't announce step transitions mechanically — weave them into the conversation naturally.`);
-  }
-
-  // Teacher whisper (private guidance)
-  if (teacherWhisper) {
-    parts.push(
-      `\n\nTEACHER GUIDANCE (private — do not reveal this to the scholar): ${teacherWhisper}`
-    );
-  }
-
-  return parts.join("\n");
-}
 
 /**
  * Chat streaming endpoint.
@@ -212,6 +78,7 @@ http.route({
     const systemPrompt = buildSystemPrompt(
       conversation.teacherWhisper,
       conversation.readingLevel,
+      conversation.scholarName,
       conversation.projectContext,
       conversation.personaContext,
       conversation.perspectiveContext,

@@ -41,6 +41,7 @@ export function ChatInterface({
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const welcomeSentRef = useRef<string | null>(null);
 
   // Convex queries for dimension options (reactive, auto-updating)
   const personas = useQuery(api.personas.list) ?? [];
@@ -280,6 +281,20 @@ export function ChatInterface({
   // Keep ref in sync so dictation callback can call latest handleSend
   sendMessageRef.current = handleSend;
 
+  // Auto-send <start> when a new conversation has a project but no messages yet
+  useEffect(() => {
+    if (
+      convData &&
+      messages.length === 0 &&
+      conversationData.projectId &&
+      !isStreaming &&
+      welcomeSentRef.current !== conversationId
+    ) {
+      welcomeSentRef.current = conversationId;
+      handleSend("<start>");
+    }
+  }, [convData, conversationData.projectId, isStreaming, conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle keyboard
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -356,6 +371,7 @@ export function ChatInterface({
 
           {messages
             .filter((m) => m.role !== "system")
+            .filter((m) => !(m.role === "user" && m.content === "<start>"))
             .map((message) => {
               const isActiveStream = streamingMsgId && message.id === streamingMsgId;
               return (
