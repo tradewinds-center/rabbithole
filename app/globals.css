@@ -196,13 +196,19 @@ body {
 .chat-markdown h3 {
   font-family: "Hanken Grotesk", sans-serif;
   margin-bottom: 0.25rem;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
 .chat-markdown h1:first-child,
 .chat-markdown h2:first-child,
 .chat-markdown h3:first-child {
   margin-top: 0;
+}
+
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid #e2e2e2;
+  margin: 1rem 0;
 }
 
 @keyframes typing {
