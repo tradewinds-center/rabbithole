@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Box, Flex, Text, Textarea, Button, Spinner } from "@chakra-ui/react";
-import { FiCheck } from "react-icons/fi";
+import { Box, Flex, Input, Text, Textarea, Button } from "@chakra-ui/react";
 
 interface ArtifactPanelProps {
   title: string;
   content: string;
   lastEditedBy: string;
-  onSave: (content: string) => void;
+  onSave: (updates: { content?: string; title?: string }) => void;
+  onSyncChange?: (synced: boolean) => void;
 }
 
 export function ArtifactPanel({
@@ -16,44 +16,76 @@ export function ArtifactPanel({
   content,
   lastEditedBy,
   onSave,
+  onSyncChange,
 }: ArtifactPanelProps) {
   const [localContent, setLocalContent] = useState(content);
+  const [localTitle, setLocalTitle] = useState(title);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const lastKnownContentRef = useRef(content);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const lastKnownTitleRef = useRef(title);
+  const saveContentTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTitleTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Sync from server when content changes externally (AI edits)
+  const isSynced = localContent === content && localTitle === title;
+
+  // Report sync state changes to parent
+  useEffect(() => {
+    onSyncChange?.(isSynced);
+  }, [isSynced, onSyncChange]);
+
+  // Sync content from server when it changes externally (AI edits)
   useEffect(() => {
     if (content !== lastKnownContentRef.current) {
       const hasLocalEdits = localContent !== lastKnownContentRef.current;
       lastKnownContentRef.current = content;
 
       if (hasLocalEdits) {
-        // Scholar is mid-edit and AI pushed an update — show conflict
         setShowUpdateBanner(true);
       } else {
-        // No local edits — silently sync
         setLocalContent(content);
       }
     }
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced auto-save on every keystroke
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Sync title from server when it changes externally (AI rename)
+  useEffect(() => {
+    if (title !== lastKnownTitleRef.current) {
+      lastKnownTitleRef.current = title;
+      setLocalTitle(title);
+    }
+  }, [title]);
+
+  // Debounced auto-save for content
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setLocalContent(newContent);
     setShowUpdateBanner(false);
 
-    clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      onSave(newContent);
+    clearTimeout(saveContentTimeoutRef.current);
+    saveContentTimeoutRef.current = setTimeout(() => {
+      onSave({ content: newContent });
       lastKnownContentRef.current = newContent;
     }, 500);
   };
 
-  // Cleanup timeout on unmount
+  // Debounced auto-save for title
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setLocalTitle(newTitle);
+
+    clearTimeout(saveTitleTimeoutRef.current);
+    saveTitleTimeoutRef.current = setTimeout(() => {
+      onSave({ title: newTitle });
+      lastKnownTitleRef.current = newTitle;
+    }, 500);
+  };
+
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    return () => clearTimeout(saveTimeoutRef.current);
+    return () => {
+      clearTimeout(saveContentTimeoutRef.current);
+      clearTimeout(saveTitleTimeoutRef.current);
+    };
   }, []);
 
   const handleAcceptUpdate = () => {
@@ -62,58 +94,42 @@ export function ArtifactPanel({
     setShowUpdateBanner(false);
   };
 
-  const isSynced = localContent === content;
-
   const wordCount = localContent
     .trim()
     .split(/\s+/)
     .filter((w) => w.length > 0).length;
 
   return (
-    <Box
+    <Flex
       flex={1}
-      bg="gray.50"
-      display="flex"
       flexDir="column"
       overflow="hidden"
+      bg="white"
     >
-      {/* Header */}
-      <Flex
-        px={3}
-        py={2}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        align="center"
-        justify="space-between"
+      {/* Editable title */}
+      <Input
+        value={localTitle}
+        onChange={handleTitleChange}
+        fontSize="lg"
+        fontWeight="600"
+        fontFamily="heading"
+        color="navy.500"
+        border="none"
+        bg="transparent"
+        px={6}
+        pt={5}
+        pb={1}
+        h="auto"
         flexShrink={0}
-      >
-        <Text
-          fontSize="sm"
-          fontWeight="600"
-          fontFamily="heading"
-          color="navy.500"
-          truncate
-        >
-          {title}
-        </Text>
-        {/* Sync status indicator */}
-        <Box flexShrink={0} ml={2}>
-          {isSynced ? (
-            <FiCheck color="var(--chakra-colors-green-500)" size={16} />
-          ) : (
-            <Spinner size="xs" color="charcoal.300" />
-          )}
-        </Box>
-      </Flex>
+        _focus={{ boxShadow: "none", outline: "none" }}
+      />
 
       {/* Update banner (conflict — AI edited while scholar is typing) */}
       {showUpdateBanner && (
         <Flex
-          px={3}
+          px={6}
           py={2}
           bg="violet.50"
-          borderBottom="1px solid"
-          borderColor="violet.200"
           align="center"
           justify="space-between"
           flexShrink={0}
@@ -133,37 +149,34 @@ export function ArtifactPanel({
       )}
 
       {/* Textarea body */}
-      <Box flex={1} overflow="hidden" p={2}>
+      <Box flex={1} overflow="hidden" px={3}>
         <Textarea
           value={localContent}
-          onChange={handleChange}
+          onChange={handleContentChange}
           placeholder="Your document will appear here..."
           resize="none"
           h="100%"
           fontFamily="body"
-          fontSize="lg"
+          fontSize="xl"
           lineHeight="1.6"
           border="none"
           bg="white"
-          borderRadius="md"
           p={3}
           _focus={{ boxShadow: "none", outline: "none" }}
         />
       </Box>
 
-      {/* Footer — word count only */}
-      <Flex
-        px={3}
+      {/* Footer — word count */}
+      <Text
+        fontSize="xs"
+        fontFamily="heading"
+        color="charcoal.300"
+        px={6}
         py={1}
-        borderTop="1px solid"
-        borderColor="gray.200"
-        align="center"
         flexShrink={0}
       >
-        <Text fontSize="xs" fontFamily="heading" color="charcoal.300">
-          {wordCount} {wordCount === 1 ? "word" : "words"}
-        </Text>
-      </Flex>
-    </Box>
+        {wordCount} {wordCount === 1 ? "word" : "words"}
+      </Text>
+    </Flex>
   );
 }

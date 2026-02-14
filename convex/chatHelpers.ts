@@ -347,9 +347,11 @@ Guide the scholar naturally through the steps. You can move them back to revisit
 Current content:
 ${numberedContent}
 
-You have a tool called "edit_document" to create, view, and edit this document. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. The scholar can also edit the document directly.`);
+You have a tool called "edit_document" to create, view, rename, and edit this document. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit the document and title directly.
+
+IMPORTANT: The document title is shown separately in the UI header. Do NOT include a title, headline, or byline at the top of the document content — that would be redundant. The document body should start directly with the actual content.`);
   } else if (projectContext) {
-    parts.push(`\n\nYou have a tool called "edit_document" to create a shared working document that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create the document early so the scholar can see their work take shape.`);
+    parts.push(`\n\nYou have a tool called "edit_document" to create a shared working document that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create the document early so the scholar can see their work take shape. The document title is shown separately in the UI header, so do NOT include a title or byline in the document content itself.`);
   }
 
   // Teacher whisper (private guidance)

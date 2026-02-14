@@ -23,7 +23,8 @@ export const getByConversation = authedQuery({
 export const scholarUpdate = authedMutation({
   args: {
     conversationId: v.id("conversations"),
-    content: v.string(),
+    content: v.optional(v.string()),
+    title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const artifact = await ctx.db
@@ -33,10 +34,12 @@ export const scholarUpdate = authedMutation({
       )
       .first();
     if (!artifact) return;
-    await ctx.db.patch(artifact._id, {
-      content: args.content,
+    const patch: { content?: string; title?: string; lastEditedBy: "scholar" } = {
       lastEditedBy: "scholar",
-    });
+    };
+    if (args.content !== undefined) patch.content = args.content;
+    if (args.title !== undefined) patch.title = args.title;
+    await ctx.db.patch(artifact._id, patch);
   },
 });
 
@@ -129,6 +132,26 @@ export const aiInsert = internalMutation({
       content: lines.join("\n"),
       lastEditedBy: "ai",
     });
+  },
+});
+
+/**
+ * AI renames an artifact.
+ */
+export const aiRename = internalMutation({
+  args: {
+    conversationId: v.id("conversations"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const artifact = await ctx.db
+      .query("artifacts")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .first();
+    if (!artifact) return;
+    await ctx.db.patch(artifact._id, { title: args.title });
   },
 });
 

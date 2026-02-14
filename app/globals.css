@@ -54,6 +54,11 @@ body {
   font-family: "Playfair", serif;
 }
 
+/* Force pure horizontal slide on drawer (no vertical component) */
+[data-scope="drawer"][data-part="positioner"] {
+  translate: none !important;
+}
+
 /* Animations */
 @keyframes pulse-soft {
   0%,

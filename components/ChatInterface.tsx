@@ -133,6 +133,7 @@ export function ChatInterface({
     { conversationId: conversationId as Id<"conversations"> }
   );
   const saveArtifact = useMutation(api.artifacts.scholarUpdate);
+  const [artifactSynced, setArtifactSynced] = useState(true);
 
   const hasRightPanel = !!(activeProcessDef && processState) || !!artifact;
 
@@ -358,88 +359,177 @@ export function ChatInterface({
         onProcessChange={(id) => handleDimensionChange("processId", id)}
         focusLock={focusLock}
         onMenuClick={onOpenSidebar}
+        isSynced={artifact ? artifactSynced : undefined}
       />
 
-      {/* Messages area with optional right panel */}
+      {/* Main content area with optional right panel */}
       <Flex flex={1} overflow="hidden">
-        {/* Chat messages */}
-        <Box flex={1} overflowY="auto" p={4}>
-          <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
-            {messages.length === 0 && !streamingContent && (
-              <VStack py={12} gap={4}>
-                <Text
-                  fontSize="xl"
-                  fontWeight="600"
-                  fontFamily="heading"
-                  color="navy.500"
-                >
-                  What would you like to explore?
-                </Text>
-                <Text
-                  color="charcoal.400"
-                  fontFamily="body"
-                  textAlign="center"
-                  maxW="md"
-                >
-                  I&apos;m Makawulu, your AI learning companion. Ask me anything -
-                  from science and math to history and creative writing. Let&apos;s
-                  discover something together.
-                </Text>
-              </VStack>
-            )}
+        {/* Chat column: messages + input */}
+        <Flex flex={1} flexDir="column" overflow="hidden">
+          {/* Messages */}
+          <Box flex={1} overflowY="auto" px={6} py={4}>
+            <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
+              {messages.length === 0 && !streamingContent && (
+                <VStack py={12} gap={4}>
+                  <Text
+                    fontSize="xl"
+                    fontWeight="600"
+                    fontFamily="heading"
+                    color="navy.500"
+                  >
+                    What would you like to explore?
+                  </Text>
+                  <Text
+                    color="charcoal.400"
+                    fontFamily="body"
+                    textAlign="center"
+                    maxW="md"
+                  >
+                    I&apos;m Makawulu, your AI learning companion. Ask me anything -
+                    from science and math to history and creative writing. Let&apos;s
+                    discover something together.
+                  </Text>
+                </VStack>
+              )}
 
-            {messages
-              .filter((m) => m.role !== "system")
-              .filter((m) => !(m.role === "user" && m.content === "<start>"))
-              .map((message) => {
-                // Tool messages render as centered gray labels
-                if (message.role === "tool") {
+              {messages
+                .filter((m) => m.role !== "system")
+                .filter((m) => !(m.role === "user" && m.content === "<start>"))
+                .map((message) => {
+                  // Tool messages render as centered gray labels
+                  if (message.role === "tool") {
+                    return (
+                      <Text
+                        key={message.id}
+                        fontSize="xs"
+                        color="charcoal.300"
+                        fontFamily="heading"
+                        textAlign="center"
+                        py={1}
+                      >
+                        {message.toolAction}
+                      </Text>
+                    );
+                  }
+
+                  const isActiveStream = streamingMsgId && message.id === streamingMsgId;
                   return (
-                    <Text
+                    <MessageBubble
                       key={message.id}
-                      fontSize="xs"
-                      color="charcoal.300"
-                      fontFamily="heading"
-                      textAlign="center"
-                      py={1}
-                    >
-                      {message.toolAction}
-                    </Text>
+                      message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
+                      personaOptions={personaOptions}
+                      isStreaming={!!isActiveStream && !!streamingContent}
+                    />
                   );
-                }
+                })}
 
-                const isActiveStream = streamingMsgId && message.id === streamingMsgId;
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
-                    personaOptions={personaOptions}
-                    isStreaming={!!isActiveStream && !!streamingContent}
-                  />
-                );
-              })}
+              {/* Typing indicator */}
+              {isStreaming && !streamingContent && (
+                <Box
+                  alignSelf="flex-start"
+                  bg="gray.100"
+                  px={4}
+                  py={3}
+                  borderRadius="xl"
+                  borderBottomLeftRadius="sm"
+                >
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </Box>
+              )}
 
-            {/* Typing indicator */}
-            {isStreaming && !streamingContent && (
-              <Box
-                alignSelf="flex-start"
-                bg="gray.100"
-                px={4}
-                py={3}
+              <div ref={messagesEndRef} />
+            </VStack>
+          </Box>
+
+          {/* Input Area (chat column only) */}
+          <Box
+            p={4}
+            borderTop="1px solid"
+            borderColor="gray.200"
+            bg="gray.50"
+          >
+            <Flex maxW="3xl" mx="auto" gap={3}>
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask me anything..."
+                resize="none"
+                rows={1}
+                overflow="hidden"
+                bg="white"
+                border="2px solid"
+                borderColor="gray.200"
                 borderRadius="xl"
-                borderBottomLeftRadius="sm"
+                _focus={{
+                  borderColor: "violet.500",
+                  boxShadow: "0 0 0 1px var(--chakra-colors-violet-500)",
+                }}
+                _placeholder={{ color: "gray.400" }}
+                fontFamily="body"
+                fontSize="md"
+                py={3}
+                px={4}
+                disabled={isStreaming}
+              />
+              <IconButton
+                aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
+                bg={dictationState === "recording" ? "red.500" : "gray.200"}
+                color={dictationState === "recording" ? "white" : "charcoal.500"}
+                _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                borderRadius="xl"
+                h="auto"
+                minW={12}
+                onClick={toggleRecording}
+                disabled={isStreaming || dictationState === "transcribing"}
+                className={dictationState === "recording" ? "recording-pulse" : undefined}
               >
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </Box>
+                {dictationState === "transcribing" ? (
+                  <Spinner size="sm" />
+                ) : dictationState === "recording" ? (
+                  <FiMicOff />
+                ) : (
+                  <FiMic />
+                )}
+              </IconButton>
+              <IconButton
+                aria-label="Send message"
+                bg="violet.500"
+                color="white"
+                _hover={{ bg: "violet.700" }}
+                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                borderRadius="xl"
+                h="auto"
+                minW={12}
+                onClick={() => handleSend()}
+                disabled={!input.trim() || isStreaming}
+              >
+                <FiSend />
+              </IconButton>
+            </Flex>
+            {dictationError && (
+              <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
+                {dictationError}
+              </Text>
             )}
-
-            <div ref={messagesEndRef} />
-          </VStack>
-        </Box>
+            <Text
+              fontSize="xs"
+              color="charcoal.300"
+              textAlign="center"
+              mt={2}
+              fontFamily="heading"
+            >
+              Makawulu is an AI assistant. Verify important information with your
+              teachers.
+            </Text>
+          </Box>
+        </Flex>
 
         {/* Right panel column (process tracker + document editor) */}
         {(hasRightPanel) && (
@@ -448,7 +538,6 @@ export function ChatInterface({
             flexDir="column"
             borderLeft="1px solid"
             borderColor="gray.200"
-            bg="gray.50"
             overflow="hidden"
           >
             {activeProcessDef && processState && (
@@ -467,101 +556,18 @@ export function ChatInterface({
                 title={artifact.title}
                 content={artifact.content}
                 lastEditedBy={artifact.lastEditedBy}
-                onSave={(content) => {
+                onSave={(updates) => {
                   saveArtifact({
                     conversationId: conversationId as Id<"conversations">,
-                    content,
+                    ...updates,
                   }).catch(console.error);
                 }}
+                onSyncChange={setArtifactSynced}
               />
             )}
           </Flex>
         )}
       </Flex>
-
-      {/* Input Area */}
-      <Box
-        p={4}
-        borderTop="1px solid"
-        borderColor="gray.200"
-        bg="gray.50"
-      >
-        <Flex maxW="3xl" mx="auto" gap={3}>
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
-            resize="none"
-            rows={1}
-            bg="white"
-            border="2px solid"
-            borderColor="gray.200"
-            borderRadius="xl"
-            _focus={{
-              borderColor: "violet.500",
-              boxShadow: "0 0 0 1px var(--chakra-colors-violet-500)",
-            }}
-            _placeholder={{ color: "gray.400" }}
-            fontFamily="body"
-            fontSize="md"
-            py={3}
-            px={4}
-            disabled={isStreaming}
-          />
-          <IconButton
-            aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
-            bg={dictationState === "recording" ? "red.500" : "gray.200"}
-            color={dictationState === "recording" ? "white" : "charcoal.500"}
-            _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
-            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-            borderRadius="xl"
-            h="auto"
-            minW={12}
-            onClick={toggleRecording}
-            disabled={isStreaming || dictationState === "transcribing"}
-            className={dictationState === "recording" ? "recording-pulse" : undefined}
-          >
-            {dictationState === "transcribing" ? (
-              <Spinner size="sm" />
-            ) : dictationState === "recording" ? (
-              <FiMicOff />
-            ) : (
-              <FiMic />
-            )}
-          </IconButton>
-          <IconButton
-            aria-label="Send message"
-            bg="violet.500"
-            color="white"
-            _hover={{ bg: "violet.700" }}
-            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-            borderRadius="xl"
-            h="auto"
-            minW={12}
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isStreaming}
-          >
-            <FiSend />
-          </IconButton>
-        </Flex>
-        {dictationError && (
-          <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
-            {dictationError}
-          </Text>
-        )}
-        <Text
-          fontSize="xs"
-          color="charcoal.300"
-          textAlign="center"
-          mt={2}
-          fontFamily="heading"
-        >
-          Makawulu is an AI assistant. Verify important information with your
-          teachers.
-        </Text>
-      </Box>
     </Flex>
   );
 }

@@ -491,6 +491,80 @@ export const seedProcesses = internalMutation({
 });
 
 /**
+ * Seed the Weekend News project + process.
+ * Run once: npx convex run seed:seedWeekendNews
+ */
+export const seedWeekendNews = internalMutation({
+  handler: async (ctx) => {
+    // Find system teacher
+    const systemTeacher = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .first();
+    const teacher = systemTeacher ?? await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed Weekend News.");
+      return;
+    }
+
+    // Check if Weekend News project already exists
+    const existingProject = await ctx.db
+      .query("projects")
+      .filter((q) => q.eq(q.field("title"), "Weekend News"))
+      .first();
+    if (existingProject) {
+      console.log("Weekend News project already exists, skipping.");
+      return;
+    }
+
+    // Create the project
+    await ctx.db.insert("projects", {
+      teacherId: teacher._id,
+      title: "Weekend News",
+      description: "Write a news story about something that happened over the weekend. Practice journalism skills: headlines, ledes, details, and voice.",
+      systemPrompt: `Guide the scholar through writing a weekend news story. Use the edit_document tool to create and maintain the document as they work. Help them craft:
+- A compelling headline (use the document title for this — rename the document as the headline evolves)
+- A strong lede paragraph (who, what, when, where)
+- Body paragraphs with details and (if applicable) quotes
+- A conclusion that wraps up the story
+
+The document title serves as the headline — do NOT repeat a headline or byline inside the document body. Encourage journalistic voice: clear, concise, factual. Ask questions to draw out details about their weekend experience. When they describe something, help them shape it into news-style writing in the document.`,
+      rubric: "Headline | Lede (who/what/when/where) | Body (details, quotes) | Conclusion | Voice",
+      targetBloomLevel: "create",
+      isActive: true,
+    });
+
+    // Create the process
+    await ctx.db.insert("processes", {
+      teacherId: teacher._id,
+      title: "Weekend News",
+      emoji: "📰",
+      description: "Write a news story about your weekend",
+      systemPrompt: `Guide the scholar through writing a weekend news story using the Weekend News process steps. Use the edit_document tool to build the story collaboratively. At each step, update the document with the scholar's work.
+
+- BRAINSTORM: Ask the scholar about their weekend. What happened? What was interesting, surprising, or important? Help them pick the best story.
+- HEADLINE: Help craft a catchy, informative headline. Use the rename command to set it as the document title.
+- DRAFT: Build the lede and body paragraphs in the document. The lede should answer who/what/when/where. Add details and quotes. Do NOT put a headline or byline in the document body — the title serves as the headline.
+- REVISE: Read through together. Tighten language, improve flow, check facts, strengthen voice.
+- PUBLISH: Final polish. Read aloud (or encourage the scholar to). Celebrate the finished piece.`,
+      steps: [
+        { key: "B", title: "Brainstorm", description: "What happened this weekend?" },
+        { key: "H", title: "Headline", description: "Craft a catchy headline" },
+        { key: "D", title: "Draft", description: "Write the lede and body" },
+        { key: "R", title: "Revise", description: "Tighten and improve" },
+        { key: "P", title: "Publish", description: "Final polish and celebrate" },
+      ],
+      isActive: true,
+    });
+
+    console.log("Seeded Weekend News project + process.");
+  },
+});
+
+/**
  * Patch existing test users with avatar images and reading levels.
  * Run once: npx convex run seed:patchAvatars
  */

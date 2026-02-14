@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.74.0",
     "@ark-ui/react": "^4.5.0",
     "@auth/core": "^0.37.4",
     "@chakra-ui/react": "^3.3.0",

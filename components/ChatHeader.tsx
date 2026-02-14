@@ -8,8 +8,10 @@ import {
   Menu,
   Portal,
   IconButton,
+  Tooltip,
 } from "@chakra-ui/react";
 import { FiBook, FiChevronDown, FiEye, FiLayers, FiLock, FiMenu } from "react-icons/fi";
+import { CloudCheck } from "@phosphor-icons/react";
 
 interface DimensionOption {
   id: string;
@@ -46,6 +48,8 @@ interface ChatHeaderProps {
   focusLock?: FocusLock | null;
   // Hamburger menu to open sidebar drawer
   onMenuClick?: () => void;
+  // Global sync state indicator
+  isSynced?: boolean;
 }
 
 const menuItemCss = {
@@ -81,6 +85,7 @@ export function ChatHeader({
   onProcessChange,
   focusLock,
   onMenuClick,
+  isSynced,
 }: ChatHeaderProps) {
   const personaLocked = focusLock?.personaId != null;
   const projectLocked = focusLock?.projectId != null;
@@ -100,7 +105,7 @@ export function ChatHeader({
 
   return (
     <Flex
-      px={4}
+      px={5}
       py={2}
       bg="white"
       borderBottom="1px solid"
@@ -415,6 +420,28 @@ export function ChatHeader({
             </Menu.Positioner>
           </Portal>
         </Menu.Root>
+      )}
+
+      {/* Sync indicator (far right, after all dimensions) */}
+      {isSynced !== undefined && (
+        <Tooltip.Root openDelay={400} closeDelay={0}>
+          <Tooltip.Trigger asChild>
+            <Box flexShrink={0} cursor="default">
+              <CloudCheck
+                size={20}
+                weight="regular"
+                color="var(--chakra-colors-charcoal-400)"
+              />
+            </Box>
+          </Tooltip.Trigger>
+          <Portal>
+            <Tooltip.Positioner>
+              <Tooltip.Content>
+                {isSynced ? "All changes saved" : "Saving..."}
+              </Tooltip.Content>
+            </Tooltip.Positioner>
+          </Portal>
+        </Tooltip.Root>
       )}
     </Flex>
   );

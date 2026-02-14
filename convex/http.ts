@@ -145,18 +145,18 @@ http.route({
 
           const editDocumentTool = betaTool({
             name: "edit_document",
-            description: "Create, view, or edit the scholar's working document using targeted edits. Use this to help the scholar build written work.",
+            description: "Create, view, rename, or edit the scholar's working document using targeted edits. Use this to help the scholar build written work.",
             inputSchema: {
               type: "object" as const,
               properties: {
                 command: {
                   type: "string" as const,
-                  enum: ["create", "view", "str_replace", "insert"] as const,
+                  enum: ["create", "view", "rename", "str_replace", "insert"] as const,
                   description: "The operation to perform on the document",
                 },
                 title: {
                   type: "string" as const,
-                  description: "Document title (for create)",
+                  description: "Document title (for create or rename)",
                 },
                 file_text: {
                   type: "string" as const,
@@ -212,7 +212,19 @@ http.route({
                   });
                   if (!artifact) return "Error: No document exists yet. Use create first.";
                   const lines = artifact.content.split("\n");
-                  return lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                  return `Title: ${artifact.title}\n` + lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                }
+                case "rename": {
+                  const newTitle = (input as { title?: string }).title;
+                  if (!newTitle) return "Error: rename requires a title parameter.";
+                  await ctx.runMutation(internal.artifacts.aiRename, {
+                    conversationId: convId,
+                    title: newTitle,
+                  });
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  return `Document renamed to "${newTitle}".`;
                 }
                 case "str_replace": {
                   const oldStr = (input as { old_str?: string }).old_str;
