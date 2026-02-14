@@ -21,6 +21,7 @@ import {
   Badge,
   Menu,
   Portal,
+  Tooltip,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -283,35 +284,16 @@ export default function TeacherDashboard() {
 
         {/* Live View tab — real-time scholar cards */}
         {activeTab === "live" && (
-          <Box flex={1} overflow="auto">
-            {/* Focus Bar */}
-            <FocusBar
-              currentFocus={currentFocus ?? null}
-              personas={personas}
-              projects={projects}
-              perspectives={perspectives}
-              processes={processes}
-              onSet={async (args) => { await setFocus(args); }}
-              onClear={async () => { await clearFocus(); }}
-            />
-
-            <Box px={6} py={4}>
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
-                {scholars.map((scholar) => (
-                  <ScholarCard key={scholar.id} scholar={scholar} />
-                ))}
-              </SimpleGrid>
-
-              {scholars.length === 0 && (
-                <VStack py={12} gap={4}>
-                  <FiUsers size={48} color="#c1c1c1" />
-                  <Text color="charcoal.400" fontFamily="heading">
-                    No scholars enrolled yet
-                  </Text>
-                </VStack>
-              )}
-            </Box>
-          </Box>
+          <LiveView
+            scholars={scholars}
+            currentFocus={currentFocus ?? null}
+            personas={personas}
+            projects={projects}
+            perspectives={perspectives}
+            processes={processes}
+            onSetFocus={async (args) => { await setFocus(args); }}
+            onClearFocus={async () => { await clearFocus(); }}
+          />
         )}
 
         {/* Entity management tabs */}
@@ -325,6 +307,199 @@ export default function TeacherDashboard() {
         )}
       </Flex>
     </Flex>
+  );
+}
+
+// Live View — Conductor View with optional Racetrack panel
+function LiveView({
+  scholars,
+  currentFocus,
+  personas,
+  projects,
+  perspectives,
+  processes,
+  onSetFocus,
+  onClearFocus,
+}: {
+  scholars: Scholar[];
+  currentFocus: FocusBarProps["currentFocus"];
+  personas: FocusEntity[];
+  projects: FocusEntity[];
+  perspectives: FocusEntity[];
+  processes: FocusEntity[];
+  onSetFocus: FocusBarProps["onSet"];
+  onClearFocus: FocusBarProps["onClear"];
+}) {
+  const isActive = currentFocus?.isActive ?? false;
+  const focusProcessId = isActive ? (currentFocus?.processId as Id<"processes"> | null) ?? null : null;
+
+  const racetrackData = useQuery(
+    api.processState.getRacetrackData,
+    focusProcessId ? { processId: focusProcessId } : "skip"
+  );
+
+  return (
+    <Flex flex={1} direction="column" overflow="hidden">
+      <FocusBar
+        currentFocus={currentFocus}
+        personas={personas}
+        projects={projects}
+        perspectives={perspectives}
+        processes={processes}
+        onSet={onSetFocus}
+        onClear={onClearFocus}
+      />
+
+      <Flex flex={1} overflow="hidden">
+        <Box flex={1} overflow="auto" px={6} py={4}>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+            {scholars.map((scholar) => (
+              <ScholarCard key={scholar.id} scholar={scholar} />
+            ))}
+          </SimpleGrid>
+
+          {scholars.length === 0 && (
+            <VStack py={12} gap={4}>
+              <FiUsers size={48} color="#c1c1c1" />
+              <Text color="charcoal.400" fontFamily="heading">
+                No scholars enrolled yet
+              </Text>
+            </VStack>
+          )}
+        </Box>
+
+        {racetrackData && <RacetrackPanel data={racetrackData} />}
+      </Flex>
+    </Flex>
+  );
+}
+
+// Racetrack Panel — shows scholar progress on focused process steps
+function RacetrackPanel({
+  data,
+}: {
+  data: {
+    process: {
+      title: string;
+      emoji: string | null;
+      steps: { key: string; title: string; description?: string }[];
+    };
+    scholars: { id: string; name: string | null; image: string | null; currentStep: string }[];
+  };
+}) {
+  const { process, scholars } = data;
+
+  // Group scholars by their current step
+  const scholarsByStep: Record<string, typeof scholars> = {};
+  for (const scholar of scholars) {
+    if (!scholarsByStep[scholar.currentStep]) {
+      scholarsByStep[scholar.currentStep] = [];
+    }
+    scholarsByStep[scholar.currentStep].push(scholar);
+  }
+
+  return (
+    <Box
+      w="260px"
+      minW="260px"
+      bg="white"
+      borderLeft="1px solid"
+      borderColor="gray.200"
+      overflow="auto"
+    >
+      {/* Header */}
+      <HStack px={4} py={3} borderBottom="1px solid" borderColor="gray.100" gap={2}>
+        <Text fontSize="lg">{process.emoji || "📋"}</Text>
+        <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500">
+          {process.title}
+        </Text>
+      </HStack>
+
+      {/* Steps */}
+      <VStack align="stretch" gap={0} py={2}>
+        {process.steps.map((step, idx) => {
+          const scholarsAtStep = scholarsByStep[step.key] || [];
+          const isLast = idx === process.steps.length - 1;
+          return (
+            <Box key={step.key} px={4} py={2} position="relative">
+              {/* Vertical connector line */}
+              {!isLast && (
+                <Box
+                  position="absolute"
+                  left="27px"
+                  top="28px"
+                  bottom="0"
+                  w="2px"
+                  bg="gray.200"
+                />
+              )}
+
+              {/* Step indicator + title */}
+              <HStack gap={2} mb={scholarsAtStep.length > 0 ? 2 : 0}>
+                <Box
+                  w="22px"
+                  h="22px"
+                  borderRadius="full"
+                  bg={scholarsAtStep.length > 0 ? "violet.500" : "gray.200"}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  flexShrink={0}
+                  zIndex={1}
+                >
+                  <Text
+                    fontSize="xs"
+                    fontWeight="700"
+                    color={scholarsAtStep.length > 0 ? "white" : "gray.500"}
+                  >
+                    {idx + 1}
+                  </Text>
+                </Box>
+                <Text
+                  fontFamily="heading"
+                  fontSize="sm"
+                  fontWeight={scholarsAtStep.length > 0 ? "600" : "500"}
+                  color={scholarsAtStep.length > 0 ? "navy.500" : "charcoal.400"}
+                >
+                  {step.title}
+                </Text>
+              </HStack>
+
+              {/* Scholar avatars at this step */}
+              {scholarsAtStep.length > 0 && (
+                <Flex wrap="wrap" gap={1} pl="30px">
+                  {scholarsAtStep.map((s) => (
+                    <Tooltip.Root key={s.id} openDelay={200} closeDelay={0}>
+                      <Tooltip.Trigger asChild>
+                        <a
+                          href={`/scholar?remote=${s.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ cursor: "pointer" }}
+                        >
+                          <Avatar
+                            size="xs"
+                            name={s.name || undefined}
+                            src={s.image || undefined}
+                          />
+                        </a>
+                      </Tooltip.Trigger>
+                      <Portal>
+                        <Tooltip.Positioner>
+                          <Tooltip.Content>
+                            {s.name || "Scholar"}
+                          </Tooltip.Content>
+                        </Tooltip.Positioner>
+                      </Portal>
+                    </Tooltip.Root>
+                  ))}
+                </Flex>
+              )}
+            </Box>
+          );
+        })}
+      </VStack>
+    </Box>
   );
 }
 

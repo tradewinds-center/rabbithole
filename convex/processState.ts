@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery } from "./lib/customFunctions";
+import { authedQuery, teacherQuery } from "./lib/customFunctions";
 import { internalMutation } from "./_generated/server";
 
 /**
@@ -109,5 +109,55 @@ export const remove = internalMutation({
     if (existing) {
       await ctx.db.delete(existing._id);
     }
+  },
+});
+
+/**
+ * Get racetrack data: all scholars' progress on a specific process.
+ * Used by teacher's Conductor View to show class-wide step progress.
+ */
+export const getRacetrackData = teacherQuery({
+  args: { processId: v.id("processes") },
+  handler: async (ctx, args) => {
+    const process = await ctx.db.get(args.processId);
+    if (!process) return null;
+
+    // Find all non-archived conversations using this process
+    const conversations = await ctx.db
+      .query("conversations")
+      .filter((q) => q.eq(q.field("processId"), args.processId))
+      .collect();
+    const activeConvos = conversations.filter((c) => !c.isArchived);
+
+    // For each conversation, get processState + scholar info
+    const scholarResults = await Promise.all(
+      activeConvos.map(async (conv) => {
+        const state = await ctx.db
+          .query("processState")
+          .withIndex("by_conversation", (q) =>
+            q.eq("conversationId", conv._id)
+          )
+          .first();
+        const scholar = await ctx.db.get(conv.userId);
+        if (!state || !scholar) return null;
+        return {
+          id: scholar._id,
+          name: scholar.name ?? null,
+          image: scholar.image ?? null,
+          currentStep: state.currentStep,
+        };
+      })
+    );
+
+    return {
+      process: {
+        title: process.title,
+        emoji: process.emoji ?? null,
+        steps: process.steps,
+      },
+      scholars: scholarResults.filter(
+        (s): s is NonNullable<typeof s> => s !== null
+      ),
+    };
   },
 });

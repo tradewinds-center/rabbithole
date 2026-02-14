@@ -5,10 +5,11 @@ import { Box, Text } from "@chakra-ui/react";
 interface AvatarProps {
   name?: string;
   src?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 }
 
 const sizeMap = {
+  xs: { container: 6, text: "xs" },
   sm: { container: 8, text: "sm" },
   md: { container: 12, text: "lg" },
   lg: { container: 16, text: "xl" },
