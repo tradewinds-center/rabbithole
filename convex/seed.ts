@@ -438,6 +438,59 @@ export const seedProjectsAndTopics = internalMutation({
 });
 
 /**
+ * Seed the CRAFT writing process.
+ * Run once: npx convex run seed:seedProcesses
+ */
+export const seedProcesses = internalMutation({
+  handler: async (ctx) => {
+    // Check if already seeded
+    const existing = await ctx.db.query("processes").first();
+    if (existing) {
+      console.log("Processes already seeded, skipping.");
+      return;
+    }
+
+    // Find system teacher
+    const systemTeacher = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .first();
+    const teacher = systemTeacher ?? await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed processes.");
+      return;
+    }
+
+    await ctx.db.insert("processes", {
+      teacherId: teacher._id,
+      title: "CRAFT",
+      emoji: "✍️",
+      description: "A structured writing process: Choose, Research, Arrange, Form, Transform",
+      systemPrompt: `Guide the scholar through the CRAFT writing process. Each step builds on the previous one. Encourage the scholar to fully engage with each step before moving on, but allow them to revisit earlier steps when they discover something new. Use the update_process_step tool to track their progress.
+
+- C (Choose): Help the scholar choose and narrow their topic. Ask what interests them, what they want to explore, who their audience is.
+- R (Research): Guide research and gathering of ideas, facts, examples. Encourage multiple sources and perspectives.
+- A (Arrange): Help organize ideas into a logical structure. Discuss possible outlines, groupings, or narrative arcs.
+- F (Form): Support the actual writing/drafting. Encourage getting ideas down without perfectionism. Offer feedback on clarity and flow.
+- T (Transform): Guide revision and polishing. Help them strengthen word choice, improve transitions, and refine their voice.`,
+      steps: [
+        { key: "C", title: "Choose", description: "Select and narrow your topic" },
+        { key: "R", title: "Research", description: "Gather ideas, facts, and examples" },
+        { key: "A", title: "Arrange", description: "Organize ideas into a structure" },
+        { key: "F", title: "Form", description: "Write your first draft" },
+        { key: "T", title: "Transform", description: "Revise and polish your work" },
+      ],
+      isActive: true,
+    });
+
+    console.log("Seeded CRAFT process.");
+  },
+});
+
+/**
  * Patch existing test users with avatar images and reading levels.
  * Run once: npx convex run seed:patchAvatars
  */

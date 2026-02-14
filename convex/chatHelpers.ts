@@ -74,12 +74,41 @@ export const getConversationContext = internalQuery({
       }
     }
 
+    // Get process context + state
+    let processContext = null;
+    let processStateData = null;
+    if (conversation.processId) {
+      const process = await ctx.db.get(conversation.processId);
+      if (process) {
+        processContext = {
+          title: process.title,
+          emoji: process.emoji ?? null,
+          systemPrompt: process.systemPrompt ?? null,
+          steps: process.steps,
+        };
+      }
+      const pState = await ctx.db
+        .query("processState")
+        .withIndex("by_conversation", (q) =>
+          q.eq("conversationId", args.conversationId)
+        )
+        .first();
+      if (pState) {
+        processStateData = {
+          currentStep: pState.currentStep,
+          steps: pState.steps,
+        };
+      }
+    }
+
     return {
       teacherWhisper: conversation.teacherWhisper ?? null,
       readingLevel,
       projectContext,
       personaContext,
       perspectiveContext,
+      processContext,
+      processStateData,
       chatHistory,
       title: conversation.title,
     };

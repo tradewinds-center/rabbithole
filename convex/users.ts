@@ -116,6 +116,23 @@ export const listScholars = teacherQuery({
           }
         }
 
+        // Get process state from most recent conversation
+        let processStep: string | null = null;
+        let processTitle: string | null = null;
+        if (mostRecent?.processId) {
+          const pState = await ctx.db
+            .query("processState")
+            .withIndex("by_conversation", (q) =>
+              q.eq("conversationId", mostRecent._id)
+            )
+            .first();
+          if (pState) {
+            processStep = pState.currentStep;
+            const process = await ctx.db.get(mostRecent.processId);
+            processTitle = process?.title ?? null;
+          }
+        }
+
         return {
           _id: scholar._id,
           id: scholar._id,
@@ -129,6 +146,8 @@ export const listScholars = teacherQuery({
           statusSummary,
           progressScore,
           lastMessage,
+          processStep,
+          processTitle,
         };
       })
     );

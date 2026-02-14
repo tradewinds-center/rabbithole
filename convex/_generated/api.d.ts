@@ -24,6 +24,8 @@ import type * as messages from "../messages.js";
 import type * as observations from "../observations.js";
 import type * as personas from "../personas.js";
 import type * as perspectives from "../perspectives.js";
+import type * as processState from "../processState.js";
+import type * as processes from "../processes.js";
 import type * as projects from "../projects.js";
 import type * as scholars from "../scholars.js";
 import type * as seed from "../seed.js";
@@ -52,6 +54,8 @@ declare const fullApi: ApiFromModules<{
   observations: typeof observations;
   personas: typeof personas;
   perspectives: typeof perspectives;
+  processState: typeof processState;
+  processes: typeof processes;
   projects: typeof projects;
   scholars: typeof scholars;
   seed: typeof seed;

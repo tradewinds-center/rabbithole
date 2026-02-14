@@ -18,6 +18,7 @@ import {
   Spinner,
   Card,
   SimpleGrid,
+  Badge,
   Menu,
   Portal,
 } from "@chakra-ui/react";
@@ -30,6 +31,7 @@ import {
   FiBook,
   FiSmile,
   FiEye,
+  FiLayers,
   FiChevronDown,
   FiX,
 } from "react-icons/fi";
@@ -37,7 +39,7 @@ import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 
-type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives";
+type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives" | "processes";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
   { key: "live", label: "Conductor View", icon: Lectern },
@@ -45,6 +47,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React
   { key: "projects", label: "Projects", icon: FiBook },
   { key: "personas", label: "Personas", icon: FiSmile },
   { key: "perspectives", label: "Perspectives", icon: FiEye },
+  { key: "processes", label: "Processes", icon: FiLayers },
 ];
 
 interface Scholar {
@@ -59,6 +62,8 @@ interface Scholar {
   statusSummary: string | null;
   progressScore: number | null;
   lastMessage: string | null;
+  processStep: string | null;
+  processTitle: string | null;
 }
 
 export default function TeacherDashboard() {
@@ -75,6 +80,7 @@ export default function TeacherDashboard() {
   const personas = useQuery(api.personas.list) ?? [];
   const projects = useQuery(api.projects.list) ?? [];
   const perspectives = useQuery(api.perspectives.list) ?? [];
+  const processes = useQuery(api.processes.list) ?? [];
   const currentFocus = useQuery(api.focus.getCurrent);
   const setFocus = useMutation(api.focus.set);
   const clearFocus = useMutation(api.focus.clear);
@@ -284,6 +290,7 @@ export default function TeacherDashboard() {
               personas={personas}
               projects={projects}
               perspectives={perspectives}
+              processes={processes}
               onSet={async (args) => { await setFocus(args); }}
               onClear={async () => { await clearFocus(); }}
             />
@@ -308,11 +315,12 @@ export default function TeacherDashboard() {
         )}
 
         {/* Entity management tabs */}
-        {(activeTab === "projects" || activeTab === "personas" || activeTab === "perspectives") && (
+        {(activeTab === "projects" || activeTab === "personas" || activeTab === "perspectives" || activeTab === "processes") && (
           <Box flex={1} overflow="auto" px={6} py={4}>
             {activeTab === "projects" && <EntityManager entityType="project" />}
             {activeTab === "personas" && <EntityManager entityType="persona" />}
             {activeTab === "perspectives" && <EntityManager entityType="perspective" />}
+            {activeTab === "processes" && <EntityManager entityType="process" />}
           </Box>
         )}
       </Flex>
@@ -381,6 +389,11 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
                   {scholar.email}
                 </Text>
               </VStack>
+              {scholar.processTitle && scholar.processStep && (
+                <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="xs" flexShrink={0}>
+                  {scholar.processTitle}: {scholar.processStep}
+                </Badge>
+              )}
           </HStack>
 
           <HStack
@@ -448,44 +461,51 @@ interface FocusBarProps {
     personaId?: string | null;
     projectId?: string | null;
     perspectiveId?: string | null;
+    processId?: string | null;
     isActive: boolean;
   } | null;
   personas: FocusEntity[];
   projects: FocusEntity[];
   perspectives: FocusEntity[];
+  processes: FocusEntity[];
   onSet: (args: {
     personaId?: Id<"personas">;
     projectId?: Id<"projects">;
     perspectiveId?: Id<"perspectives">;
+    processId?: Id<"processes">;
   }) => void;
   onClear: () => void;
 }
 
-function FocusBar({ currentFocus, personas, projects, perspectives, onSet, onClear }: FocusBarProps) {
+function FocusBar({ currentFocus, personas, projects, perspectives, processes, onSet, onClear }: FocusBarProps) {
   const isActive = currentFocus?.isActive ?? false;
   const focusPersonaId = isActive ? currentFocus?.personaId ?? null : null;
   const focusProjectId = isActive ? currentFocus?.projectId ?? null : null;
   const focusPerspectiveId = isActive ? currentFocus?.perspectiveId ?? null : null;
-  const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId;
+  const focusProcessId = isActive ? currentFocus?.processId ?? null : null;
+  const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId || focusProcessId;
 
   const activePersona = personas.find((p) => p._id === focusPersonaId);
   const activeProject = projects.find((p) => p._id === focusProjectId);
   const activePerspective = perspectives.find((p) => p._id === focusPerspectiveId);
+  const activeProcess = processes.find((p) => p._id === focusProcessId);
 
   const handleSelect = (
-    dim: "personaId" | "projectId" | "perspectiveId",
+    dim: "personaId" | "projectId" | "perspectiveId" | "processId",
     value: string | null
   ) => {
     const args: Record<string, string | undefined> = {
       personaId: focusPersonaId ?? undefined,
       projectId: focusProjectId ?? undefined,
       perspectiveId: focusPerspectiveId ?? undefined,
+      processId: focusProcessId ?? undefined,
     };
     args[dim] = value ?? undefined;
     onSet(args as {
       personaId?: Id<"personas">;
       projectId?: Id<"projects">;
       perspectiveId?: Id<"perspectives">;
+      processId?: Id<"processes">;
     });
   };
 
@@ -632,6 +652,51 @@ function FocusBar({ currentFocus, personas, projects, perspectives, onSet, onCle
                 {perspectives.map((p) => (
                   <Menu.RadioItem key={p._id} value={p._id}>
                     <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.icon || "🔍"}</Box>
+                    {p.title}
+                    <Menu.ItemIndicator />
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioItemGroup>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+
+      {/* Process dropdown */}
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <Button
+            size="xs"
+            variant="outline"
+            borderColor={focusProcessId ? "violet.300" : "gray.300"}
+            bg={focusProcessId ? "violet.100" : "white"}
+            color={focusProcessId ? "violet.700" : "charcoal.500"}
+            fontFamily="heading"
+            fontSize="xs"
+            fontWeight="500"
+            _hover={{ bg: focusProcessId ? "violet.200" : "gray.100" }}
+          >
+            {activeProcess ? `${activeProcess.emoji || "📋"} ${activeProcess.title}` : "Process"}
+            <FiChevronDown size={12} />
+          </Button>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content minW="10rem">
+              <Menu.RadioItemGroup
+                value={focusProcessId ?? "none"}
+                onValueChange={(e) =>
+                  handleSelect("processId", e.value === "none" ? null : e.value)
+                }
+              >
+                <Menu.RadioItem value="none">
+                  <Box w="1.2em" display="inline-block" flexShrink={0} />
+                  Free Choice
+                  <Menu.ItemIndicator />
+                </Menu.RadioItem>
+                {processes.map((p) => (
+                  <Menu.RadioItem key={p._id} value={p._id}>
+                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.emoji || "📋"}</Box>
                     {p.title}
                     <Menu.ItemIndicator />
                   </Menu.RadioItem>

@@ -25,6 +25,7 @@ export const set = teacherMutation({
     personaId: v.optional(v.id("personas")),
     projectId: v.optional(v.id("projects")),
     perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
   },
   handler: async (ctx, args) => {
     // Deactivate all existing active focus settings
@@ -42,6 +43,7 @@ export const set = teacherMutation({
       personaId: args.personaId,
       projectId: args.projectId,
       perspectiveId: args.perspectiveId,
+      processId: args.processId,
       isActive: true,
     });
   },

@@ -32,6 +32,9 @@ export const sendMessage = authedMutation({
     const perspectiveId = conversation.perspectiveId
       ? String(conversation.perspectiveId)
       : undefined;
+    const processId = conversation.processId
+      ? String(conversation.processId)
+      : undefined;
 
     // Save user message
     await ctx.db.insert("messages", {
@@ -41,6 +44,7 @@ export const sendMessage = authedMutation({
       personaId,
       projectId,
       perspectiveId,
+      processId,
       flagged: false,
     });
 
@@ -56,6 +60,7 @@ export const sendMessage = authedMutation({
       personaId,
       projectId,
       perspectiveId,
+      processId,
       flagged: false,
     });
 

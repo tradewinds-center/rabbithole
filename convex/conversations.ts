@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
+import { internal } from "./_generated/api";
 
 /**
  * List conversations for a user (non-archived, most recent first).
@@ -89,6 +90,7 @@ export const create = authedMutation({
     projectId: v.optional(v.id("projects")),
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
   },
   handler: async (ctx, args) => {
     const isTeacher =
@@ -110,10 +112,19 @@ export const create = authedMutation({
       projectId: args.projectId,
       personaId: args.personaId,
       perspectiveId: args.perspectiveId,
+      processId: args.processId,
       title,
       status: "green",
       isArchived: false,
     });
+
+    // Initialize process state if a process was set
+    if (args.processId) {
+      await ctx.scheduler.runAfter(0, internal.processState.initialize, {
+        conversationId: id,
+        processId: args.processId,
+      });
+    }
 
     return { id };
   },
@@ -131,6 +142,7 @@ export const update = authedMutation({
     projectId: v.optional(v.union(v.id("projects"), v.null())),
     personaId: v.optional(v.union(v.id("personas"), v.null())),
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
+    processId: v.optional(v.union(v.id("processes"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
     status: v.optional(
       v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))
@@ -159,6 +171,8 @@ export const update = authedMutation({
       updates.personaId = args.personaId ?? undefined;
     if (args.perspectiveId !== undefined)
       updates.perspectiveId = args.perspectiveId ?? undefined;
+    if (args.processId !== undefined)
+      updates.processId = args.processId ?? undefined;
 
     // Only teachers can update these
     if (isTeacher) {
@@ -170,6 +184,24 @@ export const update = authedMutation({
     }
 
     await ctx.db.patch(args.id, updates);
+
+    // Handle processState when processId changes
+    if (args.processId !== undefined) {
+      const newProcessId = args.processId;
+      if (newProcessId) {
+        // Initialize/replace processState
+        await ctx.scheduler.runAfter(0, internal.processState.initialize, {
+          conversationId: args.id,
+          processId: newProcessId,
+        });
+      } else {
+        // Remove processState when process is cleared
+        await ctx.scheduler.runAfter(0, internal.processState.remove, {
+          conversationId: args.id,
+        });
+      }
+    }
+
     return await ctx.db.get(args.id);
   },
 });

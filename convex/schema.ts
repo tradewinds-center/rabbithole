@@ -36,6 +36,7 @@ export default defineSchema({
     projectId: v.optional(v.id("projects")),
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
     title: v.string(),
     status: v.union(
       v.literal("green"),
@@ -65,6 +66,7 @@ export default defineSchema({
     personaId: v.optional(v.string()),
     projectId: v.optional(v.string()),
     perspectiveId: v.optional(v.string()),
+    processId: v.optional(v.string()),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     flagged: v.boolean(),
@@ -189,6 +191,42 @@ export default defineSchema({
     personaId: v.optional(v.id("personas")),
     projectId: v.optional(v.id("projects")),
     perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
     isActive: v.boolean(),
   }).index("by_active", ["isActive"]),
+
+  processes: defineTable({
+    teacherId: v.id("users"),
+    title: v.string(),
+    emoji: v.optional(v.string()),
+    description: v.optional(v.string()),
+    systemPrompt: v.optional(v.string()),
+    steps: v.array(
+      v.object({
+        key: v.string(),
+        title: v.string(),
+        description: v.optional(v.string()),
+      })
+    ),
+    isActive: v.boolean(),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_active", ["isActive"]),
+
+  processState: defineTable({
+    conversationId: v.id("conversations"),
+    processId: v.id("processes"),
+    currentStep: v.string(),
+    steps: v.array(
+      v.object({
+        key: v.string(),
+        status: v.union(
+          v.literal("not_started"),
+          v.literal("in_progress"),
+          v.literal("completed")
+        ),
+        commentary: v.optional(v.string()),
+      })
+    ),
+  }).index("by_conversation", ["conversationId"]),
 });

@@ -14,6 +14,7 @@ import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
+import { ProcessPanel } from "./ProcessPanel";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -45,6 +46,7 @@ export function ChatInterface({
   const personas = useQuery(api.personas.list) ?? [];
   const projects = useQuery(api.projects.list) ?? [];
   const perspectives = useQuery(api.perspectives.list) ?? [];
+  const processes = useQuery(api.processes.list) ?? [];
 
   // Focus lock from teacher
   const currentFocus = useQuery(api.focus.getCurrent);
@@ -53,6 +55,7 @@ export function ChatInterface({
         personaId: currentFocus.personaId ? String(currentFocus.personaId) : null,
         projectId: currentFocus.projectId ? String(currentFocus.projectId) : null,
         perspectiveId: currentFocus.perspectiveId ? String(currentFocus.perspectiveId) : null,
+        processId: currentFocus.processId ? String(currentFocus.processId) : null,
       }
     : null;
 
@@ -69,6 +72,11 @@ export function ChatInterface({
     id: p._id,
     title: p.title,
     icon: p.icon ?? null,
+  }));
+  const processOptions: DimensionOption[] = processes.map((p) => ({
+    id: p._id,
+    title: p.title,
+    emoji: p.emoji ?? null,
   }));
 
   // Convex query for conversation + messages (reactive, auto-updating)
@@ -90,13 +98,30 @@ export function ChatInterface({
         perspectiveId: convData.conversation.perspectiveId
           ? String(convData.conversation.perspectiveId)
           : null,
+        processId: convData.conversation.processId
+          ? String(convData.conversation.processId)
+          : null,
       }
     : {
         title: "New Conversation",
         personaId: null,
         projectId: null,
         perspectiveId: null,
+        processId: null,
       };
+
+  // Process state (reactive query, updates when AI tool fires)
+  const processState = useQuery(
+    api.processState.getByConversation,
+    conversationData.processId
+      ? { conversationId: conversationId as Id<"conversations"> }
+      : "skip"
+  );
+
+  // Look up the full process definition for the panel
+  const activeProcessDef = conversationData.processId
+    ? processes.find((p) => p._id === conversationData.processId)
+    : null;
 
   // Convex mutation for updating conversation dimensions
   const updateConversation = useMutation(api.conversations.update);
@@ -144,6 +169,9 @@ export function ChatInterface({
     if (focusLock.perspectiveId != null && String(conv.perspectiveId ?? "") !== focusLock.perspectiveId) {
       updates.perspectiveId = focusLock.perspectiveId;
     }
+    if (focusLock.processId != null && String(conv.processId ?? "") !== focusLock.processId) {
+      updates.processId = focusLock.processId;
+    }
     if (Object.keys(updates).length > 0) {
       updateConversation({
         id: conversationId as Id<"conversations">,
@@ -154,7 +182,7 @@ export function ChatInterface({
 
   // Handle dimension changes via Convex mutation
   const handleDimensionChange = async (
-    field: "personaId" | "projectId" | "perspectiveId",
+    field: "personaId" | "projectId" | "perspectiveId" | "processId",
     value: string | null
   ) => {
     // Skip if this dimension is locked by focus
@@ -287,16 +315,20 @@ export function ChatInterface({
         personaId={conversationData.personaId}
         projectId={conversationData.projectId}
         perspectiveId={conversationData.perspectiveId}
+        processId={conversationData.processId}
         personaOptions={personaOptions}
         projectOptions={projectOptions}
         perspectiveOptions={perspectiveOptions}
+        processOptions={processOptions}
         onPersonaChange={(id) => handleDimensionChange("personaId", id)}
         onProjectChange={(id) => handleDimensionChange("projectId", id)}
         onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
+        onProcessChange={(id) => handleDimensionChange("processId", id)}
         focusLock={focusLock}
       />
 
-      {/* Messages */}
+      {/* Messages area with optional ProcessPanel */}
+      <Flex flex={1} overflow="hidden">
       <Box flex={1} overflowY="auto" p={4}>
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
           {messages.length === 0 && !streamingContent && (
@@ -357,6 +389,20 @@ export function ChatInterface({
           <div ref={messagesEndRef} />
         </VStack>
       </Box>
+
+      {/* ProcessPanel (right side) */}
+      {activeProcessDef && processState && (
+        <ProcessPanel
+          process={{
+            title: activeProcessDef.title,
+            emoji: activeProcessDef.emoji ?? null,
+            steps: activeProcessDef.steps,
+          }}
+          currentStep={processState.currentStep}
+          steps={processState.steps}
+        />
+      )}
+      </Flex>
 
       {/* Input Area */}
       <Box

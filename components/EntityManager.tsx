@@ -27,10 +27,11 @@ import {
   FiBook,
   FiSmile,
   FiEye,
+  FiLayers,
   FiArrowLeft,
 } from "react-icons/fi";
 
-type EntityType = "project" | "persona" | "perspective";
+type EntityType = "project" | "persona" | "perspective" | "process";
 
 interface Entity {
   id: string;
@@ -48,6 +49,8 @@ interface Entity {
   emoji?: string;
   // Perspective-specific
   icon?: string;
+  // Process-specific
+  steps?: { key: string; title: string; description?: string }[];
 }
 
 interface EntityManagerProps {
@@ -90,6 +93,12 @@ const CONFIG: Record<EntityType, {
     icon: FiEye,
     color: "teal",
   },
+  process: {
+    label: "Process",
+    plural: "Processes",
+    icon: FiLayers,
+    color: "blue",
+  },
 };
 
 export function EntityManager({ entityType }: EntityManagerProps) {
@@ -100,6 +109,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
   const entities = useQuery(
     entityType === "persona" ? api.personas.list :
     entityType === "project" ? api.projects.list :
+    entityType === "process" ? api.processes.list :
     api.perspectives.list
   ) as Entity[] | undefined;
 
@@ -116,6 +126,10 @@ export function EntityManager({ entityType }: EntityManagerProps) {
   const updatePerspective = useMutation(api.perspectives.update);
   const deactivatePerspective = useMutation(api.perspectives.deactivate);
 
+  const createProcess = useMutation(api.processes.create);
+  const updateProcess = useMutation(api.processes.update);
+  const deactivateProcess = useMutation(api.processes.deactivate);
+
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -131,6 +145,9 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     icon: "",
   });
 
+  // Steps state for process entity type
+  const [stepsData, setStepsData] = useState<{ key: string; title: string; description: string }[]>([]);
+
   const isLoading = entities === undefined;
 
   const resetForm = () => ({
@@ -145,6 +162,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
 
   const handleStartCreate = () => {
     setFormData(resetForm());
+    setStepsData([]);
     setEditingEntity(null);
     setIsCreating(true);
   };
@@ -159,6 +177,13 @@ export function EntityManager({ entityType }: EntityManagerProps) {
       emoji: entity.emoji || "",
       icon: entity.icon || "",
     });
+    setStepsData(
+      entity.steps?.map((s) => ({
+        key: s.key,
+        title: s.title,
+        description: s.description || "",
+      })) ?? []
+    );
     setEditingEntity(entity);
     setIsCreating(true);
   };
@@ -166,9 +191,18 @@ export function EntityManager({ entityType }: EntityManagerProps) {
   const handleSave = async () => {
     if (!formData.title.trim()) return;
     if (entityType === "persona" && !formData.emoji.trim()) return;
+    if (entityType === "process" && stepsData.length === 0) return;
 
     setIsSaving(true);
     try {
+      const cleanSteps = stepsData
+        .filter((s) => s.key.trim() && s.title.trim())
+        .map((s) => ({
+          key: s.key.trim(),
+          title: s.title.trim(),
+          description: s.description.trim() || undefined,
+        }));
+
       if (editingEntity) {
         const entityId = editingEntity._id;
 
@@ -189,6 +223,15 @@ export function EntityManager({ entityType }: EntityManagerProps) {
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
             ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
+          });
+        } else if (entityType === "process") {
+          await updateProcess({
+            id: entityId as Id<"processes">,
+            title: formData.title,
+            emoji: formData.emoji || undefined,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+            steps: cleanSteps,
           });
         } else {
           await updatePerspective({
@@ -219,6 +262,14 @@ export function EntityManager({ entityType }: EntityManagerProps) {
             rubric: formData.rubric || undefined,
             ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
           });
+        } else if (entityType === "process") {
+          await createProcess({
+            title: formData.title,
+            emoji: formData.emoji || undefined,
+            description: formData.description || undefined,
+            systemPrompt: formData.systemPrompt || undefined,
+            steps: cleanSteps,
+          });
         } else {
           await createPerspective({
             title: formData.title,
@@ -243,6 +294,8 @@ export function EntityManager({ entityType }: EntityManagerProps) {
         await deactivatePersona({ id: entityId as Id<"personas"> });
       } else if (entityType === "project") {
         await deactivateProject({ id: entityId as Id<"projects"> });
+      } else if (entityType === "process") {
+        await deactivateProcess({ id: entityId as Id<"processes"> });
       } else {
         await deactivatePerspective({ id: entityId as Id<"perspectives"> });
       }
@@ -309,6 +362,22 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                     value={formData.emoji}
                     onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
                     placeholder="e.g., 🥋"
+                    fontFamily="body"
+                    maxW="100px"
+                  />
+                </Box>
+              )}
+
+              {/* Process-specific: emoji */}
+              {entityType === "process" && (
+                <Box>
+                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
+                    Emoji
+                  </Text>
+                  <Input
+                    value={formData.emoji}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
+                    placeholder="e.g., ✍️"
                     fontFamily="body"
                     maxW="100px"
                   />
@@ -408,6 +477,80 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                 </>
               )}
 
+              {/* Process-specific: steps editor */}
+              {entityType === "process" && (
+                <Box>
+                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={2}>
+                    Steps *
+                  </Text>
+                  <VStack gap={2} align="stretch">
+                    {stepsData.map((step, idx) => (
+                      <HStack key={idx} gap={2} align="start">
+                        <Input
+                          value={step.key}
+                          onChange={(e) => {
+                            const updated = [...stepsData];
+                            updated[idx] = { ...updated[idx], key: e.target.value };
+                            setStepsData(updated);
+                          }}
+                          placeholder="Key"
+                          fontFamily="body"
+                          fontSize="sm"
+                          maxW="70px"
+                        />
+                        <Input
+                          value={step.title}
+                          onChange={(e) => {
+                            const updated = [...stepsData];
+                            updated[idx] = { ...updated[idx], title: e.target.value };
+                            setStepsData(updated);
+                          }}
+                          placeholder="Title"
+                          fontFamily="body"
+                          fontSize="sm"
+                          flex={1}
+                        />
+                        <Input
+                          value={step.description}
+                          onChange={(e) => {
+                            const updated = [...stepsData];
+                            updated[idx] = { ...updated[idx], description: e.target.value };
+                            setStepsData(updated);
+                          }}
+                          placeholder="Description (optional)"
+                          fontFamily="body"
+                          fontSize="sm"
+                          flex={2}
+                        />
+                        <IconButton
+                          aria-label="Remove step"
+                          size="sm"
+                          variant="ghost"
+                          color="charcoal.400"
+                          _hover={{ color: "red.500" }}
+                          onClick={() => {
+                            setStepsData(stepsData.filter((_, i) => i !== idx));
+                          }}
+                        >
+                          <FiTrash2 />
+                        </IconButton>
+                      </HStack>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      fontFamily="heading"
+                      onClick={() =>
+                        setStepsData([...stepsData, { key: "", title: "", description: "" }])
+                      }
+                    >
+                      <FiPlus style={{ marginRight: "6px" }} />
+                      Add Step
+                    </Button>
+                  </VStack>
+                </Box>
+              )}
+
               <HStack gap={2} pt={4}>
                 <Button
                   flex={1}
@@ -424,7 +567,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                   _hover={{ bg: "violet.600" }}
                   fontFamily="heading"
                   onClick={handleSave}
-                  disabled={isSaving || !formData.title.trim() || (entityType === "persona" && !formData.emoji.trim())}
+                  disabled={isSaving || !formData.title.trim() || (entityType === "persona" && !formData.emoji.trim()) || (entityType === "process" && stepsData.filter(s => s.key.trim() && s.title.trim()).length === 0)}
                 >
                   {isSaving ? <Spinner size="sm" /> : <><FiSave style={{ marginRight: "8px" }} /> Save</>}
                 </Button>
@@ -504,6 +647,11 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                         {entityType === "project" && entity.targetBloomLevel && (
                           <Badge bg="violet.100" color="violet.700" fontSize="xs">
                             {entity.targetBloomLevel}
+                          </Badge>
+                        )}
+                        {entityType === "process" && entity.steps && (
+                          <Badge bg="blue.100" color="blue.700" fontSize="xs">
+                            {entity.steps.length} steps
                           </Badge>
                         )}
                       </VStack>

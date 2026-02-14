@@ -9,7 +9,7 @@ import {
   Portal,
   IconButton,
 } from "@chakra-ui/react";
-import { FiBook, FiChevronDown, FiEye, FiLock } from "react-icons/fi";
+import { FiBook, FiChevronDown, FiEye, FiLayers, FiLock } from "react-icons/fi";
 
 interface DimensionOption {
   id: string;
@@ -22,6 +22,7 @@ interface FocusLock {
   personaId?: string | null;
   projectId?: string | null;
   perspectiveId?: string | null;
+  processId?: string | null;
 }
 
 interface ChatHeaderProps {
@@ -30,14 +31,17 @@ interface ChatHeaderProps {
   personaId: string | null;
   projectId: string | null;
   perspectiveId: string | null;
+  processId: string | null;
   // Options
   personaOptions: DimensionOption[];
   projectOptions: DimensionOption[];
   perspectiveOptions: DimensionOption[];
+  processOptions: DimensionOption[];
   // Handlers
   onPersonaChange: (id: string | null) => void;
   onProjectChange: (id: string | null) => void;
   onPerspectiveChange: (id: string | null) => void;
+  onProcessChange: (id: string | null) => void;
   // Focus lock (optional)
   focusLock?: FocusLock | null;
 }
@@ -64,26 +68,32 @@ export function ChatHeader({
   personaId,
   projectId,
   perspectiveId,
+  processId,
   personaOptions,
   projectOptions,
   perspectiveOptions,
+  processOptions,
   onPersonaChange,
   onProjectChange,
   onPerspectiveChange,
+  onProcessChange,
   focusLock,
 }: ChatHeaderProps) {
   const personaLocked = focusLock?.personaId != null;
   const projectLocked = focusLock?.projectId != null;
   const perspectiveLocked = focusLock?.perspectiveId != null;
+  const processLocked = focusLock?.processId != null;
 
   const activePersona = personaOptions.find((p) => p.id === personaId);
   const activeProject = projectOptions.find((p) => p.id === projectId);
   const activePerspective = perspectiveOptions.find((p) => p.id === perspectiveId);
+  const activeProcess = processOptions.find((p) => p.id === processId);
 
   // Build subtitle badges
   const badges: string[] = [];
   if (activeProject) badges.push(activeProject.title);
   if (activePerspective) badges.push(`${activePerspective.icon || ""} ${activePerspective.title}`.trim());
+  if (activeProcess) badges.push(`${activeProcess.emoji || "📋"} ${activeProcess.title}`.trim());
 
   return (
     <Flex
@@ -318,6 +328,70 @@ export function ChatHeader({
                     css={perspectiveId === p.id ? activeMenuItemCss : menuItemCss}
                   >
                     {p.icon || "🔍"} {p.title}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+      )}
+
+      {/* Process menu (right) */}
+      {processLocked ? (
+        <IconButton
+          aria-label="Process (locked by teacher)"
+          size="sm"
+          variant="ghost"
+          color="violet.500"
+          cursor="default"
+          title={`${activeProcess?.title || "Process"} (locked by teacher)`}
+        >
+          <HStack gap={1}>
+            <FiLayers />
+            <FiLock size={10} />
+          </HStack>
+        </IconButton>
+      ) : (
+        <Menu.Root
+          onSelect={({ value }) =>
+            onProcessChange(value === "none" ? null : value)
+          }
+        >
+          <Menu.Trigger asChild>
+            <IconButton
+              aria-label="Select process"
+              size="sm"
+              variant="ghost"
+              color={processId ? "violet.500" : "charcoal.400"}
+              _hover={{ bg: "gray.100" }}
+            >
+              <HStack gap={1}>
+                <FiLayers />
+                <FiChevronDown size={12} />
+              </HStack>
+            </IconButton>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content
+                css={{
+                  padding: "0.5rem",
+                  minWidth: "200px",
+                }}
+              >
+                <Menu.Item
+                  value="none"
+                  css={!processId ? activeMenuItemCss : menuItemCss}
+                >
+                  No process
+                </Menu.Item>
+                {processOptions.map((p) => (
+                  <Menu.Item
+                    key={p.id}
+                    value={p.id}
+                    css={processId === p.id ? activeMenuItemCss : menuItemCss}
+                  >
+                    {p.emoji || "📋"} {p.title}
                   </Menu.Item>
                 ))}
               </Menu.Content>
