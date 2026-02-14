@@ -1,7 +1,8 @@
 "use client";
 
 import { HStack, Text, Menu, Portal, Tooltip, Box } from "@chakra-ui/react";
-import { FiChevronDown, FiLock, FiEdit2 } from "react-icons/fi";
+import { FiChevronDown, FiLock } from "react-icons/fi";
+import { Scroll } from "@phosphor-icons/react";
 
 export interface DimensionOption {
   id: string;
@@ -96,7 +97,7 @@ export function DimensionPicker({
             onEdit();
           }}
         >
-          <FiEdit2 size={11} />
+          <Scroll size={13} weight="bold" />
         </Box>
       </Tooltip.Trigger>
       <Portal>

@@ -20,12 +20,12 @@ import {
 import {
   FiPlus,
   FiTrash2,
-  FiEdit2,
   FiBook,
   FiSmile,
   FiEye,
   FiLayers,
 } from "react-icons/fi";
+import { Scroll } from "@phosphor-icons/react";
 import { DimensionEditModal } from "./DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
 
@@ -202,30 +202,18 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                         )}
                       </VStack>
                     </HStack>
-                    <HStack gap={1}>
+                    {entity.isActive && (
                       <IconButton
-                        aria-label="Edit"
-                        size="sm"
+                        aria-label="Delete"
+                        size="xs"
                         variant="ghost"
-                        color="charcoal.400"
-                        _hover={{ color: "violet.500", bg: "violet.50" }}
-                        onClick={() => handleEdit(entity)}
+                        color="charcoal.300"
+                        _hover={{ color: "red.500", bg: "red.50" }}
+                        onClick={() => handleDelete(entity.id)}
                       >
-                        <FiEdit2 />
+                        <FiTrash2 />
                       </IconButton>
-                      {entity.isActive && (
-                        <IconButton
-                          aria-label="Delete"
-                          size="sm"
-                          variant="ghost"
-                          color="charcoal.400"
-                          _hover={{ color: "red.500", bg: "red.50" }}
-                          onClick={() => handleDelete(entity.id)}
-                        >
-                          <FiTrash2 />
-                        </IconButton>
-                      )}
-                    </HStack>
+                    )}
                   </HStack>
 
                   {entity.description && (
@@ -256,6 +244,20 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                       Archived
                     </Badge>
                   )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    fontFamily="heading"
+                    color="violet.500"
+                    borderColor="violet.200"
+                    _hover={{ bg: "violet.50", borderColor: "violet.400" }}
+                    onClick={() => handleEdit(entity)}
+                    mt={1}
+                  >
+                    <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
+                    Edit Prompt
+                  </Button>
                 </VStack>
               </Card.Body>
             </Card.Root>
