@@ -103,7 +103,7 @@ export function ArtifactPanel({
   }
 
   return (
-    <Flex flex={1} flexDir="column" overflow="hidden" bg="gray.50" gap={4} px={3} pt={1} pb={3}>
+    <Flex flex={1} flexDir="column" overflow="hidden" bg="gray.50" gap={4} px={4} pt={1} pb={3}>
       {/* ── Process section ── */}
       {hasProcess && (
         <Flex flexDir="column" overflow="hidden" flexShrink={0}>

@@ -474,13 +474,11 @@ export function ChatInterface({
               toggleRecording={toggleRecording}
             />
           </Splitter.Panel>
-          <Splitter.ResizeTrigger id="chat:side" />
+          <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
           <Splitter.Panel id="side">
             <Flex
               h="full"
               flexDir="column"
-              borderLeft="1px solid"
-              borderColor="gray.200"
               overflow="hidden"
             >
               <ArtifactPanel
@@ -643,7 +641,7 @@ function ChatColumn({
       {/* Input Area */}
       <Box
         p={4}
-        borderTop="1px solid"
+        borderTop="0.5px solid"
         borderColor="gray.200"
         bg="gray.50"
         shadow="0 -1px 3px rgba(0,0,0,0.06)"
@@ -659,8 +657,8 @@ function ChatColumn({
             rows={1}
             overflow="hidden"
             bg="white"
-            border="2px solid"
-            borderColor="gray.200"
+            border="0.5px solid"
+            borderColor="gray.400"
             borderRadius="xl"
             _focus={{
               borderColor: "violet.400",

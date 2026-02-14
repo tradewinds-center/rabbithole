@@ -114,7 +114,7 @@ export function ChatHeader({
   return (
     <Box
       bg="white"
-      borderBottom="1px solid"
+      borderBottom="0.5px solid"
       borderColor="gray.200"
       shadow="0 1px 3px rgba(0,0,0,0.06)"
     >
