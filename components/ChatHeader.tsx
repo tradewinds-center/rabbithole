@@ -206,7 +206,7 @@ export function ChatHeader({
       <Flex px={5} pb={2} gap={7} align="center" flexWrap="wrap">
         <DimensionPicker
           label="Persona"
-          defaultLabel="🤖 Makawulu"
+          defaultLabel="🤖 AI"
           activeId={personaId}
           options={personaOptions}
           locked={personaLocked}
@@ -215,7 +215,7 @@ export function ChatHeader({
           renderOption={(p) => `${p.emoji || "🤖"} ${p.title}`}
           renderActive={() => {
             const a = personaOptions.find((p) => p.id === personaId);
-            return a ? `${a.emoji} ${a.title}` : "🤖 Makawulu";
+            return a ? `${a.emoji} ${a.title}` : "🤖 AI";
           }}
           onEdit={isTestMode && personaData ? (id) => openEdit("persona", id, personaData) : undefined}
         />

@@ -4,6 +4,19 @@ const config = defineConfig({
   theme: {
     tokens: {
       colors: {
+        // Cool gray override
+        gray: {
+          50: { value: "#f9fafa" },
+          100: { value: "#f0f1f3" },
+          200: { value: "#e6e8ea" },
+          300: { value: "#d0d4d9" },
+          400: { value: "#a6adb7" },
+          500: { value: "#758090" },
+          600: { value: "#47556b" },
+          700: { value: "#263750" },
+          800: { value: "#16202f" },
+          900: { value: "#121a26" },
+        },
         // Primary
         navy: {
           50: { value: "#e8e9f0" },
@@ -43,16 +56,16 @@ const config = defineConfig({
           900: { value: "#8A7518" },
         },
         violet: {
-          50: { value: "#f9f5fa" },
-          100: { value: "#f0e6f3" },
-          200: { value: "#e5d4ed" },
-          300: { value: "#d4b8df" }, // Light bg
-          400: { value: "#c18ccf" },
-          500: { value: "#AD60BF" }, // Base
-          600: { value: "#9b56ac" },
-          700: { value: "#8a4d99" }, // Hover
-          800: { value: "#6e3d7a" },
-          900: { value: "#522e5c" },
+          50: { value: "#faf6fb" },
+          100: { value: "#ecdbf0" },
+          200: { value: "#dbbbe3" },
+          300: { value: "#c694d3" }, // Light bg
+          400: { value: "#ba7eca" },
+          500: { value: "#a960bc" }, // Base
+          600: { value: "#8f519f" },
+          700: { value: "#734180" }, // Hover
+          800: { value: "#61376c" },
+          900: { value: "#46284e" },
         },
         cyan: {
           50: { value: "#f0fbfc" },
