@@ -41,6 +41,8 @@ import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 import { DimensionPicker } from "@/components/DimensionPicker";
+import { DimensionEditModal } from "@/components/DimensionEditModal";
+import type { DimensionType, DimensionEditData } from "@/components/DimensionEditModal";
 import { AppLogo } from "@/components/AppLogo";
 
 type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives" | "processes";
@@ -602,6 +604,11 @@ interface FocusEntity {
   title: string;
   emoji?: string;
   icon?: string | null;
+  description?: string;
+  systemPrompt?: string;
+  rubric?: string;
+  targetBloomLevel?: string;
+  steps?: { key: string; title: string; description?: string }[];
 }
 
 interface FocusBarProps {
@@ -633,6 +640,18 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
   const focusProcessId = isActive ? currentFocus?.processId ?? null : null;
   const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId || focusProcessId;
 
+  // Edit modal state
+  const [editModal, setEditModal] = useState<{
+    type: DimensionType;
+    data: DimensionEditData | null;
+  } | null>(null);
+
+  const openEdit = (type: DimensionType, id: string | null, entities: FocusEntity[]) => {
+    if (!id) return;
+    const item = entities.find((e) => e._id === id);
+    if (item) setEditModal({ type, data: item as DimensionEditData });
+  };
+
   const handleSelect = (
     dim: "personaId" | "projectId" | "perspectiveId" | "processId",
     value: string | null
@@ -661,15 +680,15 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
     <Flex
       px={6}
       py={2}
-      bg={hasFocus ? "violet.50" : "gray.50"}
+      bg="violet.50"
       borderBottom="1px solid"
-      borderColor={hasFocus ? "violet.200" : "gray.200"}
+      borderColor="violet.200"
       shadow="0 1px 3px rgba(0,0,0,0.04)"
       align="center"
       gap={3}
       transition="all 0.15s"
     >
-      <HStack gap={2} color={hasFocus ? "violet.600" : "charcoal.400"} flexShrink={0}>
+      <HStack gap={2} color="violet.600" flexShrink={0}>
         <TbFocusCentered size={18} />
         <Text fontFamily="heading" fontSize="sm" fontWeight="600" whiteSpace="nowrap">
           Current Focus:
@@ -688,6 +707,7 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
             const active = personas.find((p) => p._id === focusPersonaId);
             return active ? `${active.emoji} ${active.title}` : null;
           }}
+          onEdit={(id) => openEdit("persona", id, personas)}
         />
         <DimensionPicker
           label="Project"
@@ -700,6 +720,7 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
             const active = projects.find((p) => p._id === focusProjectId);
             return active ? `📚 ${active.title}` : null;
           }}
+          onEdit={(id) => openEdit("project", id, projects)}
         />
         <DimensionPicker
           label="Lens"
@@ -712,6 +733,7 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
             const active = perspectives.find((p) => p._id === focusPerspectiveId);
             return active ? `${active.icon || "🔍"} ${active.title}` : null;
           }}
+          onEdit={(id) => openEdit("perspective", id, perspectives)}
         />
         <DimensionPicker
           label="Process"
@@ -724,6 +746,7 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
             const active = processes.find((p) => p._id === focusProcessId);
             return active ? `${active.emoji || "📋"} ${active.title}` : null;
           }}
+          onEdit={(id) => openEdit("process", id, processes)}
         />
       </Flex>
 
@@ -742,6 +765,15 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
           <FiX style={{ marginRight: "4px" }} />
           Clear Focus
         </Button>
+      )}
+
+      {editModal && (
+        <DimensionEditModal
+          open={!!editModal}
+          onClose={() => setEditModal(null)}
+          dimensionType={editModal.type}
+          data={editModal.data}
+        />
       )}
     </Flex>
   );

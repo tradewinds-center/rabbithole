@@ -226,23 +226,23 @@ function ScholarChatInner() {
         <Portal>
           <Drawer.Backdrop />
           <Drawer.Positioner>
-            <Drawer.Content bg="navy.500" maxW="300px">
+            <Drawer.Content bg="white" maxW="300px">
               {/* Sidebar Header */}
               <Flex
                 p={4}
                 borderBottom="1px solid"
-                borderColor="whiteAlpha.200"
+                borderColor="gray.200"
                 justify="space-between"
                 align="center"
               >
-                <AppLogo variant="light" />
+                <AppLogo variant="dark" />
                 <Drawer.CloseTrigger asChild>
                   <IconButton
                     aria-label="Close sidebar"
                     size="sm"
                     variant="ghost"
-                    color="white"
-                    _hover={{ bg: "whiteAlpha.200" }}
+                    color="charcoal.500"
+                    _hover={{ bg: "gray.100" }}
                   >
                     <FiX />
                   </IconButton>
@@ -282,8 +282,8 @@ function ScholarChatInner() {
                     p={3}
                     borderRadius="lg"
                     cursor="pointer"
-                    bg={chatId === conv._id ? "whiteAlpha.200" : "transparent"}
-                    _hover={{ bg: "whiteAlpha.100" }}
+                    bg={chatId === conv._id ? "violet.50" : "transparent"}
+                    _hover={{ bg: chatId === conv._id ? "violet.50" : "gray.100" }}
                     css={{ "& .archive-btn": { opacity: 0 }, "&:hover .archive-btn": { opacity: 0.5 } }}
                     onClick={() => {
                       const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
@@ -294,7 +294,7 @@ function ScholarChatInner() {
                   >
                     <VStack gap={0} flex={1} overflow="hidden" align="start">
                       <Text
-                        color="white"
+                        color="navy.500"
                         fontSize="sm"
                         fontFamily="heading"
                         overflow="hidden"
@@ -305,7 +305,7 @@ function ScholarChatInner() {
                         {conv.title}
                       </Text>
                       <Text
-                        color="whiteAlpha.500"
+                        color="charcoal.300"
                         fontSize="xs"
                         fontFamily="heading"
                       >
@@ -317,8 +317,8 @@ function ScholarChatInner() {
                       aria-label="Archive"
                       size="xs"
                       variant="ghost"
-                      color="white"
-                      _hover={{ opacity: 1, bg: "whiteAlpha.200" }}
+                      color="charcoal.400"
+                      _hover={{ opacity: 1, bg: "gray.200" }}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleArchiveConversation(conv._id);
@@ -330,7 +330,7 @@ function ScholarChatInner() {
                 ))}
                 {conversations.length === 0 && (
                   <Text
-                    color="whiteAlpha.500"
+                    color="charcoal.300"
                     fontSize="sm"
                     fontFamily="heading"
                     textAlign="center"
@@ -342,7 +342,7 @@ function ScholarChatInner() {
               </VStack>
 
               {/* User Section */}
-              <Box p={3} borderTop="1px solid" borderColor="whiteAlpha.200">
+              <Box p={3} borderTop="1px solid" borderColor="gray.200">
                 <HStack justify="space-between">
                   <HStack gap={3}>
                     <Avatar
@@ -352,14 +352,14 @@ function ScholarChatInner() {
                     />
                     <VStack gap={0} align="start">
                       <Text
-                        color="white"
+                        color="navy.500"
                         fontSize="sm"
                         fontFamily="heading"
                         fontWeight="500"
                       >
                         {displayName}
                       </Text>
-                      <Text color="whiteAlpha.600" fontSize="xs" fontFamily="heading">
+                      <Text color="charcoal.400" fontSize="xs" fontFamily="heading">
                         {isRemoteMode ? "Scholar (Remote)" : "Scholar"}
                       </Text>
                     </VStack>
@@ -369,8 +369,8 @@ function ScholarChatInner() {
                       aria-label="Sign out"
                       size="sm"
                       variant="ghost"
-                      color="white"
-                      _hover={{ bg: "whiteAlpha.200" }}
+                      color="charcoal.500"
+                      _hover={{ bg: "gray.100" }}
                       onClick={() => signOut()}
                     >
                       <FiLogOut />

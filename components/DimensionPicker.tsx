@@ -1,6 +1,6 @@
 "use client";
 
-import { HStack, Text, Menu, Portal, Tooltip, Box } from "@chakra-ui/react";
+import { HStack, Text, Menu, Portal, Box, Flex } from "@chakra-ui/react";
 import { FiChevronDown, FiLock } from "react-icons/fi";
 import { Scroll } from "@phosphor-icons/react";
 
@@ -17,7 +17,7 @@ const menuItemCss = {
   padding: "0.5rem 0.75rem",
   fontSize: "sm",
   "&[data-highlighted]": {
-    background: "gray.100",
+    background: "var(--chakra-colors-violet-200)",
     color: "navy.500",
   },
 };
@@ -38,8 +38,10 @@ export interface DimensionPickerProps {
   onChange: (id: string | null) => void;
   renderOption: (option: DimensionOption) => string;
   renderActive: () => string | null;
-  /** Called when the edit pencil is clicked. Only shown when provided and a dimension is active. */
-  onEdit?: () => void;
+  /** Called with the option id when the edit icon is clicked inside a menu item. */
+  onEdit?: (id: string) => void;
+  /** Step badge key (e.g. "C", "R") shown as a violet circle indicator beside the chip */
+  stepBadge?: string;
 }
 
 export function DimensionPicker({
@@ -53,6 +55,7 @@ export function DimensionPicker({
   renderOption,
   renderActive,
   onEdit,
+  stepBadge,
 }: DimensionPickerProps) {
   const activeLabel = renderActive();
   const displayLabel = activeLabel || defaultLabel;
@@ -74,46 +77,33 @@ export function DimensionPicker({
       transition="background 0.15s"
       title={locked ? `${lockedTitle || label} (locked by teacher)` : undefined}
     >
+      {stepBadge && isActive && (
+        <Flex
+          w="18px"
+          h="18px"
+          borderRadius="full"
+          bg="violet.500"
+          color="white"
+          align="center"
+          justify="center"
+          fontSize="10px"
+          fontWeight="700"
+          lineHeight="1"
+          flexShrink={0}
+        >
+          {stepBadge}
+        </Flex>
+      )}
       <Text>{displayLabel}</Text>
       {locked ? <FiLock size={10} /> : <FiChevronDown size={12} />}
     </HStack>
   );
-
-  const editButton = onEdit && isActive ? (
-    <Tooltip.Root openDelay={300} closeDelay={0}>
-      <Tooltip.Trigger asChild>
-        <Box
-          as="button"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          color="charcoal.400"
-          cursor="pointer"
-          borderRadius="sm"
-          p={0.5}
-          _hover={{ color: "violet.500" }}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-        >
-          <Scroll size={13} weight="bold" />
-        </Box>
-      </Tooltip.Trigger>
-      <Portal>
-        <Tooltip.Positioner>
-          <Tooltip.Content>Edit Prompt</Tooltip.Content>
-        </Tooltip.Positioner>
-      </Portal>
-    </Tooltip.Root>
-  ) : null;
 
   if (locked) {
     return (
       <HStack gap={1.5}>
         <Text fontSize="xs" fontFamily="heading" color="charcoal.500">{label}</Text>
         {chipContent}
-        {editButton}
       </HStack>
     );
   }
@@ -130,7 +120,7 @@ export function DimensionPicker({
         <Portal>
           <Menu.Positioner>
             <Menu.Content
-              css={{ padding: "0.5rem", minWidth: "200px" }}
+              css={{ padding: "0.5rem", minWidth: "200px", background: "var(--chakra-colors-violet-100)" }}
             >
               <Menu.Item
                 value="none"
@@ -144,14 +134,35 @@ export function DimensionPicker({
                   value={p.id}
                   css={activeId === p.id ? activeMenuItemCss : menuItemCss}
                 >
-                  {renderOption(p)}
+                  <HStack flex={1} justify="space-between" gap={2}>
+                    <Text>{renderOption(p)}</Text>
+                    {onEdit && (
+                      <Box
+                        as="button"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        color="charcoal.300"
+                        borderRadius="sm"
+                        p={0.5}
+                        flexShrink={0}
+                        _hover={{ color: "violet.600" }}
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          onEdit(p.id);
+                        }}
+                      >
+                        <Scroll size={13} weight="bold" />
+                      </Box>
+                    )}
+                  </HStack>
                 </Menu.Item>
               ))}
             </Menu.Content>
           </Menu.Positioner>
         </Portal>
       </Menu.Root>
-      {editButton}
     </HStack>
   );
 }

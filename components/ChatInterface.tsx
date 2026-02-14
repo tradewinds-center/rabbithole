@@ -9,6 +9,7 @@ import {
   Textarea,
   IconButton,
   Spinner,
+  Splitter,
 } from "@chakra-ui/react";
 import { FiArrowUp, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
@@ -386,220 +387,303 @@ export function ChatInterface({
         userName={userName}
         userImage={userImage}
         isTestMode={isTestMode}
+        currentStepKey={processState?.currentStep ?? null}
       />
 
       {/* Main content area with optional right panel */}
-      <Flex flex={1} overflow="hidden">
-        {/* Chat column: messages + input */}
-        <Flex flex={1} flexDir="column" overflow="hidden">
-          {/* Messages */}
-          <Box flex={1} overflowY="auto" px={6} py={4}>
-            <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
-              {messages.length === 0 && !streamingContent && (
-                <VStack py={12} gap={4}>
-                  <Text
-                    fontSize="xl"
-                    fontWeight="600"
-                    fontFamily="heading"
-                    color="navy.500"
-                  >
-                    What would you like to explore?
-                  </Text>
-                  <Text
-                    color="charcoal.400"
-                    fontFamily="body"
-                    textAlign="center"
-                    maxW="md"
-                  >
-                    I&apos;m Makawulu, your AI learning companion. Ask me anything -
-                    from science and math to history and creative writing. Let&apos;s
-                    discover something together.
-                  </Text>
-                </VStack>
-              )}
-
-              {messages
-                .filter((m) => m.role !== "system")
-                .filter((m) => !(m.role === "user" && m.content === "<start>"))
-                .map((message) => {
-                  // Tool messages render as centered gray labels
-                  if (message.role === "tool") {
-                    return (
-                      <Text
-                        key={message.id}
-                        fontSize="xs"
-                        color="charcoal.300"
-                        fontFamily="heading"
-                        textAlign="center"
-                        py={1}
-                      >
-                        {message.toolAction}
-                      </Text>
-                    );
-                  }
-
-                  const isActiveStream = streamingMsgId && message.id === streamingMsgId;
-                  return (
-                    <MessageBubble
-                      key={message.id}
-                      message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
-                      personaOptions={personaOptions}
-                      isStreaming={!!isActiveStream && !!streamingContent}
-                    />
-                  );
-                })}
-
-              {/* Typing indicator */}
-              {isStreaming && !streamingContent && (
-                <Box
-                  alignSelf="flex-start"
-                  bg="gray.100"
-                  px={4}
-                  py={3}
-                  borderRadius="xl"
-                  borderBottomLeftRadius="sm"
-                >
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                </Box>
-              )}
-
-              <div ref={messagesEndRef} />
-            </VStack>
-          </Box>
-
-          {/* Input Area (chat column only) */}
-          <Box
-            p={4}
-            borderTop="1px solid"
-            borderColor="gray.200"
-            bg="gray.50"
-            shadow="0 -1px 3px rgba(0,0,0,0.06)"
-          >
-            <Flex maxW="3xl" mx="auto" gap={3}>
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask me anything..."
-                resize="none"
-                rows={1}
-                overflow="hidden"
-                bg="white"
-                border="2px solid"
-                borderColor="gray.200"
-                borderRadius="xl"
-                _focus={{
-                  borderColor: "violet.400",
-                  boxShadow: "none",
-                  outline: "none",
-                }}
-                _focusVisible={{
-                  boxShadow: "none",
-                  outline: "none",
-                }}
-                _placeholder={{ color: "gray.400" }}
-                fontFamily="body"
-                fontSize="md"
-                py={3}
-                px={4}
-                disabled={isStreaming}
-              />
-              <IconButton
-                aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
-                bg={dictationState === "recording" ? "red.500" : "gray.200"}
-                color={dictationState === "recording" ? "white" : "charcoal.500"}
-                _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
-                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-                borderRadius="xl"
-                h="auto"
-                minW={12}
-                onClick={toggleRecording}
-                disabled={isStreaming || dictationState === "transcribing"}
-                className={dictationState === "recording" ? "recording-pulse" : undefined}
-              >
-                {dictationState === "transcribing" ? (
-                  <Spinner size="sm" />
-                ) : dictationState === "recording" ? (
-                  <FiMicOff />
-                ) : (
-                  <FiMic />
-                )}
-              </IconButton>
-              <IconButton
-                aria-label="Send message"
-                bg="violet.500"
-                color="white"
-                _hover={{ bg: "violet.700" }}
-                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-                borderRadius="xl"
-                h="auto"
-                minW={12}
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming}
-              >
-                <FiArrowUp />
-              </IconButton>
-            </Flex>
-            {dictationError && (
-              <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
-                {dictationError}
-              </Text>
-            )}
-            <Text
-              fontSize="xs"
-              color="charcoal.300"
-              textAlign="center"
-              mt={2}
-              fontFamily="heading"
+      {hasRightPanel ? (
+        <Splitter.Root
+          flex={1}
+          overflow="hidden"
+          defaultSize={[55, 45]}
+          panels={[
+            { id: "chat", minSize: 40 },
+            { id: "side", minSize: 25 },
+          ]}
+        >
+          <Splitter.Panel id="chat">
+            <ChatColumn
+              messages={messages}
+              streamingContent={streamingContent}
+              streamingMsgId={streamingMsgId}
+              personaOptions={personaOptions}
+              isStreaming={isStreaming}
+              input={input}
+              setInput={setInput}
+              handleKeyDown={handleKeyDown}
+              handleSend={handleSend}
+              textareaRef={textareaRef}
+              messagesEndRef={messagesEndRef}
+              dictationState={dictationState}
+              dictationError={dictationError}
+              toggleRecording={toggleRecording}
+            />
+          </Splitter.Panel>
+          <Splitter.ResizeTrigger id="chat:side" />
+          <Splitter.Panel id="side">
+            <Flex
+              h="full"
+              flexDir="column"
+              borderLeft="1px solid"
+              borderColor="gray.200"
+              overflow="hidden"
             >
-              Makawulu is an AI assistant. Verify important information with your
-              teachers.
-            </Text>
-          </Box>
+              {activeProcessDef && processState && (
+                <ProcessPanel
+                  process={{
+                    title: activeProcessDef.title,
+                    emoji: activeProcessDef.emoji ?? null,
+                    steps: activeProcessDef.steps,
+                  }}
+                  currentStep={processState.currentStep}
+                  steps={processState.steps}
+                />
+              )}
+              {artifact && (
+                <ArtifactPanel
+                  title={artifact.title}
+                  content={artifact.content}
+                  lastEditedBy={artifact.lastEditedBy}
+                  onSave={(updates) => {
+                    saveArtifact({
+                      conversationId: conversationId as Id<"conversations">,
+                      ...updates,
+                    }).catch(console.error);
+                  }}
+                  onSyncChange={setArtifactSynced}
+                />
+              )}
+            </Flex>
+          </Splitter.Panel>
+        </Splitter.Root>
+      ) : (
+        <Flex flex={1} overflow="hidden">
+          <ChatColumn
+            messages={messages}
+            streamingContent={streamingContent}
+            streamingMsgId={streamingMsgId}
+            personaOptions={personaOptions}
+            isStreaming={isStreaming}
+            input={input}
+            setInput={setInput}
+            handleKeyDown={handleKeyDown}
+            handleSend={handleSend}
+            textareaRef={textareaRef}
+            messagesEndRef={messagesEndRef}
+            dictationState={dictationState}
+            dictationError={dictationError}
+            toggleRecording={toggleRecording}
+          />
         </Flex>
+      )}
+    </Flex>
+  );
+}
 
-        {/* Right panel column (process tracker + document editor) */}
-        {(hasRightPanel) && (
-          <Flex
-            flex={1}
-            flexDir="column"
-            borderLeft="1px solid"
-            borderColor="gray.200"
+// Chat column extracted to avoid duplication between splitter/non-splitter layouts
+interface ChatColumnProps {
+  messages: MessageData[];
+  streamingContent: string;
+  streamingMsgId: string | null;
+  personaOptions: DimensionOption[];
+  isStreaming: boolean;
+  input: string;
+  setInput: (v: string) => void;
+  handleKeyDown: (e: React.KeyboardEvent) => void;
+  handleSend: (text?: string) => void;
+  textareaRef: React.Ref<HTMLTextAreaElement>;
+  messagesEndRef: React.Ref<HTMLDivElement>;
+  dictationState: "idle" | "recording" | "transcribing";
+  dictationError: string | null;
+  toggleRecording: () => void;
+}
+
+function ChatColumn({
+  messages,
+  streamingContent,
+  streamingMsgId,
+  personaOptions,
+  isStreaming,
+  input,
+  setInput,
+  handleKeyDown,
+  handleSend,
+  textareaRef,
+  messagesEndRef,
+  dictationState,
+  dictationError,
+  toggleRecording,
+}: ChatColumnProps) {
+  return (
+    <Flex flex={1} flexDir="column" overflow="hidden" h="full">
+      {/* Messages */}
+      <Box flex={1} overflowY="auto" px={6} py={4}>
+        <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
+          {messages.length === 0 && !streamingContent && (
+            <VStack py={12} gap={4}>
+              <Text
+                fontSize="xl"
+                fontWeight="600"
+                fontFamily="heading"
+                color="navy.500"
+              >
+                What would you like to explore?
+              </Text>
+              <Text
+                color="charcoal.400"
+                fontFamily="body"
+                textAlign="center"
+                maxW="md"
+              >
+                I&apos;m Makawulu, your AI learning companion. Ask me anything -
+                from science and math to history and creative writing. Let&apos;s
+                discover something together.
+              </Text>
+            </VStack>
+          )}
+
+          {messages
+            .filter((m) => m.role !== "system")
+            .filter((m) => !(m.role === "user" && m.content === "<start>"))
+            .map((message) => {
+              if (message.role === "tool") {
+                return (
+                  <Text
+                    key={message.id}
+                    fontSize="xs"
+                    color="charcoal.300"
+                    fontFamily="heading"
+                    textAlign="center"
+                    py={1}
+                  >
+                    {message.toolAction}
+                  </Text>
+                );
+              }
+
+              const isActiveStream = streamingMsgId && message.id === streamingMsgId;
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
+                  personaOptions={personaOptions}
+                  isStreaming={!!isActiveStream && !!streamingContent}
+                />
+              );
+            })}
+
+          {/* Typing indicator */}
+          {isStreaming && !streamingContent && (
+            <Box
+              alignSelf="flex-start"
+              bg="gray.100"
+              px={4}
+              py={3}
+              borderRadius="xl"
+              borderBottomLeftRadius="sm"
+            >
+              <div className="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </Box>
+          )}
+
+          <div ref={messagesEndRef} />
+        </VStack>
+      </Box>
+
+      {/* Input Area */}
+      <Box
+        p={4}
+        borderTop="1px solid"
+        borderColor="gray.200"
+        bg="gray.50"
+        shadow="0 -1px 3px rgba(0,0,0,0.06)"
+      >
+        <Flex maxW="3xl" mx="auto" gap={3}>
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me anything..."
+            resize="none"
+            rows={1}
             overflow="hidden"
+            bg="white"
+            border="2px solid"
+            borderColor="gray.200"
+            borderRadius="xl"
+            _focus={{
+              borderColor: "violet.400",
+              boxShadow: "none",
+              outline: "none",
+            }}
+            _focusVisible={{
+              boxShadow: "none",
+              outline: "none",
+            }}
+            _placeholder={{ color: "gray.400" }}
+            fontFamily="body"
+            fontSize="md"
+            py={3}
+            px={4}
+            disabled={isStreaming}
+          />
+          <IconButton
+            aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
+            bg={dictationState === "recording" ? "red.500" : "gray.200"}
+            color={dictationState === "recording" ? "white" : "charcoal.500"}
+            _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+            borderRadius="xl"
+            h="auto"
+            minW={12}
+            onClick={toggleRecording}
+            disabled={isStreaming || dictationState === "transcribing"}
+            className={dictationState === "recording" ? "recording-pulse" : undefined}
           >
-            {activeProcessDef && processState && (
-              <ProcessPanel
-                process={{
-                  title: activeProcessDef.title,
-                  emoji: activeProcessDef.emoji ?? null,
-                  steps: activeProcessDef.steps,
-                }}
-                currentStep={processState.currentStep}
-                steps={processState.steps}
-              />
+            {dictationState === "transcribing" ? (
+              <Spinner size="sm" />
+            ) : dictationState === "recording" ? (
+              <FiMicOff />
+            ) : (
+              <FiMic />
             )}
-            {artifact && (
-              <ArtifactPanel
-                title={artifact.title}
-                content={artifact.content}
-                lastEditedBy={artifact.lastEditedBy}
-                onSave={(updates) => {
-                  saveArtifact({
-                    conversationId: conversationId as Id<"conversations">,
-                    ...updates,
-                  }).catch(console.error);
-                }}
-                onSyncChange={setArtifactSynced}
-              />
-            )}
-          </Flex>
+          </IconButton>
+          <IconButton
+            aria-label="Send message"
+            bg="violet.500"
+            color="white"
+            _hover={{ bg: "violet.700" }}
+            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+            borderRadius="xl"
+            h="auto"
+            minW={12}
+            onClick={() => handleSend()}
+            disabled={!input.trim() || isStreaming}
+          >
+            <FiArrowUp />
+          </IconButton>
+        </Flex>
+        {dictationError && (
+          <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
+            {dictationError}
+          </Text>
         )}
-      </Flex>
+        <Text
+          fontSize="xs"
+          color="charcoal.300"
+          textAlign="center"
+          mt={2}
+          fontFamily="heading"
+        >
+          Makawulu is an AI assistant. Verify important information with your
+          teachers.
+        </Text>
+      </Box>
     </Flex>
   );
 }

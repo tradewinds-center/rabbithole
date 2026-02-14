@@ -57,6 +57,8 @@ interface ChatHeaderProps {
   userName?: string;
   userImage?: string;
   isTestMode?: boolean;
+  // Current process step key (e.g. "C", "R", "A") for badge display
+  currentStepKey?: string | null;
 }
 
 export function ChatHeader({
@@ -83,6 +85,7 @@ export function ChatHeader({
   userName,
   userImage,
   isTestMode,
+  currentStepKey,
 }: ChatHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
@@ -209,7 +212,7 @@ export function ChatHeader({
             const a = personaOptions.find((p) => p.id === personaId);
             return a ? `${a.emoji} ${a.title}` : "🤖 Makawulu";
           }}
-          onEdit={isTestMode && personaId ? () => openEdit("persona", personaId, personaData) : undefined}
+          onEdit={isTestMode && personaData ? (id) => openEdit("persona", id, personaData) : undefined}
         />
         <DimensionPicker
           label="Project"
@@ -224,7 +227,7 @@ export function ChatHeader({
             const a = projectOptions.find((p) => p.id === projectId);
             return a ? `📚 ${a.title}` : null;
           }}
-          onEdit={isTestMode && projectId ? () => openEdit("project", projectId, projectData) : undefined}
+          onEdit={isTestMode && projectData ? (id) => openEdit("project", id, projectData) : undefined}
         />
         <DimensionPicker
           label="Lens"
@@ -239,7 +242,7 @@ export function ChatHeader({
             const a = perspectiveOptions.find((p) => p.id === perspectiveId);
             return a ? `${a.icon || "🔍"} ${a.title}` : null;
           }}
-          onEdit={isTestMode && perspectiveId ? () => openEdit("perspective", perspectiveId, perspectiveData) : undefined}
+          onEdit={isTestMode && perspectiveData ? (id) => openEdit("perspective", id, perspectiveData) : undefined}
         />
         <DimensionPicker
           label="Process"
@@ -254,7 +257,8 @@ export function ChatHeader({
             const a = processOptions.find((p) => p.id === processId);
             return a ? `${a.emoji || "📋"} ${a.title}` : null;
           }}
-          onEdit={isTestMode && processId ? () => openEdit("process", processId, processData) : undefined}
+          onEdit={isTestMode && processData ? (id) => openEdit("process", id, processData) : undefined}
+          stepBadge={currentStepKey || undefined}
         />
       </Flex>
 
