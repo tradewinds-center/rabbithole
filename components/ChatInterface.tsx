@@ -13,12 +13,24 @@ import {
 import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
 import { ProcessPanel } from "./ProcessPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+
+const chatMarkdownComponents: Components = {
+  em: ({ children, ...props }) => {
+    const text = typeof children === "string" ? children : "";
+    if (text.startsWith("[") && text.endsWith("]")) {
+      return <em style={{ color: "var(--chakra-colors-charcoal-300, #999)" }}>{text}</em>;
+    }
+    return <em {...props}>{children}</em>;
+  },
+};
 
 interface DimensionOption {
   id: string;
@@ -652,7 +664,7 @@ function MessageBubble({
         shadow="sm"
       >
         <Box className="chat-markdown" fontFamily="body" fontSize="lg">
-          <ReactMarkdown>{message.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</ReactMarkdown>
           {isStreaming && (
             <Box
               as="span"

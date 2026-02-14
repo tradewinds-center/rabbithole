@@ -190,6 +190,21 @@ body {
   animation: recording-pulse 1.5s ease-in-out infinite;
 }
 
+/* Chat markdown heading styles */
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  font-family: "Hanken Grotesk", sans-serif;
+  margin-bottom: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.chat-markdown h1:first-child,
+.chat-markdown h2:first-child,
+.chat-markdown h3:first-child {
+  margin-top: 0;
+}
+
 @keyframes typing {
   0%,
   80%,
