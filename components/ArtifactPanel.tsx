@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Box, Flex, Input, Text, Textarea, Button, HStack, IconButton } from "@chakra-ui/react";
-import { FiPlus, FiTrash2, FiFileText } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiFileText, FiChevronDown, FiChevronRight } from "react-icons/fi";
 import { ProcessPanel } from "./ProcessPanel";
 import type { ProcessDefinition, ProcessStep } from "./ProcessPanel";
 
@@ -41,40 +41,51 @@ export function ArtifactPanel({
   const hasProcess = !!(process && processCurrentStep && processSteps);
   const hasArtifacts = artifacts.length > 0;
 
-  // Section expand states — clicking active tab toggles collapse
+  // Section expand states
   const [processExpanded, setProcessExpanded] = useState(true);
-  const [docsExpanded, setDocsExpanded] = useState(true);
+  const [expandedDocs, setExpandedDocs] = useState<Set<string>>(() => new Set(artifacts.map((a) => a._id)));
 
   // Auto-expand process when it first appears
   useEffect(() => {
     if (hasProcess) setProcessExpanded(true);
   }, [hasProcess]);
 
-  // Auto-expand docs when first artifact appears
+  // Auto-expand newly added artifacts
+  const prevIdsRef = useRef<Set<string>>(new Set(artifacts.map((a) => a._id)));
   useEffect(() => {
-    if (hasArtifacts) setDocsExpanded(true);
-  }, [hasArtifacts]);
-
-  const active = artifacts.find((a) => a._id === activeArtifactId);
+    const prevIds = prevIdsRef.current;
+    const newIds = artifacts.filter((a) => !prevIds.has(a._id)).map((a) => a._id);
+    if (newIds.length > 0) {
+      setExpandedDocs((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+    prevIdsRef.current = new Set(artifacts.map((a) => a._id));
+  }, [artifacts]);
 
   const handleProcessTabClick = () => {
     setProcessExpanded((v) => !v);
   };
 
   const handleDocTabClick = (id: string) => {
-    if (id === activeArtifactId && docsExpanded) {
-      // Clicking active tab — collapse
-      setDocsExpanded(false);
-    } else {
-      onSelectArtifact(id);
-      setDocsExpanded(true);
-    }
+    setExpandedDocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    onSelectArtifact(id);
   };
 
   // Neither section has content
   if (!hasProcess && !hasArtifacts) {
     return (
-      <Flex flex={1} flexDir="column" align="center" justify="center" bg="white" gap={3} p={6}>
+      <Flex flex={1} flexDir="column" align="center" justify="center" bg="gray.50" gap={3} p={6}>
         <Text fontSize="sm" fontFamily="heading" color="charcoal.300">
           No documents yet
         </Text>
@@ -92,16 +103,12 @@ export function ArtifactPanel({
   }
 
   return (
-    <Flex flex={1} flexDir="column" overflow="hidden" bg="white" gap={1}>
+    <Flex flex={1} flexDir="column" overflow="hidden" bg="gray.50" gap={4} px={3} pt={1} pb={3}>
       {/* ── Process section ── */}
       {hasProcess && (
-        <Flex
-          flexDir="column"
-          overflow="hidden"
-          flexShrink={0}
-        >
-          {/* Process tab bar */}
-          <Flex px={3} py={3.5} align="center" gap={1} flexShrink={0}>
+        <Flex flexDir="column" overflow="hidden" flexShrink={0}>
+          {/* Process tab bar — on gray background */}
+          <Flex py={3} align="center" gap={1} flexShrink={0}>
             <HStack gap={0.5} flex={1}>
               <Button
                 size="sm"
@@ -109,11 +116,12 @@ export function ArtifactPanel({
                 fontFamily="heading"
                 fontWeight={processExpanded ? "600" : "400"}
                 color={processExpanded ? "navy.500" : "charcoal.400"}
-                bg={processExpanded ? "gray.100" : "transparent"}
-                _hover={{ bg: "gray.100" }}
+                bg={processExpanded ? "white" : "transparent"}
+                shadow={processExpanded ? "0 1px 3px rgba(0,0,0,0.08)" : "none"}
+                _hover={{ bg: "white" }}
                 borderRadius="md"
                 px={2}
-                py={1}
+                py={2}
                 h="auto"
                 minH="24px"
                 onClick={handleProcessTabClick}
@@ -123,14 +131,20 @@ export function ArtifactPanel({
                 whiteSpace="nowrap"
                 gap={1}
               >
+                {processExpanded ? <FiChevronDown size={14} style={{ flexShrink: 0 }} /> : <FiChevronRight size={14} style={{ flexShrink: 0 }} />}
                 <Text as="span" flexShrink={0}>{process!.emoji || "📋"}</Text>
                 {process!.title.length > 18 ? process!.title.slice(0, 18) + "..." : process!.title}
               </Button>
             </HStack>
           </Flex>
-          {/* Process content */}
+          {/* Process content — white card */}
           {processExpanded && (
-            <Box overflow="auto" flex={1}>
+            <Box
+              overflow="auto"
+              bg="white"
+              borderRadius="lg"
+              shadow="0 1px 3px rgba(0,0,0,0.08)"
+            >
               <ProcessPanel
                 process={process!}
                 currentStep={processCurrentStep!}
@@ -141,71 +155,87 @@ export function ArtifactPanel({
         </Flex>
       )}
 
-      {/* ── Documents section ── */}
-      <Flex
-        flexDir="column"
-        overflow="hidden"
-        flex={docsExpanded && hasArtifacts && active ? 1 : undefined}
-        flexShrink={docsExpanded && hasArtifacts && active ? undefined : 0}
-      >
-        {/* Document tab bar */}
-        <Flex px={3} py={3.5} align="center" gap={1} flexShrink={0}>
-          <HStack gap={0.5} flex={1} overflow="hidden" flexWrap="wrap">
-            {artifacts.map((a) => {
-              const isActive = docsExpanded && a._id === activeArtifactId;
-              return (
-                <Button
-                  key={a._id}
-                  size="sm"
-                  variant="ghost"
-                  fontFamily="heading"
-                  fontWeight={isActive ? "600" : "400"}
-                  color={isActive ? "navy.500" : "charcoal.400"}
-                  bg={isActive ? "gray.100" : "transparent"}
-                  _hover={{ bg: "gray.100" }}
-                  borderRadius="md"
-                  px={2}
-                  py={1}
-                  h="auto"
-                  minH="24px"
-                  onClick={() => handleDocTabClick(a._id)}
-                  maxW="140px"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                  whiteSpace="nowrap"
-                  gap={1}
-                >
-                  <FiFileText size={12} style={{ flexShrink: 0 }} />
-                  {a.title.length > 15 ? a.title.slice(0, 15) + "..." : a.title}
-                </Button>
-              );
-            })}
-          </HStack>
-          <IconButton
-            aria-label="Add document"
-            size="xs"
-            variant="ghost"
-            color="charcoal.400"
-            _hover={{ color: "violet.500" }}
-            onClick={() => {
-              onCreateArtifact();
-              setDocsExpanded(true);
-            }}
-            flexShrink={0}
+      {/* ── Document sections — one per artifact ── */}
+      {artifacts.map((a) => {
+        const isExpanded = expandedDocs.has(a._id);
+        return (
+          <Flex
+            key={a._id}
+            flexDir="column"
+            overflow="hidden"
+            flex={isExpanded ? 1 : undefined}
+            flexShrink={isExpanded ? undefined : 0}
           >
-            <FiPlus />
-          </IconButton>
-        </Flex>
-        {/* Document content */}
-        {docsExpanded && active && (
-          <ArtifactEditor
-            key={active._id}
-            artifact={active}
-            onSave={(updates) => onSave(active._id, updates)}
-            onDelete={() => onDeleteArtifact(active._id)}
-            onSyncChange={onSyncChange}
-          />
-        )}
+            {/* Document tab bar */}
+            <Flex py={3} align="center" gap={1} flexShrink={0}>
+              <Button
+                size="sm"
+                variant="ghost"
+                fontFamily="heading"
+                fontWeight={isExpanded ? "600" : "400"}
+                color={isExpanded ? "navy.500" : "charcoal.400"}
+                bg={isExpanded ? "white" : "transparent"}
+                shadow={isExpanded ? "0 1px 3px rgba(0,0,0,0.08)" : "none"}
+                _hover={{ bg: "white" }}
+                borderRadius="md"
+                px={2}
+                py={2}
+                h="auto"
+                minH="24px"
+                onClick={() => handleDocTabClick(a._id)}
+                maxW="180px"
+                overflow="hidden"
+                textOverflow="ellipsis"
+                whiteSpace="nowrap"
+                gap={1}
+              >
+                {isExpanded ? <FiChevronDown size={14} style={{ flexShrink: 0 }} /> : <FiChevronRight size={14} style={{ flexShrink: 0 }} />}
+                <FiFileText size={12} style={{ flexShrink: 0 }} />
+                {a.title.length > 18 ? a.title.slice(0, 18) + "..." : a.title}
+              </Button>
+            </Flex>
+            {/* Document content — white card */}
+            {isExpanded && (
+              <Box
+                flex={1}
+                overflow="hidden"
+                bg="white"
+                borderRadius="lg"
+                shadow="0 1px 3px rgba(0,0,0,0.08)"
+              >
+                <ArtifactEditor
+                  key={a._id}
+                  artifact={a}
+                  onSave={(updates) => onSave(a._id, updates)}
+                  onDelete={() => onDeleteArtifact(a._id)}
+                  onSyncChange={onSyncChange}
+                />
+              </Box>
+            )}
+          </Flex>
+        );
+      })}
+
+      {/* Add document button — at bottom */}
+      <Flex flexShrink={0} py={1}>
+        <Button
+          size="sm"
+          variant="ghost"
+          fontFamily="heading"
+          fontWeight="400"
+          color="charcoal.400"
+          _hover={{ color: "navy.500", bg: "white" }}
+          borderRadius="md"
+          px={2}
+          py={1}
+          h="auto"
+          minH="24px"
+          gap={1}
+          onClick={onCreateArtifact}
+        >
+          <FiPlus size={14} style={{ flexShrink: 0 }} />
+          Add Document
+        </Button>
       </Flex>
     </Flex>
   );

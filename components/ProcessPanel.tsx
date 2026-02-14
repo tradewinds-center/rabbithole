@@ -29,7 +29,7 @@ export function ProcessPanel({
   steps,
 }: ProcessPanelProps) {
   return (
-    <Box bg="white" overflow="auto" flexShrink={0} px={4} py={3}>
+    <Box overflow="auto" flexShrink={0} px={4} py={3}>
       <Timeline.Root size="md">
         {process.steps.map((stepDef) => {
           const stepState = steps.find((s) => s.key === stepDef.key);
