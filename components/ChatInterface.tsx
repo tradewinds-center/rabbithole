@@ -15,6 +15,7 @@ import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
 import { ProcessPanel } from "./ProcessPanel";
+import { ArtifactPanel } from "./ArtifactPanel";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -123,6 +124,13 @@ export function ChatInterface({
   const activeProcessDef = conversationData.processId
     ? processes.find((p) => p._id === conversationData.processId)
     : null;
+
+  // Artifact (reactive query, updates when AI edits document)
+  const artifact = useQuery(
+    api.artifacts.getByConversation,
+    { conversationId: conversationId as Id<"conversations"> }
+  );
+  const saveArtifact = useMutation(api.artifacts.scholarUpdate);
 
   // Convex mutation for updating conversation dimensions
   const updateConversation = useMutation(api.conversations.update);
@@ -256,6 +264,11 @@ export function ChatInterface({
                 if (data.text) {
                   fullContent += data.text;
                   setStreamingContent(fullContent);
+                } else if (data.newAssistantMsg) {
+                  // Tool fired — server split the message. Switch streaming target.
+                  setStreamingMsgId(data.newAssistantMsg);
+                  fullContent = "";
+                  setStreamingContent("");
                 } else if (data.done) {
                   // Stream finalized on the server side.
                   // Convex reactive query will auto-update messages.
@@ -373,6 +386,22 @@ export function ChatInterface({
             .filter((m) => m.role !== "system")
             .filter((m) => !(m.role === "user" && m.content === "<start>"))
             .map((message) => {
+              // Tool messages render as centered gray labels
+              if (message.role === "tool") {
+                return (
+                  <Text
+                    key={message.id}
+                    fontSize="xs"
+                    color="charcoal.300"
+                    fontFamily="heading"
+                    textAlign="center"
+                    py={1}
+                  >
+                    {message.toolAction}
+                  </Text>
+                );
+              }
+
               const isActiveStream = streamingMsgId && message.id === streamingMsgId;
               return (
                 <MessageBubble
@@ -416,6 +445,21 @@ export function ChatInterface({
           }}
           currentStep={processState.currentStep}
           steps={processState.steps}
+        />
+      )}
+
+      {/* ArtifactPanel (right side) */}
+      {artifact && (
+        <ArtifactPanel
+          title={artifact.title}
+          content={artifact.content}
+          lastEditedBy={artifact.lastEditedBy}
+          onSave={(content) => {
+            saveArtifact({
+              conversationId: conversationId as Id<"conversations">,
+              content,
+            }).catch(console.error);
+          }}
         />
       )}
       </Flex>
@@ -510,12 +554,13 @@ export function ChatInterface({
 // Message type matching what Convex getWithMessages returns
 interface MessageData {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
   createdAt: number;
   personaId?: string | null;
   projectId?: string | null;
   perspectiveId?: string | null;
+  toolAction?: string | null;
 }
 
 // Message Bubble Component
@@ -539,52 +584,76 @@ function MessageBubble({
     ? `${messagePersona.emoji} ${messagePersona.title}`
     : "Makawulu";
 
-  return (
-    <Box
-      className={`message-bubble ${isUser ? "user" : "assistant"} animate-fade-in`}
-      alignSelf={isUser ? "flex-end" : "flex-start"}
-    >
+  if (isUser) {
+    return (
       <Box
-        bg={isUser ? "navy.500" : "gray.100"}
-        color={isUser ? "white" : "charcoal.500"}
-        px={4}
-        py={3}
-        borderRadius="xl"
-        borderBottomRightRadius={isUser ? "sm" : "xl"}
-        borderBottomLeftRadius={isUser ? "xl" : "sm"}
-        maxW="100%"
-        shadow="sm"
+        className="message-bubble user animate-fade-in"
+        alignSelf="flex-end"
       >
-        {isUser ? (
+        <Box
+          bg="navy.500"
+          color="white"
+          px={4}
+          py={3}
+          borderRadius="xl"
+          borderBottomRightRadius="sm"
+          maxW="100%"
+          shadow="sm"
+        >
           <Text fontFamily="body" fontSize="lg" whiteSpace="pre-wrap">
             {message.content}
           </Text>
-        ) : (
-          <Box className="chat-markdown" fontFamily="body" fontSize="lg">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-            {isStreaming && (
-              <Box
-                as="span"
-                display="inline-block"
-                w={2}
-                h={4}
-                bg="violet.500"
-                ml={1}
-                className="animate-pulse-soft"
-                borderRadius="sm"
-              />
-            )}
-          </Box>
-        )}
+        </Box>
+        <Text
+          fontSize="xs"
+          color="charcoal.300"
+          mt={1}
+          textAlign="right"
+          fontFamily="heading"
+        >
+          You
+        </Text>
+      </Box>
+    );
+  }
+
+  // Assistant message
+  return (
+    <Box className="message-bubble assistant animate-fade-in" alignSelf="flex-start">
+      <Box
+        bg="gray.100"
+        color="charcoal.500"
+        px={4}
+        py={3}
+        borderRadius="xl"
+        borderBottomLeftRadius="sm"
+        maxW="100%"
+        shadow="sm"
+      >
+        <Box className="chat-markdown" fontFamily="body" fontSize="lg">
+          <ReactMarkdown>{message.content}</ReactMarkdown>
+          {isStreaming && (
+            <Box
+              as="span"
+              display="inline-block"
+              w={2}
+              h={4}
+              bg="violet.500"
+              ml={1}
+              className="animate-pulse-soft"
+              borderRadius="sm"
+            />
+          )}
+        </Box>
       </Box>
       <Text
         fontSize="xs"
         color="charcoal.300"
         mt={1}
-        textAlign={isUser ? "right" : "left"}
+        textAlign="left"
         fontFamily="heading"
       >
-        {isUser ? "You" : assistantLabel}
+        {assistantLabel}
       </Text>
     </Box>
   );

@@ -23,7 +23,7 @@ export const getConversationContext = internalQuery({
       .collect();
 
     const chatHistory = messages
-      .filter((m) => m.role !== "system")
+      .filter((m) => m.role !== "system" && m.role !== "tool")
       .map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -101,6 +101,22 @@ export const getConversationContext = internalQuery({
       }
     }
 
+    // Get artifact data
+    let artifactData = null;
+    const artifact = await ctx.db
+      .query("artifacts")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId)
+      )
+      .first();
+    if (artifact) {
+      artifactData = {
+        title: artifact.title,
+        content: artifact.content,
+        lastEditedBy: artifact.lastEditedBy,
+      };
+    }
+
     return {
       teacherWhisper: conversation.teacherWhisper ?? null,
       readingLevel,
@@ -110,6 +126,7 @@ export const getConversationContext = internalQuery({
       perspectiveContext,
       processContext,
       processStateData,
+      artifactData,
       chatHistory,
       title: conversation.title,
     };
@@ -143,13 +160,18 @@ export const finalizeStream = internalMutation({
     tokensUsed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Finalize the assistant message
-    await ctx.db.patch(args.messageId, {
-      content: args.content,
-      model: args.model,
-      tokensUsed: args.tokensUsed,
-      streamId: undefined,
-    });
+    // If content is empty (tool fired at end, no text followed), delete the trailing placeholder
+    if (!args.content.trim()) {
+      await ctx.db.delete(args.messageId);
+    } else {
+      // Finalize the assistant message
+      await ctx.db.patch(args.messageId, {
+        content: args.content,
+        model: args.model,
+        tokensUsed: args.tokensUsed,
+        streamId: undefined,
+      });
+    }
 
     // Update conversation title if first exchange
     const conversation = await ctx.db.get(args.conversationId);
@@ -214,6 +236,11 @@ export function buildSystemPrompt(
   processStateData: {
     currentStep: string;
     steps: { key: string; status: string; commentary?: string }[];
+  } | null = null,
+  artifactData: {
+    title: string;
+    content: string;
+    lastEditedBy: string;
   } | null = null
 ): string {
   const parts: string[] = [];
@@ -312,6 +339,19 @@ Guidelines:
 Guide the scholar naturally through the steps. You can move them back to revisit earlier steps if needed. Don't announce step transitions mechanically — weave them into the conversation naturally.`);
   }
 
+  // Artifact (shared document)
+  if (artifactData) {
+    const lines = artifactData.content.split("\n");
+    const numberedContent = lines.map((l, i) => `${i + 1}: ${l}`).join("\n");
+    parts.push(`\n\nDOCUMENT: "${artifactData.title}" (last edited by ${artifactData.lastEditedBy})
+Current content:
+${numberedContent}
+
+You have a tool called "edit_document" to create, view, and edit this document. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. The scholar can also edit the document directly.`);
+  } else if (projectContext) {
+    parts.push(`\n\nYou have a tool called "edit_document" to create a shared working document that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create the document early so the scholar can see their work take shape.`);
+  }
+
   // Teacher whisper (private guidance)
   if (teacherWhisper) {
     parts.push(
@@ -321,3 +361,56 @@ Guide the scholar naturally through the steps. You can move them back to revisit
 
   return parts.join("\n");
 }
+
+/**
+ * Split stream: called by tool run callbacks when a tool fires mid-stream.
+ * 1. Finalizes the current assistant message with content so far
+ * 2. Inserts a role:"tool" message with the toolAction label
+ * 3. Inserts a new empty assistant placeholder
+ * Returns the new assistant message ID.
+ */
+export const splitStream = internalMutation({
+  args: {
+    currentMessageId: v.id("messages"),
+    conversationId: v.id("conversations"),
+    contentSoFar: v.string(),
+    toolAction: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Finalize current assistant message with content accumulated so far
+    await ctx.db.patch(args.currentMessageId, {
+      content: args.contentSoFar,
+      streamId: undefined,
+    });
+
+    // 2. Get dimension snapshots from the current message
+    const currentMsg = await ctx.db.get(args.currentMessageId);
+
+    // 3. Insert tool message
+    await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "tool",
+      content: "",
+      toolAction: args.toolAction,
+      personaId: currentMsg?.personaId,
+      projectId: currentMsg?.projectId,
+      perspectiveId: currentMsg?.perspectiveId,
+      processId: currentMsg?.processId,
+      flagged: false,
+    });
+
+    // 4. Insert new assistant placeholder
+    const newMsgId = await ctx.db.insert("messages", {
+      conversationId: args.conversationId,
+      role: "assistant",
+      content: "",
+      personaId: currentMsg?.personaId,
+      projectId: currentMsg?.projectId,
+      perspectiveId: currentMsg?.perspectiveId,
+      processId: currentMsg?.processId,
+      flagged: false,
+    });
+
+    return newMsgId;
+  },
+});

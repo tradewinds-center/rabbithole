@@ -11,6 +11,7 @@
 import type * as analyses from "../analyses.js";
 import type * as analysisActions from "../analysisActions.js";
 import type * as analysisHelpers from "../analysisHelpers.js";
+import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   analyses: typeof analyses;
   analysisActions: typeof analysisActions;
   analysisHelpers: typeof analysisHelpers;
+  artifacts: typeof artifacts;
   audioActions: typeof audioActions;
   auth: typeof auth;
   chat: typeof chat;

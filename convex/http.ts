@@ -13,34 +13,9 @@ auth.addHttpRoutes(http);
 /**
  * Chat streaming endpoint.
  * Called by the frontend after sendMessage mutation returns a streamId.
- * Reads conversation context, calls Claude API, streams tokens back via SSE,
- * and periodically persists content to DB for reactive subscribers.
+ * Reads conversation context, calls Claude API via beta tool runner,
+ * streams tokens back via SSE, and periodically persists content to DB.
  */
-// Tool definition for process step tracking
-const PROCESS_STEP_TOOL = {
-  name: "update_process_step",
-  description: "Update the scholar's progress on a process step. Call this when the scholar begins a step, completes a step, or you want to record a brief observation.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      step: {
-        type: "string",
-        description: "The step key (e.g., 'C', 'R', 'A', 'F', 'T')",
-      },
-      status: {
-        type: "string",
-        enum: ["in_progress", "completed"],
-        description: "The new status for this step",
-      },
-      commentary: {
-        type: "string",
-        description: "Brief observation about the scholar's work on this step (optional)",
-      },
-    },
-    required: ["step", "status"],
-  },
-};
-
 http.route({
   path: "/chat-stream",
   method: "POST",
@@ -49,12 +24,13 @@ http.route({
     const {
       conversationId,
       streamId,
-      assistantMsgId,
+      assistantMsgId: initialAssistantMsgId,
     } = body as {
       conversationId: string;
       streamId: string;
       assistantMsgId: string;
     };
+    let assistantMsgId = initialAssistantMsgId;
 
     // Fetch conversation and related data from DB
     const conversation = await ctx.runQuery(
@@ -70,11 +46,13 @@ http.route({
     }
 
     const { Anthropic } = await import("@anthropic-ai/sdk");
+    const { betaTool } = await import("@anthropic-ai/sdk/helpers/beta/json-schema");
+
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Build system prompt
+    // Build system prompt (now includes artifact data)
     const systemPrompt = buildSystemPrompt(
       conversation.teacherWhisper,
       conversation.readingLevel,
@@ -83,12 +61,9 @@ http.route({
       conversation.personaContext,
       conversation.perspectiveContext,
       conversation.processContext,
-      conversation.processStateData
+      conversation.processStateData,
+      conversation.artifactData
     );
-
-    // Only provide tools when a process is active
-    const hasProcess = conversation.processContext && conversation.processStateData;
-    const tools = hasProcess ? [PROCESS_STEP_TOOL] : undefined;
 
     const encoder = new TextEncoder();
 
@@ -100,45 +75,274 @@ http.route({
           let tokensUsed = 0;
           let lastPersistLength = 0;
 
-          // Build messages array for multi-turn tool use loop
-          const apiMessages: { role: "user" | "assistant"; content: string | unknown[] }[] =
-            conversation.chatHistory.map(
-              (m: { role: string; content: string }) => ({
-                role: m.role as "user" | "assistant",
-                content: m.content,
-              })
-            );
+          const convId = conversationId as Id<"conversations">;
 
-          // Multi-turn loop: stream text, handle tool calls, continue
-          let continueLoop = true;
-          while (continueLoop) {
-            const apiParams: Record<string, unknown> = {
+          // Build messages for API
+          const apiMessages = conversation.chatHistory.map(
+            (m: { role: string; content: string }) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })
+          );
+
+          // ── Define tools with run callbacks ──────────────────────────
+
+          const hasProcess = conversation.processContext && conversation.processStateData;
+
+          const processStepTool = betaTool({
+            name: "update_process_step",
+            description: "Update the scholar's progress on a process step. Call this when the scholar begins a step, completes a step, or you want to record a brief observation.",
+            inputSchema: {
+              type: "object" as const,
+              properties: {
+                step: {
+                  type: "string" as const,
+                  description: "The step key (e.g., 'C', 'R', 'A', 'F', 'T')",
+                },
+                status: {
+                  type: "string" as const,
+                  enum: ["in_progress", "completed"] as const,
+                  description: "The new status for this step",
+                },
+                commentary: {
+                  type: "string" as const,
+                  description: "Brief observation about the scholar's work on this step (optional)",
+                },
+              },
+              required: ["step", "status"] as const,
+            },
+            run: async (input) => {
+              const status = input.status as "in_progress" | "completed";
+              await ctx.runMutation(internal.processState.updateStep, {
+                conversationId: convId,
+                stepKey: input.step,
+                status,
+                commentary: input.commentary,
+              });
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ processStepUpdate: { step: input.step, status, commentary: input.commentary } })}\n\n`
+                )
+              );
+              const label = status === "completed" ? `Completed step: ${input.step}` : `Started step: ${input.step}`;
+              const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                currentMessageId: assistantMsgId as Id<"messages">,
+                conversationId: convId,
+                contentSoFar: fullContent,
+                toolAction: label,
+              });
+              assistantMsgId = newId;
+              fullContent = "";
+              lastPersistLength = 0;
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`
+                )
+              );
+              return `Step "${input.step}" updated to "${status}".`;
+            },
+          });
+
+          const editDocumentTool = betaTool({
+            name: "edit_document",
+            description: "Create, view, or edit the scholar's working document using targeted edits. Use this to help the scholar build written work.",
+            inputSchema: {
+              type: "object" as const,
+              properties: {
+                command: {
+                  type: "string" as const,
+                  enum: ["create", "view", "str_replace", "insert"] as const,
+                  description: "The operation to perform on the document",
+                },
+                title: {
+                  type: "string" as const,
+                  description: "Document title (for create)",
+                },
+                file_text: {
+                  type: "string" as const,
+                  description: "Full initial content (for create)",
+                },
+                old_str: {
+                  type: "string" as const,
+                  description: "Exact text to find (for str_replace). Must match exactly.",
+                },
+                new_str: {
+                  type: "string" as const,
+                  description: "Replacement text (for str_replace)",
+                },
+                insert_line: {
+                  type: "number" as const,
+                  description: "Line number to insert after (for insert, 0 = beginning)",
+                },
+                insert_text: {
+                  type: "string" as const,
+                  description: "Text to insert (for insert)",
+                },
+              },
+              required: ["command"] as const,
+            },
+            run: async (input) => {
+              switch (input.command) {
+                case "create": {
+                  await ctx.runMutation(internal.artifacts.aiCreate, {
+                    conversationId: convId,
+                    title: (input as { title?: string }).title || "Document",
+                    content: (input as { file_text?: string }).file_text || "",
+                  });
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                    currentMessageId: assistantMsgId as Id<"messages">,
+                    conversationId: convId,
+                    contentSoFar: fullContent,
+                    toolAction: "Created document",
+                  });
+                  assistantMsgId = newId;
+                  fullContent = "";
+                  lastPersistLength = 0;
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`)
+                  );
+                  return "Document created successfully.";
+                }
+                case "view": {
+                  const artifact = await ctx.runQuery(internal.artifacts.aiGetContent, {
+                    conversationId: convId,
+                  });
+                  if (!artifact) return "Error: No document exists yet. Use create first.";
+                  const lines = artifact.content.split("\n");
+                  return lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
+                }
+                case "str_replace": {
+                  const oldStr = (input as { old_str?: string }).old_str;
+                  const newStr = (input as { new_str?: string }).new_str;
+                  if (!oldStr || newStr === undefined) {
+                    return "Error: str_replace requires old_str and new_str parameters.";
+                  }
+                  const result = await ctx.runMutation(internal.artifacts.aiStrReplace, {
+                    conversationId: convId,
+                    oldStr,
+                    newStr,
+                  });
+                  if (result.error) return result.error;
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  {
+                    const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                      currentMessageId: assistantMsgId as Id<"messages">,
+                      conversationId: convId,
+                      contentSoFar: fullContent,
+                      toolAction: "Edited document",
+                    });
+                    assistantMsgId = newId;
+                    fullContent = "";
+                    lastPersistLength = 0;
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`)
+                    );
+                  }
+                  return "Successfully replaced text.";
+                }
+                case "insert": {
+                  const insertLine = (input as { insert_line?: number }).insert_line ?? 0;
+                  const insertText = (input as { insert_text?: string }).insert_text;
+                  if (!insertText) {
+                    return "Error: insert requires insert_text parameter.";
+                  }
+                  await ctx.runMutation(internal.artifacts.aiInsert, {
+                    conversationId: convId,
+                    insertLine,
+                    insertText,
+                  });
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  {
+                    const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                      currentMessageId: assistantMsgId as Id<"messages">,
+                      conversationId: convId,
+                      contentSoFar: fullContent,
+                      toolAction: "Edited document",
+                    });
+                    assistantMsgId = newId;
+                    fullContent = "";
+                    lastPersistLength = 0;
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`)
+                    );
+                  }
+                  return "Text inserted successfully.";
+                }
+                default:
+                  return "Unknown command. Use create, view, str_replace, or insert.";
+              }
+            },
+          });
+
+          // Build tools array based on active features
+          const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
+          if (hasProcess) tools.push(processStepTool);
+          if (conversation.projectContext) tools.push(editDocumentTool);
+
+          // ── Stream with tool runner ──────────────────────────────────
+
+          if (tools.length > 0) {
+            // Use beta tool runner for automatic multi-turn handling
+            const runner = anthropic.beta.messages.toolRunner({
               model: "claude-sonnet-4-5-20250929",
               max_tokens: 2048,
               system: systemPrompt,
               messages: apiMessages,
-            };
-            if (tools) {
-              apiParams.tools = tools;
+              tools,
+              stream: true,
+            });
+
+            // Nested iteration: outer = turns, inner = streaming events
+            for await (const messageStream of runner) {
+              for await (const event of messageStream) {
+                if (event.type === "message_start") {
+                  model = event.message.model;
+                } else if (event.type === "content_block_delta") {
+                  const delta = event.delta;
+                  if ("text" in delta) {
+                    fullContent += delta.text;
+                    controller.enqueue(
+                      encoder.encode(
+                        `data: ${JSON.stringify({ text: delta.text })}\n\n`
+                      )
+                    );
+                    if (fullContent.length - lastPersistLength > 200) {
+                      lastPersistLength = fullContent.length;
+                      await ctx.runMutation(
+                        internal.chatHelpers.updateStreamContent,
+                        {
+                          messageId: assistantMsgId as Id<"messages">,
+                          content: fullContent,
+                        }
+                      );
+                    }
+                  }
+                } else if (event.type === "message_delta") {
+                  if (event.usage) {
+                    tokensUsed += event.usage.output_tokens;
+                  }
+                }
+              }
             }
-
-            const anthropicStream = anthropic.messages.stream(apiParams as unknown as Parameters<typeof anthropic.messages.stream>[0]);
-
-            let stopReason = "";
-            const toolCalls: { id: string; name: string; input: Record<string, unknown> }[] = [];
-            let currentToolId = "";
-            let currentToolName = "";
-            let currentToolInput = "";
+          } else {
+            // No tools: simple streaming (no tool runner needed)
+            const anthropicStream = anthropic.messages.stream({
+              model: "claude-sonnet-4-5-20250929",
+              max_tokens: 2048,
+              system: systemPrompt,
+              messages: apiMessages,
+            });
 
             for await (const event of anthropicStream) {
               if (event.type === "message_start") {
                 model = event.message.model;
-              } else if (event.type === "content_block_start") {
-                if (event.content_block.type === "tool_use") {
-                  currentToolId = event.content_block.id;
-                  currentToolName = event.content_block.name;
-                  currentToolInput = "";
-                }
               } else if (event.type === "content_block_delta") {
                 const delta = event.delta;
                 if ("text" in delta) {
@@ -148,8 +352,6 @@ http.route({
                       `data: ${JSON.stringify({ text: delta.text })}\n\n`
                     )
                   );
-
-                  // Persist to DB every ~200 chars for reactive subscribers
                   if (fullContent.length - lastPersistLength > 200) {
                     lastPersistLength = fullContent.length;
                     await ctx.runMutation(
@@ -160,99 +362,24 @@ http.route({
                       }
                     );
                   }
-                } else if ("partial_json" in delta) {
-                  currentToolInput += delta.partial_json;
-                }
-              } else if (event.type === "content_block_stop") {
-                if (currentToolId) {
-                  try {
-                    toolCalls.push({
-                      id: currentToolId,
-                      name: currentToolName,
-                      input: JSON.parse(currentToolInput || "{}"),
-                    });
-                  } catch {
-                    // Invalid JSON, skip
-                  }
-                  currentToolId = "";
-                  currentToolName = "";
-                  currentToolInput = "";
                 }
               } else if (event.type === "message_delta") {
                 if (event.usage) {
                   tokensUsed += event.usage.output_tokens;
                 }
-                if ("stop_reason" in event.delta) {
-                  stopReason = (event.delta as { stop_reason?: string }).stop_reason ?? "";
-                }
               }
-            }
-
-            if (stopReason === "tool_use" && toolCalls.length > 0) {
-              // Build the assistant message content blocks for the API
-              const assistantContent: unknown[] = [];
-              if (fullContent) {
-                assistantContent.push({ type: "text", text: fullContent });
-              }
-              for (const tc of toolCalls) {
-                assistantContent.push({
-                  type: "tool_use",
-                  id: tc.id,
-                  name: tc.name,
-                  input: tc.input,
-                });
-              }
-              apiMessages.push({ role: "assistant", content: assistantContent });
-
-              // Execute tool calls and build tool results
-              const toolResults: unknown[] = [];
-              for (const tc of toolCalls) {
-                if (tc.name === "update_process_step") {
-                  const { step, status, commentary } = tc.input as {
-                    step: string;
-                    status: "in_progress" | "completed";
-                    commentary?: string;
-                  };
-
-                  await ctx.runMutation(internal.processState.updateStep, {
-                    conversationId: conversationId as Id<"conversations">,
-                    stepKey: step,
-                    status,
-                    commentary,
-                  });
-
-                  // Send SSE event so client knows step changed
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ processStepUpdate: { step, status, commentary } })}\n\n`
-                    )
-                  );
-
-                  toolResults.push({
-                    type: "tool_result",
-                    tool_use_id: tc.id,
-                    content: `Step "${step}" updated to "${status}".`,
-                  });
-                }
-              }
-              apiMessages.push({ role: "user", content: toolResults });
-              // Continue the loop — Claude may produce more text after the tool call
-            } else {
-              // Normal end_turn — exit loop
-              continueLoop = false;
             }
           }
 
           // Finalize: save full content, clear stream ID, update conversation
           await ctx.runMutation(internal.chatHelpers.finalizeStream, {
             messageId: assistantMsgId as Id<"messages">,
-            conversationId: conversationId as Id<"conversations">,
+            conversationId: convId,
             content: fullContent,
             model,
             tokensUsed,
           });
 
-          // Send completion signal
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ done: true, messageId: assistantMsgId })}\n\n`

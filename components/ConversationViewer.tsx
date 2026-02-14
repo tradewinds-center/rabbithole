@@ -30,11 +30,12 @@ import { Id } from "@/convex/_generated/dataModel";
 
 interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
   createdAt: number;
   flagged?: boolean;
   flagReason?: string;
+  toolAction?: string;
 }
 
 interface Conversation {
@@ -294,7 +295,19 @@ export function ConversationViewer({
           <VStack gap={3} align="stretch">
             {messages
               .filter((m) => m.role !== "system")
-              .map((message) => (
+              .map((message) =>
+                message.role === "tool" ? (
+                  <Text
+                    key={message.id}
+                    fontSize="xs"
+                    color="charcoal.300"
+                    fontFamily="heading"
+                    textAlign="center"
+                    py={1}
+                  >
+                    {message.toolAction}
+                  </Text>
+                ) : (
                 <Box
                   key={message.id}
                   p={3}
@@ -323,7 +336,8 @@ export function ConversationViewer({
                     </Badge>
                   )}
                 </Box>
-              ))}
+                )
+              )}
             {messages.length === 0 && (
               <Text
                 color="charcoal.300"

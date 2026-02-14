@@ -57,9 +57,11 @@ export default defineSchema({
     role: v.union(
       v.literal("user"),
       v.literal("assistant"),
-      v.literal("system")
+      v.literal("system"),
+      v.literal("tool")
     ),
     content: v.string(),
+    toolAction: v.optional(v.string()),
     // Snapshot of active dimensions when this message was sent
     // These are strings (not v.id) because they're historical references
     // that should survive if the original entity is deleted
@@ -212,6 +214,13 @@ export default defineSchema({
   })
     .index("by_teacher", ["teacherId"])
     .index("by_active", ["isActive"]),
+
+  artifacts: defineTable({
+    conversationId: v.id("conversations"),
+    title: v.string(),
+    content: v.string(),
+    lastEditedBy: v.union(v.literal("scholar"), v.literal("ai")),
+  }).index("by_conversation", ["conversationId"]),
 
   processState: defineTable({
     conversationId: v.id("conversations"),
