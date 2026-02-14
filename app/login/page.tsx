@@ -137,7 +137,7 @@ export default function LoginPage() {
                 <Text
                   key={scholar.id}
                   as="button"
-                  color="charcoal.300"
+                  color="charcoal.400"
                   fontSize="xs"
                   fontFamily="heading"
                   cursor="pointer"
@@ -150,7 +150,7 @@ export default function LoginPage() {
             </HStack>
             <Text
               as="button"
-              color="charcoal.300"
+              color="charcoal.400"
               fontSize="xs"
               fontFamily="heading"
               cursor="pointer"

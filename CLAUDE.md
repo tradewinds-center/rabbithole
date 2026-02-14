@@ -6,6 +6,11 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 ## Roadmap
 
+- [ ] **Status Orbs** - Replace color-coded backgrounds on teacher dashboard with spherical "orbs" next to each student (green/blue/yellow/red/idle). Also show the orb somewhere peripherally visible in scholar view so status is always apparent to everyone.
+- [x] **Unified Dimension Picker** - Shared `DimensionPicker` component used in both scholar ChatHeader and teacher FocusBar. All dimensions in a single labeled row.
+- [ ] **Scholar Layout Revamp** - Revamp scholar view layout so artifact and process panel can be visible at the same time (currently one or the other).
+- [x] **Rename "Conductor View" to "Conductor"**
+- [ ] **Scholar Home View** - Each scholar gets a home view with a list of their chats to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
 - [x] **Categorize by Assignment** - Link conversations to specific assignments/projects
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress

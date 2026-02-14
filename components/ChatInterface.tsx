@@ -10,12 +10,13 @@ import {
   IconButton,
   Spinner,
 } from "@chakra-ui/react";
-import { FiSend, FiMic, FiMicOff } from "react-icons/fi";
+import { FiArrowUp, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ChatHeader } from "./ChatHeader";
+import type { DimensionEditData } from "./DimensionEditModal";
 import { ProcessPanel } from "./ProcessPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { useQuery, useMutation } from "convex/react";
@@ -43,12 +44,18 @@ interface ChatInterfaceProps {
   conversationId: string;
   onConversationUpdate?: () => void;
   onOpenSidebar?: () => void;
+  userName?: string;
+  userImage?: string;
+  isTestMode?: boolean;
 }
 
 export function ChatInterface({
   conversationId,
   onConversationUpdate,
   onOpenSidebar,
+  userName,
+  userImage,
+  isTestMode,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -181,9 +188,9 @@ export function ChatInterface({
     }
   }, [isLoading, conversationId]);
 
-  // Auto-apply locked dimensions when focus becomes active
+  // Auto-apply locked dimensions when focus becomes active (skip in test mode)
   useEffect(() => {
-    if (!focusLock || !convData?.conversation) return;
+    if (isTestMode || !focusLock || !convData?.conversation) return;
     const conv = convData.conversation;
     const updates: Record<string, string | null> = {};
     if (focusLock.personaId != null && String(conv.personaId ?? "") !== focusLock.personaId) {
@@ -211,8 +218,8 @@ export function ChatInterface({
     field: "personaId" | "projectId" | "perspectiveId" | "processId",
     value: string | null
   ) => {
-    // Skip if this dimension is locked by focus
-    if (focusLock) {
+    // Skip if this dimension is locked by focus (unless in test mode)
+    if (!isTestMode && focusLock) {
       const lockKey = field as keyof typeof focusLock;
       if (focusLock[lockKey] != null) return;
     }
@@ -365,6 +372,10 @@ export function ChatInterface({
         projectOptions={projectOptions}
         perspectiveOptions={perspectiveOptions}
         processOptions={processOptions}
+        personaData={isTestMode ? personas.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
+        projectData={isTestMode ? projects.map((p): DimensionEditData => ({ _id: p._id, title: p.title, description: p.description, systemPrompt: p.systemPrompt, rubric: p.rubric, targetBloomLevel: p.targetBloomLevel })) : undefined}
+        perspectiveData={isTestMode ? perspectives.map((p): DimensionEditData => ({ _id: p._id, title: p.title, icon: p.icon ?? undefined, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
+        processData={isTestMode ? processes.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji ?? undefined, systemPrompt: p.systemPrompt, description: p.description, steps: p.steps })) : undefined}
         onPersonaChange={(id) => handleDimensionChange("personaId", id)}
         onProjectChange={(id) => handleDimensionChange("projectId", id)}
         onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
@@ -372,6 +383,9 @@ export function ChatInterface({
         focusLock={focusLock}
         onMenuClick={onOpenSidebar}
         isSynced={artifact ? artifactSynced : undefined}
+        userName={userName}
+        userImage={userImage}
+        isTestMode={isTestMode}
       />
 
       {/* Main content area with optional right panel */}
@@ -463,6 +477,7 @@ export function ChatInterface({
             borderTop="1px solid"
             borderColor="gray.200"
             bg="gray.50"
+            shadow="0 -1px 3px rgba(0,0,0,0.06)"
           >
             <Flex maxW="3xl" mx="auto" gap={3}>
               <Textarea
@@ -479,8 +494,13 @@ export function ChatInterface({
                 borderColor="gray.200"
                 borderRadius="xl"
                 _focus={{
-                  borderColor: "violet.500",
-                  boxShadow: "0 0 0 1px var(--chakra-colors-violet-500)",
+                  borderColor: "violet.400",
+                  boxShadow: "none",
+                  outline: "none",
+                }}
+                _focusVisible={{
+                  boxShadow: "none",
+                  outline: "none",
                 }}
                 _placeholder={{ color: "gray.400" }}
                 fontFamily="body"
@@ -522,7 +542,7 @@ export function ChatInterface({
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isStreaming}
               >
-                <FiSend />
+                <FiArrowUp />
               </IconButton>
             </Flex>
             {dictationError && (

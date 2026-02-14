@@ -29,9 +29,9 @@ export const getConversationContext = internalQuery({
         content: m.content,
       }));
 
-    // Get scholar's reading level
+    // Get reading level: conversation override takes priority, then scholar's level
     const scholar = await ctx.db.get(conversation.userId);
-    const readingLevel = scholar?.readingLevel ?? null;
+    const readingLevel = conversation.readingLevelOverride ?? scholar?.readingLevel ?? null;
 
     // Get project context
     let projectContext = null;

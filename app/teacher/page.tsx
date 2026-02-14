@@ -22,6 +22,7 @@ import {
   Menu,
   Portal,
   Tooltip,
+  Timeline,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -33,17 +34,19 @@ import {
   FiSmile,
   FiEye,
   FiLayers,
-  FiChevronDown,
   FiX,
+  FiCheck,
 } from "react-icons/fi";
 import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
+import { DimensionPicker } from "@/components/DimensionPicker";
+import { AppLogo } from "@/components/AppLogo";
 
 type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives" | "processes";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
-  { key: "live", label: "Conductor View", icon: Lectern },
+  { key: "live", label: "Conductor", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
   { key: "projects", label: "Projects", icon: FiBook },
   { key: "personas", label: "Personas", icon: FiSmile },
@@ -110,27 +113,11 @@ export default function TeacherDashboard() {
   return (
     <Flex h="100vh" bg="gray.50" direction="column">
       {/* Tab Bar with logo + account */}
-      <Flex bg="white" borderBottom="1px solid" borderColor="gray.200" px={6} align="center">
+      <Flex bg="white" borderBottom="1px solid" borderColor="gray.200" shadow="0 1px 3px rgba(0,0,0,0.06)" px={6} align="center">
         {/* Logo */}
-        <HStack gap={2} mr={6}>
-          <Box
-            w={7}
-            h={7}
-            borderRadius="full"
-            bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            flexShrink={0}
-          >
-            <Text fontSize="sm" fontWeight="bold" color="white" fontFamily="heading">
-              M
-            </Text>
-          </Box>
-          <Text fontSize="md" fontWeight="600" fontFamily="heading" color="navy.500" whiteSpace="nowrap">
-            Makawulu
-          </Text>
-        </HStack>
+        <Box mr={6}>
+          <AppLogo variant="dark" size={28} />
+        </Box>
 
         {/* Tabs */}
         <HStack gap={0}>
@@ -310,7 +297,7 @@ export default function TeacherDashboard() {
   );
 }
 
-// Live View — Conductor View with optional Racetrack panel
+// Live View — Conductor with optional Racetrack panel
 function LiveView({
   scholars,
   currentFocus,
@@ -408,7 +395,7 @@ function RacetrackPanel({
       overflow="auto"
     >
       {/* Header */}
-      <HStack px={4} py={3} borderBottom="1px solid" borderColor="gray.100" gap={2}>
+      <HStack px={4} py={3} gap={2}>
         <Text fontSize="lg">{process.emoji || "📋"}</Text>
         <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500">
           {process.title}
@@ -416,89 +403,75 @@ function RacetrackPanel({
       </HStack>
 
       {/* Steps */}
-      <VStack align="stretch" gap={0} py={2}>
-        {process.steps.map((step, idx) => {
-          const scholarsAtStep = scholarsByStep[step.key] || [];
-          const isLast = idx === process.steps.length - 1;
-          return (
-            <Box key={step.key} px={4} py={2} position="relative">
-              {/* Vertical connector line */}
-              {!isLast && (
-                <Box
-                  position="absolute"
-                  left="27px"
-                  top="28px"
-                  bottom="0"
-                  w="2px"
-                  bg="gray.200"
-                />
-              )}
-
-              {/* Step indicator + title */}
-              <HStack gap={2} mb={scholarsAtStep.length > 0 ? 2 : 0}>
-                <Box
-                  w="22px"
-                  h="22px"
-                  borderRadius="full"
-                  bg={scholarsAtStep.length > 0 ? "violet.500" : "gray.200"}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  flexShrink={0}
-                  zIndex={1}
-                >
-                  <Text
-                    fontSize="xs"
-                    fontWeight="700"
-                    color={scholarsAtStep.length > 0 ? "white" : "gray.500"}
+      <Box px={4} pb={3}>
+        <Timeline.Root size="md">
+          {process.steps.map((step) => {
+            const scholarsAtStep = scholarsByStep[step.key] || [];
+            const hasScholars = scholarsAtStep.length > 0;
+            return (
+              <Timeline.Item key={step.key}>
+                <Timeline.Connector>
+                  <Timeline.Separator />
+                  <Timeline.Indicator
+                    bg={hasScholars ? "violet.500" : "gray.200"}
+                    borderColor={hasScholars ? "violet.500" : "gray.200"}
+                    color={hasScholars ? "white" : "charcoal.400"}
                   >
-                    {idx + 1}
-                  </Text>
-                </Box>
-                <Text
-                  fontFamily="heading"
-                  fontSize="sm"
-                  fontWeight={scholarsAtStep.length > 0 ? "600" : "500"}
-                  color={scholarsAtStep.length > 0 ? "navy.500" : "charcoal.400"}
-                >
-                  {step.title}
-                </Text>
-              </HStack>
-
-              {/* Scholar avatars at this step */}
-              {scholarsAtStep.length > 0 && (
-                <Flex wrap="wrap" gap={1} pl="30px">
-                  {scholarsAtStep.map((s) => (
-                    <Tooltip.Root key={s.id} openDelay={200} closeDelay={0}>
-                      <Tooltip.Trigger asChild>
-                        <a
-                          href={`/scholar?remote=${s.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ cursor: "pointer" }}
-                        >
-                          <Avatar
-                            size="xs"
-                            name={s.name || undefined}
-                            src={s.image || undefined}
-                          />
-                        </a>
-                      </Tooltip.Trigger>
-                      <Portal>
-                        <Tooltip.Positioner>
-                          <Tooltip.Content>
-                            {s.name || "Scholar"}
-                          </Tooltip.Content>
-                        </Tooltip.Positioner>
-                      </Portal>
-                    </Tooltip.Root>
-                  ))}
-                </Flex>
-              )}
-            </Box>
-          );
-        })}
-      </VStack>
+                    <Text
+                      fontSize="10px"
+                      fontWeight="700"
+                      fontFamily="heading"
+                      lineHeight="1"
+                      color={hasScholars ? "white" : "charcoal.400"}
+                    >
+                      {step.key}
+                    </Text>
+                  </Timeline.Indicator>
+                </Timeline.Connector>
+                <Timeline.Content>
+                  <Timeline.Title
+                    fontFamily="heading"
+                    fontSize="sm"
+                    fontWeight={hasScholars ? "600" : "400"}
+                    color={hasScholars ? "navy.500" : "charcoal.300"}
+                  >
+                    {step.title}
+                  </Timeline.Title>
+                  {hasScholars && (
+                    <Flex wrap="wrap" gap={1} mt={1}>
+                      {scholarsAtStep.map((s) => (
+                        <Tooltip.Root key={s.id} openDelay={200} closeDelay={0}>
+                          <Tooltip.Trigger asChild>
+                            <a
+                              href={`/scholar?remote=${s.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Avatar
+                                size="xs"
+                                name={s.name || undefined}
+                                src={s.image || undefined}
+                              />
+                            </a>
+                          </Tooltip.Trigger>
+                          <Portal>
+                            <Tooltip.Positioner>
+                              <Tooltip.Content>
+                                {s.name || "Scholar"}
+                              </Tooltip.Content>
+                            </Tooltip.Positioner>
+                          </Portal>
+                        </Tooltip.Root>
+                      ))}
+                    </Flex>
+                  )}
+                </Timeline.Content>
+              </Timeline.Item>
+            );
+          })}
+        </Timeline.Root>
+      </Box>
     </Box>
   );
 }
@@ -660,11 +633,6 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
   const focusProcessId = isActive ? currentFocus?.processId ?? null : null;
   const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId || focusProcessId;
 
-  const activePersona = personas.find((p) => p._id === focusPersonaId);
-  const activeProject = projects.find((p) => p._id === focusProjectId);
-  const activePerspective = perspectives.find((p) => p._id === focusPerspectiveId);
-  const activeProcess = processes.find((p) => p._id === focusProcessId);
-
   const handleSelect = (
     dim: "personaId" | "projectId" | "perspectiveId" | "processId",
     value: string | null
@@ -684,6 +652,11 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
     });
   };
 
+  const personaOptions = personas.map((p) => ({ id: p._id, title: p.title, emoji: p.emoji }));
+  const projectOptions = projects.map((p) => ({ id: p._id, title: p.title }));
+  const perspectiveOptions = perspectives.map((p) => ({ id: p._id, title: p.title, icon: p.icon }));
+  const processOptions = processes.map((p) => ({ id: p._id, title: p.title, emoji: p.emoji }));
+
   return (
     <Flex
       px={6}
@@ -691,196 +664,68 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
       bg={hasFocus ? "violet.50" : "gray.50"}
       borderBottom="1px solid"
       borderColor={hasFocus ? "violet.200" : "gray.200"}
+      shadow="0 1px 3px rgba(0,0,0,0.04)"
       align="center"
       gap={3}
       transition="all 0.15s"
     >
-      <HStack gap={2} color={hasFocus ? "violet.600" : "charcoal.400"}>
+      <HStack gap={2} color={hasFocus ? "violet.600" : "charcoal.400"} flexShrink={0}>
         <TbFocusCentered size={18} />
         <Text fontFamily="heading" fontSize="sm" fontWeight="600" whiteSpace="nowrap">
           Current Focus:
         </Text>
       </HStack>
 
-      {/* Persona dropdown */}
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <Button
-            size="xs"
-            variant="outline"
-            borderColor={focusPersonaId ? "violet.300" : "gray.300"}
-            bg={focusPersonaId ? "violet.100" : "white"}
-            color={focusPersonaId ? "violet.700" : "charcoal.500"}
-            fontFamily="heading"
-            fontSize="xs"
-            fontWeight="500"
-            _hover={{ bg: focusPersonaId ? "violet.200" : "gray.100" }}
-          >
-            {activePersona ? `${activePersona.emoji} ${activePersona.title}` : "Persona"}
-            <FiChevronDown size={12} />
-          </Button>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content minW="10rem">
-              <Menu.RadioItemGroup
-                value={focusPersonaId ?? "none"}
-                onValueChange={(e) =>
-                  handleSelect("personaId", e.value === "none" ? null : e.value)
-                }
-              >
-                <Menu.RadioItem value="none">
-                  <Box w="1.2em" display="inline-block" flexShrink={0} />
-                  Free Choice
-                  <Menu.ItemIndicator />
-                </Menu.RadioItem>
-                {personas.map((p) => (
-                  <Menu.RadioItem key={p._id} value={p._id}>
-                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.emoji}</Box>
-                    {p.title}
-                    <Menu.ItemIndicator />
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioItemGroup>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
-
-      {/* Project dropdown */}
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <Button
-            size="xs"
-            variant="outline"
-            borderColor={focusProjectId ? "violet.300" : "gray.300"}
-            bg={focusProjectId ? "violet.100" : "white"}
-            color={focusProjectId ? "violet.700" : "charcoal.500"}
-            fontFamily="heading"
-            fontSize="xs"
-            fontWeight="500"
-            _hover={{ bg: focusProjectId ? "violet.200" : "gray.100" }}
-          >
-            {activeProject ? activeProject.title : "Project"}
-            <FiChevronDown size={12} />
-          </Button>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content minW="10rem">
-              <Menu.RadioItemGroup
-                value={focusProjectId ?? "none"}
-                onValueChange={(e) =>
-                  handleSelect("projectId", e.value === "none" ? null : e.value)
-                }
-              >
-                <Menu.RadioItem value="none">
-                  Free Choice
-                  <Menu.ItemIndicator />
-                </Menu.RadioItem>
-                {projects.map((p) => (
-                  <Menu.RadioItem key={p._id} value={p._id}>
-                    {p.title}
-                    <Menu.ItemIndicator />
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioItemGroup>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
-
-      {/* Perspective dropdown */}
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <Button
-            size="xs"
-            variant="outline"
-            borderColor={focusPerspectiveId ? "violet.300" : "gray.300"}
-            bg={focusPerspectiveId ? "violet.100" : "white"}
-            color={focusPerspectiveId ? "violet.700" : "charcoal.500"}
-            fontFamily="heading"
-            fontSize="xs"
-            fontWeight="500"
-            _hover={{ bg: focusPerspectiveId ? "violet.200" : "gray.100" }}
-          >
-            {activePerspective
-              ? `${activePerspective.icon || "🔍"} ${activePerspective.title}`
-              : "Perspective"}
-            <FiChevronDown size={12} />
-          </Button>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content minW="12rem">
-              <Menu.RadioItemGroup
-                value={focusPerspectiveId ?? "none"}
-                onValueChange={(e) =>
-                  handleSelect("perspectiveId", e.value === "none" ? null : e.value)
-                }
-              >
-                <Menu.RadioItem value="none">
-                  <Box w="1.2em" display="inline-block" flexShrink={0} />
-                  Free Choice
-                  <Menu.ItemIndicator />
-                </Menu.RadioItem>
-                {perspectives.map((p) => (
-                  <Menu.RadioItem key={p._id} value={p._id}>
-                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.icon || "🔍"}</Box>
-                    {p.title}
-                    <Menu.ItemIndicator />
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioItemGroup>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
-
-      {/* Process dropdown */}
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <Button
-            size="xs"
-            variant="outline"
-            borderColor={focusProcessId ? "violet.300" : "gray.300"}
-            bg={focusProcessId ? "violet.100" : "white"}
-            color={focusProcessId ? "violet.700" : "charcoal.500"}
-            fontFamily="heading"
-            fontSize="xs"
-            fontWeight="500"
-            _hover={{ bg: focusProcessId ? "violet.200" : "gray.100" }}
-          >
-            {activeProcess ? `${activeProcess.emoji || "📋"} ${activeProcess.title}` : "Process"}
-            <FiChevronDown size={12} />
-          </Button>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content minW="10rem">
-              <Menu.RadioItemGroup
-                value={focusProcessId ?? "none"}
-                onValueChange={(e) =>
-                  handleSelect("processId", e.value === "none" ? null : e.value)
-                }
-              >
-                <Menu.RadioItem value="none">
-                  <Box w="1.2em" display="inline-block" flexShrink={0} />
-                  Free Choice
-                  <Menu.ItemIndicator />
-                </Menu.RadioItem>
-                {processes.map((p) => (
-                  <Menu.RadioItem key={p._id} value={p._id}>
-                    <Box w="1.2em" display="inline-block" flexShrink={0} textAlign="center">{p.emoji || "📋"}</Box>
-                    {p.title}
-                    <Menu.ItemIndicator />
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioItemGroup>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+      <Flex gap={7} align="center" flexWrap="wrap">
+        <DimensionPicker
+          label="Persona"
+          defaultLabel="Free Choice"
+          activeId={focusPersonaId}
+          options={personaOptions}
+          onChange={(id) => handleSelect("personaId", id)}
+          renderOption={(p) => `${p.emoji || "🤖"} ${p.title}`}
+          renderActive={() => {
+            const active = personas.find((p) => p._id === focusPersonaId);
+            return active ? `${active.emoji} ${active.title}` : null;
+          }}
+        />
+        <DimensionPicker
+          label="Project"
+          defaultLabel="Free Choice"
+          activeId={focusProjectId}
+          options={projectOptions}
+          onChange={(id) => handleSelect("projectId", id)}
+          renderOption={(p) => `📚 ${p.title}`}
+          renderActive={() => {
+            const active = projects.find((p) => p._id === focusProjectId);
+            return active ? `📚 ${active.title}` : null;
+          }}
+        />
+        <DimensionPicker
+          label="Lens"
+          defaultLabel="Free Choice"
+          activeId={focusPerspectiveId}
+          options={perspectiveOptions}
+          onChange={(id) => handleSelect("perspectiveId", id)}
+          renderOption={(p) => `${p.icon || "🔍"} ${p.title}`}
+          renderActive={() => {
+            const active = perspectives.find((p) => p._id === focusPerspectiveId);
+            return active ? `${active.icon || "🔍"} ${active.title}` : null;
+          }}
+        />
+        <DimensionPicker
+          label="Process"
+          defaultLabel="Free Choice"
+          activeId={focusProcessId}
+          options={processOptions}
+          onChange={(id) => handleSelect("processId", id)}
+          renderOption={(p) => `${p.emoji || "📋"} ${p.title}`}
+          renderActive={() => {
+            const active = processes.find((p) => p._id === focusProcessId);
+            return active ? `${active.emoji || "📋"} ${active.title}` : null;
+          }}
+        />
+      </Flex>
 
       {/* Clear Focus button */}
       {hasFocus && (
@@ -892,6 +737,7 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
           fontSize="xs"
           _hover={{ color: "red.500", bg: "red.50" }}
           onClick={() => onClear()}
+          flexShrink={0}
         >
           <FiX style={{ marginRight: "4px" }} />
           Clear Focus

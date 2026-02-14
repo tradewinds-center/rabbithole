@@ -1,0 +1,467 @@
+"use client";
+
+import { Suspense, useCallback } from "react";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  Box,
+  Drawer,
+  Flex,
+  VStack,
+  HStack,
+  Text,
+  Button,
+  IconButton,
+  Portal,
+  Spinner,
+} from "@chakra-ui/react";
+import { Avatar } from "@/components/Avatar";
+import {
+  FiPlus,
+  FiLogOut,
+  FiMessageSquare,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
+import { ChatInterface } from "@/components/ChatInterface";
+import { AppLogo } from "@/components/AppLogo";
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+export default function ScholarChatPage() {
+  return (
+    <Suspense fallback={<Flex minH="100vh" bg="gray.50" align="center" justify="center"><Spinner size="xl" color="violet.500" /></Flex>}>
+      <ScholarChatInner />
+    </Suspense>
+  );
+}
+
+function ScholarChatInner() {
+  const { user, isLoading: isUserLoading } = useCurrentUser();
+  const { signOut } = useAuthActions();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const params = useParams();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const newChatCreatedRef = useRef(false);
+
+  const chatId = params.chatId as string; // Convex ID or "new"
+  const isNewChat = chatId === "new";
+
+  // Remote mode: teacher viewing as a scholar
+  const remoteUserId = searchParams.get("remote");
+  const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
+
+  // Dimension params from URL (for pre-setting dimensions on new conversations)
+  const urlPersona = searchParams.get("persona");
+  const urlProject = searchParams.get("project");
+  const urlPerspective = searchParams.get("perspective");
+  const urlProcess = searchParams.get("process");
+  const hasDimensionParams = !!(urlPersona || urlProject || urlPerspective || urlProcess);
+
+  // Fetch conversations reactively via Convex
+  const conversations = useQuery(
+    api.conversations.list,
+    isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
+  ) ?? [];
+
+  // Fetch dimension lists for resolving URL param titles to IDs
+  const personas = useQuery(api.personas.list) ?? [];
+  const projects = useQuery(api.projects.list) ?? [];
+  const perspectives = useQuery(api.perspectives.list) ?? [];
+  const processes = useQuery(api.processes.list) ?? [];
+
+  // Fetch scholar info for remote mode banner
+  const remoteUser = useQuery(
+    api.users.getUser,
+    isRemoteMode && remoteUserId ? { userId: remoteUserId as Id<"users"> } : "skip"
+  );
+
+  const createConversation = useMutation(api.conversations.create);
+  const archiveConversation = useMutation(api.conversations.archive);
+
+  // Resolve URL param slugs to dimension IDs
+  const resolvedDimensions = (() => {
+    const result: {
+      personaId?: Id<"personas">;
+      projectId?: Id<"projects">;
+      perspectiveId?: Id<"perspectives">;
+      processId?: Id<"processes">;
+    } = {};
+    if (urlPersona) {
+      const match = personas.find((p) => p.slug === urlPersona);
+      if (match) result.personaId = match._id;
+    }
+    if (urlProject) {
+      const match = projects.find((p) => p.slug === urlProject);
+      if (match) result.projectId = match._id;
+    }
+    if (urlPerspective) {
+      const match = perspectives.find((p) => p.slug === urlPerspective);
+      if (match) result.perspectiveId = match._id;
+    }
+    if (urlProcess) {
+      const match = processes.find((p) => p.slug === urlProcess);
+      if (match) result.processId = match._id;
+    }
+    return result;
+  })();
+
+  // Redirect logic
+  useEffect(() => {
+    if (isUserLoading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    // Let teachers through if they have dimension params (preview/demo) or remote mode
+    if ((user.role === "teacher" || user.role === "admin") && !remoteUserId && !hasDimensionParams) {
+      router.replace("/teacher");
+      return;
+    }
+  }, [user, isUserLoading, router, remoteUserId, hasDimensionParams]);
+
+  // Auto-create conversation when chatId is "new"
+  useEffect(() => {
+    if (!isNewChat || newChatCreatedRef.current) return;
+    // Wait for dimension lists to load if we have dimension params
+    if (hasDimensionParams && (personas.length === 0 && projects.length === 0 && perspectives.length === 0 && processes.length === 0)) return;
+
+    newChatCreatedRef.current = true;
+
+    const createArgs: Record<string, unknown> = {};
+    if (isRemoteMode && remoteUserId) {
+      createArgs.userId = remoteUserId as Id<"users">;
+    }
+    if (resolvedDimensions.personaId) createArgs.personaId = resolvedDimensions.personaId;
+    if (resolvedDimensions.projectId) createArgs.projectId = resolvedDimensions.projectId;
+    if (resolvedDimensions.perspectiveId) createArgs.perspectiveId = resolvedDimensions.perspectiveId;
+    if (resolvedDimensions.processId) createArgs.processId = resolvedDimensions.processId;
+
+    createConversation(createArgs as Parameters<typeof createConversation>[0])
+      .then((result) => {
+        if (result) {
+          const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+          router.replace(`/scholar/${result.id}${remoteParam}`);
+        }
+      })
+      .catch((error) => {
+        console.error("Error creating conversation:", error);
+        newChatCreatedRef.current = false;
+      });
+  }, [isNewChat, hasDimensionParams, personas, projects, perspectives, processes, resolvedDimensions, createConversation, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navigate to /scholar/new (optionally with remote param)
+  const handleNewConversation = useCallback(() => {
+    const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+    newChatCreatedRef.current = false;
+    router.push(`/scholar/new${remoteParam}`);
+  }, [router, remoteUserId]);
+
+  // Archive conversation
+  const handleArchiveConversation = async (id: string) => {
+    try {
+      await archiveConversation({ id: id as Id<"conversations"> });
+      if (chatId === id) {
+        // Navigate to another conversation or welcome
+        const remaining = conversations.filter((c) => c._id !== id);
+        const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+        if (remaining.length > 0) {
+          router.replace(`/scholar/${remaining[0]._id}${remoteParam}`);
+        } else {
+          router.replace(`/scholar/new${remoteParam}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error archiving conversation:", error);
+    }
+  };
+
+  if (isUserLoading || conversations === undefined) {
+    return (
+      <Flex minH="100vh" bg="gray.50" align="center" justify="center">
+        <Spinner size="xl" color="violet.500" />
+      </Flex>
+    );
+  }
+
+  // Header always shows the logged-in user, not the remote scholar
+  const displayName = user?.name || "Scholar";
+  const displayImage = user?.image || undefined;
+
+  // Test mode: any time a teacher is using the scholar interface
+  const isTestMode = !!(
+    user &&
+    (user.role === "teacher" || user.role === "admin")
+  );
+
+  // Show spinner while "new" conversation is being created
+  const showChat = !isNewChat && chatId;
+
+  return (
+    <Flex h="100vh" bg="gray.50">
+      {/* Sidebar Drawer */}
+      <Drawer.Root
+        open={isSidebarOpen}
+        onOpenChange={(e) => setIsSidebarOpen(e.open)}
+        placement="start"
+      >
+        <Portal>
+          <Drawer.Backdrop />
+          <Drawer.Positioner>
+            <Drawer.Content bg="navy.500" maxW="300px">
+              {/* Sidebar Header */}
+              <Flex
+                p={4}
+                borderBottom="1px solid"
+                borderColor="whiteAlpha.200"
+                justify="space-between"
+                align="center"
+              >
+                <AppLogo variant="light" />
+                <Drawer.CloseTrigger asChild>
+                  <IconButton
+                    aria-label="Close sidebar"
+                    size="sm"
+                    variant="ghost"
+                    color="white"
+                    _hover={{ bg: "whiteAlpha.200" }}
+                  >
+                    <FiX />
+                  </IconButton>
+                </Drawer.CloseTrigger>
+              </Flex>
+
+              {/* New Chat Button */}
+              <Box p={3}>
+                <Button
+                  w="full"
+                  size="md"
+                  bg="violet.500"
+                  color="white"
+                  _hover={{ bg: "violet.700" }}
+                  fontFamily="heading"
+                  onClick={() => {
+                    handleNewConversation();
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <FiPlus style={{ marginRight: "8px" }} />
+                  New Chat
+                </Button>
+              </Box>
+
+              {/* Conversations List */}
+              <VStack
+                flex={1}
+                overflowY="auto"
+                p={2}
+                gap={1}
+                align="stretch"
+              >
+                {conversations.map((conv) => (
+                  <HStack
+                    key={conv._id}
+                    p={3}
+                    borderRadius="lg"
+                    cursor="pointer"
+                    bg={chatId === conv._id ? "whiteAlpha.200" : "transparent"}
+                    _hover={{ bg: "whiteAlpha.100" }}
+                    css={{ "& .archive-btn": { opacity: 0 }, "&:hover .archive-btn": { opacity: 0.5 } }}
+                    onClick={() => {
+                      const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+                      router.push(`/scholar/${conv._id}${remoteParam}`);
+                      setIsSidebarOpen(false);
+                    }}
+                    justify="space-between"
+                  >
+                    <VStack gap={0} flex={1} overflow="hidden" align="start">
+                      <Text
+                        color="white"
+                        fontSize="sm"
+                        fontFamily="heading"
+                        overflow="hidden"
+                        textOverflow="ellipsis"
+                        whiteSpace="nowrap"
+                        w="full"
+                      >
+                        {conv.title}
+                      </Text>
+                      <Text
+                        color="whiteAlpha.500"
+                        fontSize="xs"
+                        fontFamily="heading"
+                      >
+                        {timeAgo(conv.updatedAt)}
+                      </Text>
+                    </VStack>
+                    <IconButton
+                      className="archive-btn"
+                      aria-label="Archive"
+                      size="xs"
+                      variant="ghost"
+                      color="white"
+                      _hover={{ opacity: 1, bg: "whiteAlpha.200" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleArchiveConversation(conv._id);
+                      }}
+                    >
+                      <FiTrash2 />
+                    </IconButton>
+                  </HStack>
+                ))}
+                {conversations.length === 0 && (
+                  <Text
+                    color="whiteAlpha.500"
+                    fontSize="sm"
+                    fontFamily="heading"
+                    textAlign="center"
+                    py={4}
+                  >
+                    No conversations yet
+                  </Text>
+                )}
+              </VStack>
+
+              {/* User Section */}
+              <Box p={3} borderTop="1px solid" borderColor="whiteAlpha.200">
+                <HStack justify="space-between">
+                  <HStack gap={3}>
+                    <Avatar
+                      size="sm"
+                      name={displayName}
+                      src={displayImage}
+                    />
+                    <VStack gap={0} align="start">
+                      <Text
+                        color="white"
+                        fontSize="sm"
+                        fontFamily="heading"
+                        fontWeight="500"
+                      >
+                        {displayName}
+                      </Text>
+                      <Text color="whiteAlpha.600" fontSize="xs" fontFamily="heading">
+                        {isRemoteMode ? "Scholar (Remote)" : "Scholar"}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  {!isRemoteMode && (
+                    <IconButton
+                      aria-label="Sign out"
+                      size="sm"
+                      variant="ghost"
+                      color="white"
+                      _hover={{ bg: "whiteAlpha.200" }}
+                      onClick={() => signOut()}
+                    >
+                      <FiLogOut />
+                    </IconButton>
+                  )}
+                </HStack>
+              </Box>
+            </Drawer.Content>
+          </Drawer.Positioner>
+        </Portal>
+      </Drawer.Root>
+
+      {/* Main Chat Area */}
+      <Flex flex={1} flexDir="column" overflow="hidden">
+        {showChat ? (
+          <ChatInterface
+            conversationId={chatId}
+            onConversationUpdate={() => {}}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            userName={displayName}
+            userImage={displayImage}
+            isTestMode={isTestMode}
+          />
+        ) : (
+          <Flex
+            flex={1}
+            align="center"
+            justify="center"
+            flexDir="column"
+            gap={4}
+            p={8}
+          >
+            <Box
+              w={24}
+              h={24}
+              borderRadius="full"
+              bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Text
+                fontSize="4xl"
+                fontWeight="bold"
+                color="white"
+                fontFamily="heading"
+              >
+                M
+              </Text>
+            </Box>
+            <VStack gap={2}>
+              <Text
+                fontSize="2xl"
+                fontWeight="600"
+                fontFamily="heading"
+                color="navy.500"
+              >
+                {isNewChat ? "Creating conversation..." : "Welcome to Makawulu"}
+              </Text>
+              {isNewChat ? (
+                <Spinner size="lg" color="violet.500" mt={4} />
+              ) : (
+                <>
+                  <Text
+                    color="charcoal.400"
+                    fontFamily="body"
+                    textAlign="center"
+                    maxW="md"
+                  >
+                    Your AI learning companion. Start a new conversation to explore
+                    ideas, ask questions, and dive deep into any topic that sparks
+                    your curiosity.
+                  </Text>
+                  <Button
+                    size="lg"
+                    bg="violet.500"
+                    color="white"
+                    _hover={{ bg: "violet.700" }}
+                    fontFamily="heading"
+                    onClick={handleNewConversation}
+                    mt={2}
+                  >
+                    <FiPlus style={{ marginRight: "8px" }} />
+                    Start a Conversation
+                  </Button>
+                </>
+              )}
+            </VStack>
+          </Flex>
+        )}
+      </Flex>
+    </Flex>
+  );
+}

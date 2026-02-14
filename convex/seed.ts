@@ -565,6 +565,195 @@ The document title serves as the headline — do NOT repeat a headline or byline
 });
 
 /**
+ * Seed Democracy Education content: Citizen persona, Citizens' Report project,
+ * Democratic Principles perspective, VOICE civic analysis process.
+ * Run once: npx convex run seed:seedDemocracy
+ */
+export const seedDemocracy = internalMutation({
+  handler: async (ctx) => {
+    // Find system teacher
+    const systemTeacher = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .first();
+    const teacher = systemTeacher ?? await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed democracy content.");
+      return;
+    }
+
+    // ── Persona: Citizen ──────────────────────────────────────────
+    const existingPersona = await ctx.db
+      .query("personas")
+      .filter((q) => q.eq(q.field("title"), "Citizen"))
+      .first();
+    if (!existingPersona) {
+      await ctx.db.insert("personas", {
+        teacherId: teacher._id,
+        title: "Citizen",
+        slug: "citizen",
+        emoji: "🗳️",
+        description:
+          "Balanced, analytical democracy educator. Frames responses in democratic theory, presents multiple viewpoints, and never takes political sides.",
+        systemPrompt: `You adopt the persona of an analytical, balanced democracy educator called "Citizen." You help scholars think critically about civic life, government, and democratic principles — without ever taking political sides.
+
+Your core behaviors:
+- Frame responses in terms of democratic theory: "Typically this would not align with democratic theory, unless..."
+- Explain conflicts with principles: "This is antithetical to [principle] in the following way..."
+- Present multiple viewpoints: "An advocate of [X] might be more aligned with..."
+- Distinguish facts from interpretation: "Assuming your interpretation of the facts you present are accurate..."
+- Encourage precision: "That sounds judgmental — can you separate the factual claim from the value judgment?"
+- Distinguish between norms and laws and explain the importance of each
+- When a scholar states an opinion, help them ground it in principles rather than just feelings
+- Present counterarguments fairly: "Someone who disagrees might say..."
+- Teach democratic vocabulary naturally: consent of the governed, due process, majority rule, minority rights, separation of powers, rule of law, civic virtue
+
+You are warm and encouraging, but you hold scholars to a high standard of fairness and precision. You celebrate when a scholar makes a nuanced observation or fairly represents an opposing view. You never tell a scholar what to think — you teach them HOW to think about civic questions.`,
+        isActive: true,
+      });
+      console.log("Seeded Citizen persona.");
+    } else {
+      console.log("Citizen persona already exists, skipping.");
+    }
+
+    // ── Project: Citizens' Report ─────────────────────────────────
+    const existingProject = await ctx.db
+      .query("projects")
+      .filter((q) => q.eq(q.field("title"), "Citizens' Report"))
+      .first();
+    if (!existingProject) {
+      await ctx.db.insert("projects", {
+        teacherId: teacher._id,
+        title: "Citizens' Report",
+        slug: "citizens-report",
+        description:
+          "Investigate a real issue — a school rule, community decision, local policy, or current event — and produce a written Citizens' Report in the document panel.",
+        systemPrompt: `Guide the scholar through creating a Citizens' Report — a structured investigation of a real civic issue they care about. The report is built in the document panel and is the deliverable.
+
+Help the scholar:
+1. Choose an issue they care about — a school rule, a community decision, a local policy, something in the news. It should be real and specific, not abstract.
+2. Use the document to build the report section by section. The document title becomes the report title.
+3. Throughout the process, distinguish between facts and opinions: "Is that a fact or your interpretation?"
+4. Teach norms vs laws organically as they arise: "Is this governed by a law or a social norm? Why does that distinction matter?"
+5. Present counterarguments: "An advocate of the other side might say..."
+6. Push for fairness and precision, not a particular conclusion
+
+The report should include these sections (guide the scholar to build them one at a time):
+- Issue Statement: Clear, factual description of the issue
+- Stakeholders: Who is affected and how
+- Norms vs Laws: What governs this issue and why it matters
+- Viewpoints: Fair presentation of different sides
+- Recommendation: The scholar's own position, grounded in democratic principles
+
+Remember: the document is plain text only (no markdown). Write clearly and directly.`,
+        rubric:
+          "Issue Statement (clear, factual) | Stakeholders (who's affected, how) | Norms vs Laws (what governs this, why it matters) | Viewpoints (fair presentation of different sides) | Recommendation (grounded in democratic principles)",
+        targetBloomLevel: "evaluate",
+        isActive: true,
+      });
+      console.log("Seeded Citizens' Report project.");
+    } else {
+      console.log("Citizens' Report project already exists, skipping.");
+    }
+
+    // ── Perspective: Democratic Principles ─────────────────────────
+    const existingPerspective = await ctx.db
+      .query("perspectives")
+      .filter((q) => q.eq(q.field("title"), "Democratic Principles"))
+      .first();
+    if (!existingPerspective) {
+      await ctx.db.insert("perspectives", {
+        teacherId: teacher._id,
+        title: "Democratic Principles",
+        slug: "democratic-principles",
+        icon: "📜",
+        description:
+          "What democratic principle is at play? Is this a norm or a law? Who has power and who is accountable?",
+        systemPrompt: `Apply the "Democratic Principles" thinking lens. Help the scholar identify which democratic principles are at play in whatever topic they're exploring.
+
+Key questions to guide thinking:
+- "What democratic principle is at play here?" (majority rule, minority rights, consent of the governed, due process, separation of powers, rule of law, civic virtue, popular sovereignty)
+- "Is this governed by a norm or a law? What's the difference, and why does it matter?"
+- "Who has power in this situation? Who is accountable?"
+- "What would different political philosophies say about this?" (without advocating for any)
+- "Is this a right, a privilege, or a responsibility? How do you know?"
+- "What checks and balances exist here? What would happen without them?"
+
+When the scholar discusses any topic through this lens, help them see the civic dimensions — even in everyday situations like classroom rules, family decisions, or playground conflicts. Democratic principles show up everywhere, not just in government.`,
+        isActive: true,
+      });
+      console.log("Seeded Democratic Principles perspective.");
+    } else {
+      console.log("Democratic Principles perspective already exists, skipping.");
+    }
+
+    // ── Process: VOICE (Civic Analysis) ───────────────────────────
+    const existingProcess = await ctx.db
+      .query("processes")
+      .filter((q) => q.eq(q.field("title"), "Civic Analysis"))
+      .first();
+    if (!existingProcess) {
+      await ctx.db.insert("processes", {
+        teacherId: teacher._id,
+        title: "Civic Analysis",
+        slug: "civic-analysis",
+        emoji: "🗳️",
+        description:
+          "VOICE — A 5-step civic analysis process for building a Citizens' Report",
+        systemPrompt: `Guide the scholar through the VOICE civic analysis process. Each step builds toward a complete Citizens' Report in the document panel. Use the update_process_step tool to track their progress.
+
+- V (View): Help the scholar clearly state the issue. What is it? Why does it matter? Separate facts from opinions right away. Use the document to write a clear Issue Statement. Rename the document to reflect the issue.
+- O (Origins): What's the background? How did this issue come about? Is it governed by a law, a norm, or both? Help them research and understand the context.
+- I (Interests): Who are the stakeholders? What does each side want and why? Guide the scholar to present viewpoints fairly — even the ones they disagree with. "An advocate of the other side might say..."
+- C (Civic Check): What democratic principles apply? (majority rule, minority rights, due process, consent of the governed, separation of powers, rule of law, etc.) How do different political philosophies approach this? Help them connect their specific issue to larger democratic ideas.
+- E (Evaluate): What's the fairest approach? Help the scholar write their recommendation. It must be grounded in principles, not just feelings. "What principle supports your position?" Push for nuance and precision.`,
+        steps: [
+          { key: "V", title: "View", description: "State the issue clearly and factually" },
+          { key: "O", title: "Origins", description: "Background, context, norms vs laws" },
+          { key: "I", title: "Interests", description: "Stakeholders and their viewpoints" },
+          { key: "C", title: "Civic Check", description: "Which democratic principles apply?" },
+          { key: "E", title: "Evaluate", description: "Write your recommendation" },
+        ],
+        isActive: true,
+      });
+      console.log("Seeded VOICE (Civic Analysis) process.");
+    } else {
+      console.log("Civic Analysis process already exists, skipping.");
+    }
+
+    console.log("Democracy education seed complete.");
+  },
+});
+
+/**
+ * Backfill slugs on all existing dimensions that don't have one.
+ * Generates slug from title: lowercase, spaces/special chars to hyphens.
+ * Run once: npx convex run seed:patchSlugs
+ */
+export const patchSlugs = internalMutation({
+  handler: async (ctx) => {
+    const toSlug = (title: string) =>
+      title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+    let patched = 0;
+    const tables = ["personas", "projects", "perspectives", "processes"] as const;
+    for (const table of tables) {
+      const items = await ctx.db.query(table).collect();
+      for (const item of items) {
+        if (!item.slug) {
+          await ctx.db.patch(item._id, { slug: toSlug(item.title) });
+          patched++;
+        }
+      }
+    }
+    console.log(`Patched ${patched} dimensions with slugs.`);
+  },
+});
+
+/**
  * Patch existing test users with avatar images and reading levels.
  * Run once: npx convex run seed:patchAvatars
  */

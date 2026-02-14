@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import { authedQuery, teacherQuery, adminMutation } from "./lib/customFunctions";
-import { roleFromEmail } from "./lib/auth";
+import { roleFromEmail, getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
@@ -9,9 +9,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
  */
 export const currentUser = query({
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-    return await ctx.db.get(userId);
+    return await getCurrentUser(ctx);
   },
 });
 

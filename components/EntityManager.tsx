@@ -12,8 +12,6 @@ import {
   Text,
   Button,
   IconButton,
-  Input,
-  Textarea,
   Spinner,
   Badge,
   Card,
@@ -23,15 +21,13 @@ import {
   FiPlus,
   FiTrash2,
   FiEdit2,
-  FiSave,
   FiBook,
   FiSmile,
   FiEye,
   FiLayers,
-  FiArrowLeft,
 } from "react-icons/fi";
-
-type EntityType = "project" | "persona" | "perspective" | "process";
+import { DimensionEditModal } from "./DimensionEditModal";
+import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
 
 interface Entity {
   id: string;
@@ -42,70 +38,33 @@ interface Entity {
   isActive: boolean;
   teacherName: string | null;
   createdAt: number;
-  // Project-specific
   rubric?: string;
   targetBloomLevel?: string;
-  // Persona-specific
   emoji?: string;
-  // Perspective-specific
   icon?: string;
-  // Process-specific
   steps?: { key: string; title: string; description?: string }[];
 }
 
 interface EntityManagerProps {
-  entityType: EntityType;
+  entityType: DimensionType;
 }
 
-const BLOOM_LEVELS = [
-  { value: "", label: "None" },
-  { value: "remember", label: "Remember" },
-  { value: "understand", label: "Understand" },
-  { value: "apply", label: "Apply" },
-  { value: "analyze", label: "Analyze" },
-  { value: "evaluate", label: "Evaluate" },
-  { value: "create", label: "Create" },
-];
-
-const VALID_BLOOM_VALUES = ["remember", "understand", "apply", "analyze", "evaluate", "create"] as const;
-
-const CONFIG: Record<EntityType, {
+const CONFIG: Record<DimensionType, {
   label: string;
   plural: string;
   icon: typeof FiBook;
   color: string;
 }> = {
-  project: {
-    label: "Project",
-    plural: "Projects",
-    icon: FiBook,
-    color: "violet",
-  },
-  persona: {
-    label: "Persona",
-    plural: "Personas",
-    icon: FiSmile,
-    color: "orange",
-  },
-  perspective: {
-    label: "Perspective",
-    plural: "Perspectives",
-    icon: FiEye,
-    color: "teal",
-  },
-  process: {
-    label: "Process",
-    plural: "Processes",
-    icon: FiLayers,
-    color: "blue",
-  },
+  project: { label: "Project", plural: "Projects", icon: FiBook, color: "violet" },
+  persona: { label: "Persona", plural: "Personas", icon: FiSmile, color: "orange" },
+  perspective: { label: "Perspective", plural: "Perspectives", icon: FiEye, color: "teal" },
+  process: { label: "Process", plural: "Processes", icon: FiLayers, color: "blue" },
 };
 
 export function EntityManager({ entityType }: EntityManagerProps) {
   const config = CONFIG[entityType];
   const Icon = config.icon;
 
-  // Convex queries - reactively fetch entities
   const entities = useQuery(
     entityType === "persona" ? api.personas.list :
     entityType === "project" ? api.projects.list :
@@ -113,179 +72,34 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     api.perspectives.list
   ) as Entity[] | undefined;
 
-  // Convex mutations
-  const createPersona = useMutation(api.personas.create);
-  const updatePersona = useMutation(api.personas.update);
   const deactivatePersona = useMutation(api.personas.deactivate);
-
-  const createProject = useMutation(api.projects.create);
-  const updateProject = useMutation(api.projects.update);
   const deactivateProject = useMutation(api.projects.deactivate);
-
-  const createPerspective = useMutation(api.perspectives.create);
-  const updatePerspective = useMutation(api.perspectives.update);
   const deactivatePerspective = useMutation(api.perspectives.deactivate);
-
-  const createProcess = useMutation(api.processes.create);
-  const updateProcess = useMutation(api.processes.update);
   const deactivateProcess = useMutation(api.processes.deactivate);
 
-  const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Form state
-  const [formData, setFormData] = useState<Record<string, string>>({
-    title: "",
-    description: "",
-    systemPrompt: "",
-    rubric: "",
-    targetBloomLevel: "",
-    emoji: "",
-    icon: "",
-  });
-
-  // Steps state for process entity type
-  const [stepsData, setStepsData] = useState<{ key: string; title: string; description: string }[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<DimensionEditData | null>(null);
 
   const isLoading = entities === undefined;
 
-  const resetForm = () => ({
-    title: "",
-    description: "",
-    systemPrompt: "",
-    rubric: "",
-    targetBloomLevel: "",
-    emoji: "",
-    icon: "",
-  });
-
-  const handleStartCreate = () => {
-    setFormData(resetForm());
-    setStepsData([]);
-    setEditingEntity(null);
-    setIsCreating(true);
+  const handleCreate = () => {
+    setEditData(null);
+    setModalOpen(true);
   };
 
-  const handleStartEdit = (entity: Entity) => {
-    setFormData({
+  const handleEdit = (entity: Entity) => {
+    setEditData({
+      _id: entity._id,
       title: entity.title,
-      description: entity.description || "",
-      systemPrompt: entity.systemPrompt || "",
-      rubric: entity.rubric || "",
-      targetBloomLevel: entity.targetBloomLevel || "",
-      emoji: entity.emoji || "",
-      icon: entity.icon || "",
+      description: entity.description,
+      systemPrompt: entity.systemPrompt,
+      emoji: entity.emoji,
+      icon: entity.icon,
+      rubric: entity.rubric,
+      targetBloomLevel: entity.targetBloomLevel,
+      steps: entity.steps,
     });
-    setStepsData(
-      entity.steps?.map((s) => ({
-        key: s.key,
-        title: s.title,
-        description: s.description || "",
-      })) ?? []
-    );
-    setEditingEntity(entity);
-    setIsCreating(true);
-  };
-
-  const handleSave = async () => {
-    if (!formData.title.trim()) return;
-    if (entityType === "persona" && !formData.emoji.trim()) return;
-    if (entityType === "process" && stepsData.length === 0) return;
-
-    setIsSaving(true);
-    try {
-      const cleanSteps = stepsData
-        .filter((s) => s.key.trim() && s.title.trim())
-        .map((s) => ({
-          key: s.key.trim(),
-          title: s.title.trim(),
-          description: s.description.trim() || undefined,
-        }));
-
-      if (editingEntity) {
-        const entityId = editingEntity._id;
-
-        if (entityType === "persona") {
-          await updatePersona({
-            id: entityId as Id<"personas">,
-            title: formData.title,
-            emoji: formData.emoji,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-          });
-        } else if (entityType === "project") {
-          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
-          await updateProject({
-            id: entityId as Id<"projects">,
-            title: formData.title,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-            rubric: formData.rubric || undefined,
-            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
-          });
-        } else if (entityType === "process") {
-          await updateProcess({
-            id: entityId as Id<"processes">,
-            title: formData.title,
-            emoji: formData.emoji || undefined,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-            steps: cleanSteps,
-          });
-        } else {
-          await updatePerspective({
-            id: entityId as Id<"perspectives">,
-            title: formData.title,
-            icon: formData.icon || undefined,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-          });
-        }
-
-        setIsCreating(false);
-        setEditingEntity(null);
-      } else {
-        if (entityType === "persona") {
-          await createPersona({
-            title: formData.title,
-            emoji: formData.emoji,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-          });
-        } else if (entityType === "project") {
-          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
-          await createProject({
-            title: formData.title,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-            rubric: formData.rubric || undefined,
-            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
-          });
-        } else if (entityType === "process") {
-          await createProcess({
-            title: formData.title,
-            emoji: formData.emoji || undefined,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-            steps: cleanSteps,
-          });
-        } else {
-          await createPerspective({
-            title: formData.title,
-            icon: formData.icon || undefined,
-            description: formData.description || undefined,
-            systemPrompt: formData.systemPrompt || undefined,
-          });
-        }
-
-        setIsCreating(false);
-      }
-    } catch (error) {
-      console.error(`Error saving ${config.label}:`, error);
-    } finally {
-      setIsSaving(false);
-    }
+    setModalOpen(true);
   };
 
   const handleDelete = async (entityId: string) => {
@@ -304,11 +118,6 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     }
   };
 
-  const handleCancel = () => {
-    setIsCreating(false);
-    setEditingEntity(null);
-  };
-
   if (isLoading) {
     return (
       <Flex minH="200px" align="center" justify="center">
@@ -317,269 +126,6 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     );
   }
 
-  // Create/Edit Form (full-width, centered)
-  if (isCreating) {
-    return (
-      <Box maxW="640px" mx="auto">
-        <HStack mb={6}>
-          <IconButton
-            aria-label="Back"
-            variant="ghost"
-            size="sm"
-            color="charcoal.400"
-            onClick={handleCancel}
-          >
-            <FiArrowLeft />
-          </IconButton>
-          <Icon color="#AD60BF" size={20} />
-          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
-            {editingEntity ? `Edit ${config.label}` : `New ${config.label}`}
-          </Text>
-        </HStack>
-
-        <Card.Root bg="white" shadow="sm">
-          <Card.Body p={6}>
-            <VStack gap={4} align="stretch">
-              <Box>
-                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                  Title *
-                </Text>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder={`e.g., ${entityType === "project" ? "Hawaiian Ecosystem Research" : entityType === "persona" ? "Sensei" : "Big Ideas"}`}
-                  fontFamily="body"
-                />
-              </Box>
-
-              {/* Persona-specific: emoji */}
-              {entityType === "persona" && (
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Emoji *
-                  </Text>
-                  <Input
-                    value={formData.emoji}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
-                    placeholder="e.g., 🥋"
-                    fontFamily="body"
-                    maxW="100px"
-                  />
-                </Box>
-              )}
-
-              {/* Process-specific: emoji */}
-              {entityType === "process" && (
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Emoji
-                  </Text>
-                  <Input
-                    value={formData.emoji}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, emoji: e.target.value }))}
-                    placeholder="e.g., ✍️"
-                    fontFamily="body"
-                    maxW="100px"
-                  />
-                </Box>
-              )}
-
-              {/* Perspective-specific: icon */}
-              {entityType === "perspective" && (
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                    Icon (emoji)
-                  </Text>
-                  <Input
-                    value={formData.icon}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
-                    placeholder="e.g., 💡"
-                    fontFamily="body"
-                    maxW="100px"
-                  />
-                </Box>
-              )}
-
-              <Box>
-                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                  Description
-                </Text>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder={`Brief description of this ${config.label.toLowerCase()}`}
-                  rows={2}
-                  fontFamily="body"
-                />
-              </Box>
-
-              <Box>
-                <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                  System Prompt (AI Instructions)
-                </Text>
-                <Textarea
-                  value={formData.systemPrompt}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-                  placeholder={entityType === "persona"
-                    ? "How should the AI behave in this persona? e.g., 'You are a calm, patient Sensei...'"
-                    : entityType === "perspective"
-                    ? "How should the AI apply this thinking lens? e.g., 'Help the scholar identify patterns...'"
-                    : "Instructions for the AI tutor for this project."}
-                  rows={5}
-                  fontFamily="body"
-                  fontSize="sm"
-                />
-                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                  This guides how the AI interacts with scholars.
-                </Text>
-              </Box>
-
-              {/* Project-specific fields */}
-              {entityType === "project" && (
-                <>
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                      Rubric / Assessment Criteria
-                    </Text>
-                    <Textarea
-                      value={formData.rubric}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, rubric: e.target.value }))}
-                      placeholder="What should scholars demonstrate?"
-                      rows={3}
-                      fontFamily="body"
-                      fontSize="sm"
-                    />
-                  </Box>
-
-                  <Box>
-                    <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={1}>
-                      Target Bloom Level
-                    </Text>
-                    <select
-                      value={formData.targetBloomLevel}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
-                      style={{
-                        width: "100%",
-                        padding: "8px 10px",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                        fontSize: "14px",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      {BLOOM_LEVELS.map((level) => (
-                        <option key={level.value} value={level.value}>
-                          {level.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Box>
-                </>
-              )}
-
-              {/* Process-specific: steps editor */}
-              {entityType === "process" && (
-                <Box>
-                  <Text fontSize="sm" fontWeight="600" fontFamily="heading" color="navy.500" mb={2}>
-                    Steps *
-                  </Text>
-                  <VStack gap={2} align="stretch">
-                    {stepsData.map((step, idx) => (
-                      <HStack key={idx} gap={2} align="start">
-                        <Input
-                          value={step.key}
-                          onChange={(e) => {
-                            const updated = [...stepsData];
-                            updated[idx] = { ...updated[idx], key: e.target.value };
-                            setStepsData(updated);
-                          }}
-                          placeholder="Key"
-                          fontFamily="body"
-                          fontSize="sm"
-                          maxW="70px"
-                        />
-                        <Input
-                          value={step.title}
-                          onChange={(e) => {
-                            const updated = [...stepsData];
-                            updated[idx] = { ...updated[idx], title: e.target.value };
-                            setStepsData(updated);
-                          }}
-                          placeholder="Title"
-                          fontFamily="body"
-                          fontSize="sm"
-                          flex={1}
-                        />
-                        <Input
-                          value={step.description}
-                          onChange={(e) => {
-                            const updated = [...stepsData];
-                            updated[idx] = { ...updated[idx], description: e.target.value };
-                            setStepsData(updated);
-                          }}
-                          placeholder="Description (optional)"
-                          fontFamily="body"
-                          fontSize="sm"
-                          flex={2}
-                        />
-                        <IconButton
-                          aria-label="Remove step"
-                          size="sm"
-                          variant="ghost"
-                          color="charcoal.400"
-                          _hover={{ color: "red.500" }}
-                          onClick={() => {
-                            setStepsData(stepsData.filter((_, i) => i !== idx));
-                          }}
-                        >
-                          <FiTrash2 />
-                        </IconButton>
-                      </HStack>
-                    ))}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      fontFamily="heading"
-                      onClick={() =>
-                        setStepsData([...stepsData, { key: "", title: "", description: "" }])
-                      }
-                    >
-                      <FiPlus style={{ marginRight: "6px" }} />
-                      Add Step
-                    </Button>
-                  </VStack>
-                </Box>
-              )}
-
-              <HStack gap={2} pt={4}>
-                <Button
-                  flex={1}
-                  variant="outline"
-                  fontFamily="heading"
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  flex={1}
-                  bg="violet.500"
-                  color="white"
-                  _hover={{ bg: "violet.600" }}
-                  fontFamily="heading"
-                  onClick={handleSave}
-                  disabled={isSaving || !formData.title.trim() || (entityType === "persona" && !formData.emoji.trim()) || (entityType === "process" && stepsData.filter(s => s.key.trim() && s.title.trim()).length === 0)}
-                >
-                  {isSaving ? <Spinner size="sm" /> : <><FiSave style={{ marginRight: "8px" }} /> Save</>}
-                </Button>
-              </HStack>
-            </VStack>
-          </Card.Body>
-        </Card.Root>
-      </Box>
-    );
-  }
-
-  // Entity List (full-width grid)
   return (
     <Box>
       <Flex justify="space-between" align="center" mb={4}>
@@ -598,7 +144,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
           _hover={{ bg: "violet.600" }}
           fontFamily="heading"
           size="sm"
-          onClick={handleStartCreate}
+          onClick={handleCreate}
         >
           <FiPlus style={{ marginRight: "6px" }} />
           Create {config.label}
@@ -615,7 +161,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
             variant="outline"
             fontFamily="heading"
             size="sm"
-            onClick={handleStartCreate}
+            onClick={handleCreate}
           >
             <FiPlus style={{ marginRight: "6px" }} />
             Create your first {config.label.toLowerCase()}
@@ -663,7 +209,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                         variant="ghost"
                         color="charcoal.400"
                         _hover={{ color: "violet.500", bg: "violet.50" }}
-                        onClick={() => handleStartEdit(entity)}
+                        onClick={() => handleEdit(entity)}
                       >
                         <FiEdit2 />
                       </IconButton>
@@ -716,6 +262,13 @@ export function EntityManager({ entityType }: EntityManagerProps) {
           ))}
         </SimpleGrid>
       )}
+
+      <DimensionEditModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        dimensionType={entityType}
+        data={editData}
+      />
     </Box>
   );
 }

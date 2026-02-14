@@ -144,6 +144,7 @@ export const update = authedMutation({
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
     processId: v.optional(v.union(v.id("processes"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
+    readingLevelOverride: v.optional(v.union(v.string(), v.null())),
     status: v.optional(
       v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))
     ),
@@ -178,6 +179,8 @@ export const update = authedMutation({
     if (isTeacher) {
       if (args.teacherWhisper !== undefined)
         updates.teacherWhisper = args.teacherWhisper ?? undefined;
+      if (args.readingLevelOverride !== undefined)
+        updates.readingLevelOverride = args.readingLevelOverride ?? undefined;
       if (args.status !== undefined) updates.status = args.status;
       if (args.analysisSummary !== undefined)
         updates.analysisSummary = args.analysisSummary ?? undefined;

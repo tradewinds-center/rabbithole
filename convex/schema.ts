@@ -46,6 +46,7 @@ export default defineSchema({
     analysisSummary: v.optional(v.string()),
     progressScore: v.optional(v.number()),
     teacherWhisper: v.optional(v.string()),
+    readingLevelOverride: v.optional(v.string()),
     isArchived: v.boolean(),
   })
     .index("by_user", ["userId"])
@@ -148,28 +149,33 @@ export default defineSchema({
   personas: defineTable({
     teacherId: v.id("users"),
     title: v.string(),
+    slug: v.optional(v.string()),
     emoji: v.string(),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_slug", ["slug"]),
 
   perspectives: defineTable({
     teacherId: v.id("users"),
     title: v.string(),
+    slug: v.optional(v.string()),
     icon: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_slug", ["slug"]),
 
   projects: defineTable({
     teacherId: v.id("users"),
     title: v.string(),
+    slug: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
@@ -186,7 +192,8 @@ export default defineSchema({
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_slug", ["slug"]),
 
   focusSettings: defineTable({
     teacherId: v.id("users"),
@@ -200,6 +207,7 @@ export default defineSchema({
   processes: defineTable({
     teacherId: v.id("users"),
     title: v.string(),
+    slug: v.optional(v.string()),
     emoji: v.optional(v.string()),
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
@@ -213,7 +221,8 @@ export default defineSchema({
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_slug", ["slug"]),
 
   artifacts: defineTable({
     conversationId: v.id("conversations"),

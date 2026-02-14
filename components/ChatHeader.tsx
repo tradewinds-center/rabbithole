@@ -1,24 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import {
   Box,
   Flex,
   HStack,
   Text,
-  Menu,
-  Portal,
   IconButton,
   Tooltip,
+  Portal,
 } from "@chakra-ui/react";
-import { FiBook, FiChevronDown, FiEye, FiLayers, FiLock, FiMenu } from "react-icons/fi";
-import { CloudCheck } from "@phosphor-icons/react";
-
-interface DimensionOption {
-  id: string;
-  title: string;
-  emoji?: string | null;
-  icon?: string | null;
-}
+import { FiMenu } from "react-icons/fi";
+import { CloudCheck, SquaresFour } from "@phosphor-icons/react";
+import { Avatar } from "./Avatar";
+import { DimensionPicker } from "./DimensionPicker";
+import type { DimensionOption } from "./DimensionPicker";
+import { DimensionEditModal } from "./DimensionEditModal";
+import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
 
 interface FocusLock {
   personaId?: string | null;
@@ -39,6 +37,11 @@ interface ChatHeaderProps {
   projectOptions: DimensionOption[];
   perspectiveOptions: DimensionOption[];
   processOptions: DimensionOption[];
+  // Full entity data for edit modal (optional — only needed when edit is enabled)
+  personaData?: DimensionEditData[];
+  projectData?: DimensionEditData[];
+  perspectiveData?: DimensionEditData[];
+  processData?: DimensionEditData[];
   // Handlers
   onPersonaChange: (id: string | null) => void;
   onProjectChange: (id: string | null) => void;
@@ -50,24 +53,11 @@ interface ChatHeaderProps {
   onMenuClick?: () => void;
   // Global sync state indicator
   isSynced?: boolean;
+  // User info for top-right display
+  userName?: string;
+  userImage?: string;
+  isTestMode?: boolean;
 }
-
-const menuItemCss = {
-  color: "charcoal.500",
-  fontFamily: "var(--chakra-fonts-heading)",
-  padding: "0.5rem 0.75rem",
-  fontSize: "sm",
-  "&[data-highlighted]": {
-    background: "gray.100",
-    color: "navy.500",
-  },
-};
-
-const activeMenuItemCss = {
-  ...menuItemCss,
-  fontWeight: "600",
-  color: "navy.500",
-};
 
 export function ChatHeader({
   conversationTitle,
@@ -79,6 +69,10 @@ export function ChatHeader({
   projectOptions,
   perspectiveOptions,
   processOptions,
+  personaData,
+  projectData,
+  perspectiveData,
+  processData,
   onPersonaChange,
   onProjectChange,
   onPerspectiveChange,
@@ -86,126 +80,53 @@ export function ChatHeader({
   focusLock,
   onMenuClick,
   isSynced,
+  userName,
+  userImage,
+  isTestMode,
 }: ChatHeaderProps) {
-  const personaLocked = focusLock?.personaId != null;
-  const projectLocked = focusLock?.projectId != null;
-  const perspectiveLocked = focusLock?.perspectiveId != null;
-  const processLocked = focusLock?.processId != null;
+  // In test mode, ignore focus lock — the teacher IS the teacher
+  const effectiveLock = isTestMode ? null : focusLock;
+  const personaLocked = effectiveLock?.personaId != null;
+  const projectLocked = effectiveLock?.projectId != null;
+  const perspectiveLocked = effectiveLock?.perspectiveId != null;
+  const processLocked = effectiveLock?.processId != null;
 
-  const activePersona = personaOptions.find((p) => p.id === personaId);
-  const activeProject = projectOptions.find((p) => p.id === projectId);
-  const activePerspective = perspectiveOptions.find((p) => p.id === perspectiveId);
-  const activeProcess = processOptions.find((p) => p.id === processId);
+  // Edit modal state
+  const [editModal, setEditModal] = useState<{
+    type: DimensionType;
+    data: DimensionEditData | null;
+  } | null>(null);
 
-  // Build subtitle badges
-  const badges: string[] = [];
-  if (activeProject) badges.push(activeProject.title);
-  if (activePerspective) badges.push(`${activePerspective.icon || ""} ${activePerspective.title}`.trim());
-  if (activeProcess) badges.push(`${activeProcess.emoji || "📋"} ${activeProcess.title}`.trim());
+  const openEdit = (type: DimensionType, id: string | null, dataList?: DimensionEditData[]) => {
+    if (!id || !dataList) return;
+    const item = dataList.find((d) => d._id === id);
+    if (item) setEditModal({ type, data: item });
+  };
 
   return (
-    <Flex
-      px={5}
-      py={2}
+    <Box
       bg="white"
       borderBottom="1px solid"
       borderColor="gray.200"
-      align="center"
-      gap={3}
-      minH="56px"
+      shadow="0 1px 3px rgba(0,0,0,0.06)"
     >
-      {/* Hamburger menu */}
-      {onMenuClick && (
-        <IconButton
-          aria-label="Open sidebar"
-          size="sm"
-          variant="ghost"
-          color="charcoal.400"
-          _hover={{ bg: "gray.100" }}
-          onClick={onMenuClick}
-        >
-          <FiMenu />
-        </IconButton>
-      )}
+      {/* Row 1: Hamburger | Title | User info */}
+      <Flex px={5} py={2} align="center" gap={3} minH="44px">
+        {onMenuClick && (
+          <IconButton
+            aria-label="Open sidebar"
+            size="sm"
+            variant="ghost"
+            color="charcoal.400"
+            _hover={{ bg: "gray.100" }}
+            onClick={onMenuClick}
+          >
+            <FiMenu />
+          </IconButton>
+        )}
 
-      {/* Persona Avatar (left) */}
-      {personaLocked ? (
-        <Box
-          w={10}
-          h={10}
-          borderRadius="full"
-          bg={activePersona ? "violet.100" : "gray.100"}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          flexShrink={0}
-          position="relative"
-          title={`${activePersona?.title || "Makawulu"} (locked by teacher)`}
-        >
-          <Text fontSize="xl" lineHeight={1}>
-            {activePersona?.emoji || "🤖"}
-          </Text>
-          <Box position="absolute" bottom={-0.5} right={-0.5} bg="white" borderRadius="full" p={0.5}>
-            <FiLock size={10} color="var(--chakra-colors-charcoal-400)" />
-          </Box>
-        </Box>
-      ) : (
-        <Menu.Root
-          onSelect={({ value }) =>
-            onPersonaChange(value === "none" ? null : value)
-          }
-        >
-          <Menu.Trigger asChild>
-            <Box
-              w={10}
-              h={10}
-              borderRadius="full"
-              bg={activePersona ? "violet.100" : "gray.100"}
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              cursor="pointer"
-              _hover={{ bg: activePersona ? "violet.200" : "gray.200" }}
-              flexShrink={0}
-              title={activePersona ? activePersona.title : "Choose a persona"}
-            >
-              <Text fontSize="xl" lineHeight={1}>
-                {activePersona?.emoji || "🤖"}
-              </Text>
-            </Box>
-          </Menu.Trigger>
-          <Portal>
-            <Menu.Positioner>
-              <Menu.Content
-                css={{
-                  padding: "0.5rem",
-                  minWidth: "200px",
-                }}
-              >
-                <Menu.Item
-                  value="none"
-                  css={!personaId ? activeMenuItemCss : menuItemCss}
-                >
-                  🤖 Makawulu (default)
-                </Menu.Item>
-                {personaOptions.map((p) => (
-                  <Menu.Item
-                    key={p.id}
-                    value={p.id}
-                    css={personaId === p.id ? activeMenuItemCss : menuItemCss}
-                  >
-                    {p.emoji} {p.title}
-                  </Menu.Item>
-                ))}
-              </Menu.Content>
-            </Menu.Positioner>
-          </Portal>
-        </Menu.Root>
-      )}
-
-      {/* Title + badges (center) */}
-      <Box flex={1} overflow="hidden">
         <Text
+          flex={1}
           fontWeight="600"
           fontFamily="heading"
           color="navy.500"
@@ -216,233 +137,136 @@ export function ChatHeader({
         >
           {conversationTitle}
         </Text>
-        {badges.length > 0 && (
-          <Text
-            fontSize="xs"
-            color="charcoal.400"
-            fontFamily="heading"
-            overflow="hidden"
-            textOverflow="ellipsis"
-            whiteSpace="nowrap"
-          >
-            {badges.join(" · ")}
-          </Text>
+
+        {isSynced !== undefined && (
+          <Tooltip.Root openDelay={400} closeDelay={0}>
+            <Tooltip.Trigger asChild>
+              <Box flexShrink={0} cursor="default">
+                <CloudCheck
+                  size={18}
+                  weight="regular"
+                  color="var(--chakra-colors-charcoal-400)"
+                />
+              </Box>
+            </Tooltip.Trigger>
+            <Portal>
+              <Tooltip.Positioner>
+                <Tooltip.Content>
+                  {isSynced ? "All changes saved" : "Saving..."}
+                </Tooltip.Content>
+              </Tooltip.Positioner>
+            </Portal>
+          </Tooltip.Root>
         )}
-      </Box>
 
-      {/* Project menu (right) */}
-      {projectLocked ? (
-        <IconButton
-          aria-label="Project (locked by teacher)"
-          size="sm"
-          variant="ghost"
-          color="violet.500"
-          cursor="default"
-          title={`${activeProject?.title || "Project"} (locked by teacher)`}
-        >
-          <HStack gap={1}>
-            <FiBook />
-            <FiLock size={10} />
-          </HStack>
-        </IconButton>
-      ) : (
-        <Menu.Root
-          onSelect={({ value }) =>
-            onProjectChange(value === "none" ? null : value)
-          }
-        >
-          <Menu.Trigger asChild>
-            <IconButton
-              aria-label="Select project"
-              size="sm"
-              variant="ghost"
-              color={projectId ? "violet.500" : "charcoal.400"}
-              _hover={{ bg: "gray.100" }}
+        {isTestMode && (
+          <a href="/teacher" style={{ textDecoration: "none", flexShrink: 0 }}>
+            <HStack
+              gap={1.5}
+              color="charcoal.400"
+              fontFamily="heading"
+              fontSize="xs"
+              fontWeight="500"
+              px={2}
+              py={1}
+              borderRadius="md"
+              _hover={{ bg: "gray.100", color: "navy.500" }}
+              cursor="pointer"
             >
-              <HStack gap={1}>
-                <FiBook />
-                <FiChevronDown size={12} />
-              </HStack>
-            </IconButton>
-          </Menu.Trigger>
-          <Portal>
-            <Menu.Positioner>
-              <Menu.Content
-                css={{
-                  padding: "0.5rem",
-                  minWidth: "200px",
-                }}
-              >
-                <Menu.Item
-                  value="none"
-                  css={!projectId ? activeMenuItemCss : menuItemCss}
-                >
-                  No project
-                </Menu.Item>
-                {projectOptions.map((p) => (
-                  <Menu.Item
-                    key={p.id}
-                    value={p.id}
-                    css={projectId === p.id ? activeMenuItemCss : menuItemCss}
-                  >
-                    📚 {p.title}
-                  </Menu.Item>
-                ))}
-              </Menu.Content>
-            </Menu.Positioner>
-          </Portal>
-        </Menu.Root>
-      )}
+              <SquaresFour size={14} weight="bold" />
+              <Text>Teacher Dashboard</Text>
+            </HStack>
+          </a>
+        )}
 
-      {/* Perspective menu (right) */}
-      {perspectiveLocked ? (
-        <IconButton
-          aria-label="Perspective (locked by teacher)"
-          size="sm"
-          variant="ghost"
-          color="violet.500"
-          cursor="default"
-          title={`${activePerspective?.title || "Perspective"} (locked by teacher)`}
-        >
-          <HStack gap={1}>
-            <FiEye />
-            <FiLock size={10} />
-          </HStack>
-        </IconButton>
-      ) : (
-        <Menu.Root
-          onSelect={({ value }) =>
-            onPerspectiveChange(value === "none" ? null : value)
-          }
-        >
-          <Menu.Trigger asChild>
-            <IconButton
-              aria-label="Select perspective"
-              size="sm"
-              variant="ghost"
-              color={perspectiveId ? "violet.500" : "charcoal.400"}
-              _hover={{ bg: "gray.100" }}
+        {userName && (
+          <HStack gap={2} flexShrink={0}>
+            <Text
+              fontSize="xs"
+              color="charcoal.400"
+              fontFamily="heading"
+              display={{ base: "none", md: "block" }}
             >
-              <HStack gap={1}>
-                <FiEye />
-                <FiChevronDown size={12} />
-              </HStack>
-            </IconButton>
-          </Menu.Trigger>
-          <Portal>
-            <Menu.Positioner>
-              <Menu.Content
-                css={{
-                  padding: "0.5rem",
-                  minWidth: "220px",
-                }}
-              >
-                <Menu.Item
-                  value="none"
-                  css={!perspectiveId ? activeMenuItemCss : menuItemCss}
-                >
-                  No lens
-                </Menu.Item>
-                {perspectiveOptions.map((p) => (
-                  <Menu.Item
-                    key={p.id}
-                    value={p.id}
-                    css={perspectiveId === p.id ? activeMenuItemCss : menuItemCss}
-                  >
-                    {p.icon || "🔍"} {p.title}
-                  </Menu.Item>
-                ))}
-              </Menu.Content>
-            </Menu.Positioner>
-          </Portal>
-        </Menu.Root>
-      )}
-
-      {/* Process menu (right) */}
-      {processLocked ? (
-        <IconButton
-          aria-label="Process (locked by teacher)"
-          size="sm"
-          variant="ghost"
-          color="violet.500"
-          cursor="default"
-          title={`${activeProcess?.title || "Process"} (locked by teacher)`}
-        >
-          <HStack gap={1}>
-            <FiLayers />
-            <FiLock size={10} />
+              {userName}
+            </Text>
+            <Avatar size="xs" name={userName} src={userImage} />
           </HStack>
-        </IconButton>
-      ) : (
-        <Menu.Root
-          onSelect={({ value }) =>
-            onProcessChange(value === "none" ? null : value)
-          }
-        >
-          <Menu.Trigger asChild>
-            <IconButton
-              aria-label="Select process"
-              size="sm"
-              variant="ghost"
-              color={processId ? "violet.500" : "charcoal.400"}
-              _hover={{ bg: "gray.100" }}
-            >
-              <HStack gap={1}>
-                <FiLayers />
-                <FiChevronDown size={12} />
-              </HStack>
-            </IconButton>
-          </Menu.Trigger>
-          <Portal>
-            <Menu.Positioner>
-              <Menu.Content
-                css={{
-                  padding: "0.5rem",
-                  minWidth: "200px",
-                }}
-              >
-                <Menu.Item
-                  value="none"
-                  css={!processId ? activeMenuItemCss : menuItemCss}
-                >
-                  No process
-                </Menu.Item>
-                {processOptions.map((p) => (
-                  <Menu.Item
-                    key={p.id}
-                    value={p.id}
-                    css={processId === p.id ? activeMenuItemCss : menuItemCss}
-                  >
-                    {p.emoji || "📋"} {p.title}
-                  </Menu.Item>
-                ))}
-              </Menu.Content>
-            </Menu.Positioner>
-          </Portal>
-        </Menu.Root>
-      )}
+        )}
+      </Flex>
 
-      {/* Sync indicator (far right, after all dimensions) */}
-      {isSynced !== undefined && (
-        <Tooltip.Root openDelay={400} closeDelay={0}>
-          <Tooltip.Trigger asChild>
-            <Box flexShrink={0} cursor="default">
-              <CloudCheck
-                size={20}
-                weight="regular"
-                color="var(--chakra-colors-charcoal-400)"
-              />
-            </Box>
-          </Tooltip.Trigger>
-          <Portal>
-            <Tooltip.Positioner>
-              <Tooltip.Content>
-                {isSynced ? "All changes saved" : "Saving..."}
-              </Tooltip.Content>
-            </Tooltip.Positioner>
-          </Portal>
-        </Tooltip.Root>
+      {/* Row 2: Dimension pickers */}
+      <Flex px={5} pb={2} gap={7} align="center" flexWrap="wrap">
+        <DimensionPicker
+          label="Persona"
+          defaultLabel="🤖 Makawulu"
+          activeId={personaId}
+          options={personaOptions}
+          locked={personaLocked}
+          lockedTitle={personaOptions.find((p) => p.id === personaId)?.title}
+          onChange={onPersonaChange}
+          renderOption={(p) => `${p.emoji || "🤖"} ${p.title}`}
+          renderActive={() => {
+            const a = personaOptions.find((p) => p.id === personaId);
+            return a ? `${a.emoji} ${a.title}` : "🤖 Makawulu";
+          }}
+          onEdit={isTestMode && personaId ? () => openEdit("persona", personaId, personaData) : undefined}
+        />
+        <DimensionPicker
+          label="Project"
+          defaultLabel="None"
+          activeId={projectId}
+          options={projectOptions}
+          locked={projectLocked}
+          lockedTitle={projectOptions.find((p) => p.id === projectId)?.title}
+          onChange={onProjectChange}
+          renderOption={(p) => `📚 ${p.title}`}
+          renderActive={() => {
+            const a = projectOptions.find((p) => p.id === projectId);
+            return a ? `📚 ${a.title}` : null;
+          }}
+          onEdit={isTestMode && projectId ? () => openEdit("project", projectId, projectData) : undefined}
+        />
+        <DimensionPicker
+          label="Lens"
+          defaultLabel="None"
+          activeId={perspectiveId}
+          options={perspectiveOptions}
+          locked={perspectiveLocked}
+          lockedTitle={perspectiveOptions.find((p) => p.id === perspectiveId)?.title}
+          onChange={onPerspectiveChange}
+          renderOption={(p) => `${p.icon || "🔍"} ${p.title}`}
+          renderActive={() => {
+            const a = perspectiveOptions.find((p) => p.id === perspectiveId);
+            return a ? `${a.icon || "🔍"} ${a.title}` : null;
+          }}
+          onEdit={isTestMode && perspectiveId ? () => openEdit("perspective", perspectiveId, perspectiveData) : undefined}
+        />
+        <DimensionPicker
+          label="Process"
+          defaultLabel="None"
+          activeId={processId}
+          options={processOptions}
+          locked={processLocked}
+          lockedTitle={processOptions.find((p) => p.id === processId)?.title}
+          onChange={onProcessChange}
+          renderOption={(p) => `${p.emoji || "📋"} ${p.title}`}
+          renderActive={() => {
+            const a = processOptions.find((p) => p.id === processId);
+            return a ? `${a.emoji || "📋"} ${a.title}` : null;
+          }}
+          onEdit={isTestMode && processId ? () => openEdit("process", processId, processData) : undefined}
+        />
+      </Flex>
+
+      {/* Dimension edit modal (shared) */}
+      {editModal && (
+        <DimensionEditModal
+          open={!!editModal}
+          onClose={() => setEditModal(null)}
+          dimensionType={editModal.type}
+          data={editModal.data}
+        />
       )}
-    </Flex>
+    </Box>
   );
 }
