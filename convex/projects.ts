@@ -114,7 +114,6 @@ export const create = authedMutation({
       perspectiveId: args.perspectiveId,
       processId: args.processId,
       title,
-      status: "green",
       isArchived: false,
     });
 
@@ -145,9 +144,6 @@ export const update = authedMutation({
     processId: v.optional(v.union(v.id("processes"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
     readingLevelOverride: v.optional(v.union(v.string(), v.null())),
-    status: v.optional(
-      v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))
-    ),
     analysisSummary: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
@@ -181,7 +177,6 @@ export const update = authedMutation({
         updates.teacherWhisper = args.teacherWhisper ?? undefined;
       if (args.readingLevelOverride !== undefined)
         updates.readingLevelOverride = args.readingLevelOverride ?? undefined;
-      if (args.status !== undefined) updates.status = args.status;
       if (args.analysisSummary !== undefined)
         updates.analysisSummary = args.analysisSummary ?? undefined;
     }

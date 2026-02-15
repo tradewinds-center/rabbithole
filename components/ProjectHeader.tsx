@@ -14,6 +14,7 @@ import {
 import { FiMenu } from "react-icons/fi";
 import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
 import { Avatar } from "./Avatar";
+import { StatusOrb } from "./StatusOrb";
 import { DimensionPicker } from "./DimensionPicker";
 import type { DimensionOption } from "./DimensionPicker";
 import { DimensionEditModal } from "./DimensionEditModal";
@@ -65,6 +66,9 @@ interface ProjectHeaderProps {
   // Right panel toggle
   showRightPanel?: boolean;
   onToggleRightPanel?: () => void;
+  // Status orb data
+  pulseScore?: number | null;
+  lastMessageAt?: number | null;
 }
 
 export function ProjectHeader({
@@ -95,6 +99,8 @@ export function ProjectHeader({
   onProjectRename,
   showRightPanel,
   onToggleRightPanel,
+  pulseScore,
+  lastMessageAt,
 }: ProjectHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
@@ -242,6 +248,11 @@ export function ProjectHeader({
 
         {userName && (
           <HStack gap={2} flexShrink={0}>
+            <StatusOrb
+              pulseScore={pulseScore ?? null}
+              lastMessageAt={lastMessageAt ?? null}
+              size="sm"
+            />
             <Text
               fontSize="xs"
               color="charcoal.400"

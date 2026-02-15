@@ -34,16 +34,11 @@ Evaluate the conversation on these dimensions:
 
 6. **Concern Flags**: Any concerns? (off-task behavior, signs of frustration, inappropriate content, etc.)
 
-7. **Status Recommendation**: Based on your analysis, what status should this project have?
-   - GREEN: On track, productive learning happening
-   - YELLOW: Some concerns, may benefit from teacher awareness
-   - RED: Requires teacher intervention (significant off-task, distress, inappropriate content)
+7. **Summary**: 1 terse sentence for the teacher dashboard. State what the scholar is exploring and any notable insight or concern. No filler, no "the scholar is...", no "the tutor is...". Example: "Exploring penguin migration patterns, made a strong connection to climate data." or "Off-task, testing boundaries with silly questions."
 
-8. **Summary**: 1 terse sentence for the teacher dashboard. State what the scholar is exploring and any notable insight or concern. No filler, no "the scholar is...", no "the tutor is...". Example: "Exploring penguin migration patterns, made a strong connection to climate data." or "Off-task, testing boundaries with silly questions."
+8. **Suggested Intervention** (if applicable): What might a teacher do to help?
 
-9. **Suggested Intervention** (if applicable): If yellow or red, what might a teacher do to help?
-
-10. **Progress Score** (0-5 integer): Overall learning progress indicator:
+9. **Pulse Score** (0-5 integer): Overall learning engagement indicator:
    - 0 = Off-task or needs intervention
    - 1 = Minimal engagement
    - 2 = Surface-level participation
@@ -59,10 +54,9 @@ Respond in JSON format:
   "topics": ["topic1", "topic2"],
   "learningIndicators": ["indicator1", "indicator2"],
   "concernFlags": ["concern1"] or [],
-  "status": "green" | "yellow" | "red",
   "summary": "Brief summary...",
   "suggestedIntervention": "Suggestion..." or null,
-  "progressScore": 0-5
+  "pulseScore": 0-5
 }`;
 
 /**
@@ -127,10 +121,9 @@ export const runObserverAnalysis = internalAction({
         topics: [],
         learningIndicators: [],
         concernFlags: [],
-        status: "green",
         summary: "Analysis unavailable",
         suggestedIntervention: null,
-        progressScore: 3,
+        pulseScore: 3,
       };
     }
 
@@ -145,8 +138,7 @@ export const runObserverAnalysis = internalAction({
       concernFlags: analysis.concernFlags || [],
       summary: analysis.summary || "Analysis unavailable",
       suggestedIntervention: analysis.suggestedIntervention || undefined,
-      status: analysis.status || "green",
-      progressScore: typeof analysis.progressScore === "number" ? analysis.progressScore : 3,
+      pulseScore: typeof analysis.pulseScore === "number" ? analysis.pulseScore : 3,
     });
 
     return analysis;

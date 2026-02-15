@@ -18,8 +18,6 @@ import {
   FiSend,
   FiRefreshCw,
   FiAlertCircle,
-  FiCheckCircle,
-  FiAlertTriangle,
   FiEye,
   FiMessageCircle,
 } from "react-icons/fi";
@@ -41,7 +39,6 @@ interface Message {
 interface Project {
   id: string;
   title: string;
-  status: "green" | "yellow" | "red";
   teacherWhisper?: string;
   analysisSummary?: string;
 }
@@ -173,23 +170,6 @@ export function ProjectViewer({
     }
   };
 
-  // Update status via Convex mutation
-  const handleUpdateStatus = async (status: "green" | "yellow" | "red") => {
-    try {
-      await updateProject({
-        id: projectId as Id<"projects">,
-        status,
-      });
-    } catch (error) {
-      console.error("Error updating status:", error);
-    }
-  };
-
-  const statusConfig = {
-    green: { icon: FiCheckCircle, label: "On Track", color: "green" },
-    yellow: { icon: FiAlertTriangle, label: "Attention", color: "yellow" },
-    red: { icon: FiAlertCircle, label: "Intervention", color: "red" },
-  };
 
   if (projData === undefined) {
     return (
@@ -238,21 +218,6 @@ export function ProjectViewer({
           >
             {project?.title}
           </Text>
-          <HStack gap={2}>
-            {project?.status && (
-              <Badge
-                bg={`${statusConfig[project.status].color}.100`}
-                color={`${statusConfig[project.status].color}.700`}
-                px={2}
-                py={0.5}
-                borderRadius="full"
-                fontFamily="heading"
-                fontSize="xs"
-              >
-                {statusConfig[project.status].label}
-              </Badge>
-            )}
-          </HStack>
         </VStack>
         <IconButton
           aria-label="Close"
@@ -674,35 +639,7 @@ export function ProjectViewer({
           _focus={{ borderColor: "violet.500" }}
           mb={2}
         />
-        <HStack justify="space-between">
-          <HStack gap={1}>
-            {(["green", "yellow", "red"] as const).map((status) => (
-              <IconButton
-                key={status}
-                aria-label={`Set ${status}`}
-                size="sm"
-                variant={project?.status === status ? "solid" : "outline"}
-                bg={
-                  project?.status === status
-                    ? `${status === "yellow" ? "yellow.500" : status}.500`
-                    : "transparent"
-                }
-                borderColor={`${status === "yellow" ? "yellow.500" : status}.500`}
-                color={
-                  project?.status === status
-                    ? status === "yellow"
-                      ? "yellow.900"
-                      : "white"
-                    : `${status === "yellow" ? "yellow.600" : status}.500`
-                }
-                onClick={() => handleUpdateStatus(status)}
-              >
-                {status === "green" && <FiCheckCircle />}
-                {status === "yellow" && <FiAlertTriangle />}
-                {status === "red" && <FiAlertCircle />}
-              </IconButton>
-            ))}
-          </HStack>
+        <HStack justify="flex-end">
           <Button
             size="sm"
             onClick={handleSaveWhisper}

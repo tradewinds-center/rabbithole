@@ -85,20 +85,12 @@ export const listScholars = teacherQuery({
           messageCount += msgs.length;
         }
 
-        // Determine overall status (worst status)
-        const hasRed = activeProjects.some((c) => c.status === "red");
-        const hasYellow = activeProjects.some((c) => c.status === "yellow");
-        const overallStatus: "green" | "yellow" | "red" = hasRed
-          ? "red"
-          : hasYellow
-            ? "yellow"
-            : "green";
-
-        // Get status summary, progress score, and last student message from most recent project
+        // Get status summary, pulse score, last message, and lastMessageAt from most recent project
         const mostRecent = activeProjects[0];
         const statusSummary = mostRecent?.analysisSummary ?? null;
-        const progressScore = mostRecent?.progressScore ?? null;
+        const pulseScore = mostRecent?.pulseScore ?? null;
         let lastMessage: string | null = null;
+        let lastMessageAt: number | null = null;
         if (mostRecent) {
           const msgs = await ctx.db
             .query("messages")
@@ -111,6 +103,7 @@ export const listScholars = teacherQuery({
           if (lastUserMsg) {
             const text = lastUserMsg.content;
             lastMessage = text.length > 120 ? text.slice(0, 120) + "..." : text;
+            lastMessageAt = lastUserMsg._creationTime;
           }
         }
 
@@ -139,11 +132,11 @@ export const listScholars = teacherQuery({
           image: scholar.image,
           projectCount: activeProjects.length,
           messageCount,
-          overallStatus,
           lastActive: mostRecent?._creationTime ?? scholar._creationTime,
           statusSummary,
-          progressScore,
+          pulseScore,
           lastMessage,
+          lastMessageAt,
           processStep,
           processTitle,
         };

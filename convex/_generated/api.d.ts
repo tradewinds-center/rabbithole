@@ -19,6 +19,7 @@ import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as messages from "../messages.js";
+import type * as migrations from "../migrations.js";
 import type * as observations from "../observations.js";
 import type * as personas from "../personas.js";
 import type * as perspectives from "../perspectives.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
   messages: typeof messages;
+  migrations: typeof migrations;
   observations: typeof observations;
   personas: typeof personas;
   perspectives: typeof perspectives;

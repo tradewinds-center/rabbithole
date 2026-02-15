@@ -38,16 +38,14 @@ export default defineSchema({
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
     title: v.string(),
-    status: v.union(
-      v.literal("green"),
-      v.literal("yellow"),
-      v.literal("red")
-    ),
     analysisSummary: v.optional(v.string()),
-    progressScore: v.optional(v.number()),
+    pulseScore: v.optional(v.number()),
     teacherWhisper: v.optional(v.string()),
     readingLevelOverride: v.optional(v.string()),
     isArchived: v.boolean(),
+    // DEPRECATED — kept optional for migration, remove after running migrations:removeStatusField
+    status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))),
+    progressScore: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])

@@ -21,6 +21,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@emotion/react": "^11.13.5",
     "@phosphor-icons/react": "^2.1.10",
+    "chroma-js": "^3.2.0",
     "convex": "^1.31.7",
     "convex-helpers": "^0.1.112",
     "emoji-picker-react": "^4.18.0",
@@ -33,6 +34,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/chroma-js": "^3.1.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

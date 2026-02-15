@@ -45,6 +45,7 @@ import { DimensionPicker } from "@/components/DimensionPicker";
 import { DimensionEditModal } from "@/components/DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "@/components/DimensionEditModal";
 import { AppLogo } from "@/components/AppLogo";
+import { StatusOrb } from "@/components/StatusOrb";
 import { buildDimensionParams } from "@/lib/dimensions";
 
 type Tab = "scholars" | "live" | "units" | "personas" | "perspectives" | "processes";
@@ -65,11 +66,11 @@ interface Scholar {
   image?: string;
   projectCount: number;
   messageCount: number;
-  overallStatus: "green" | "yellow" | "red";
   lastActive: number;
   statusSummary: string | null;
-  progressScore: number | null;
+  pulseScore: number | null;
   lastMessage: string | null;
+  lastMessageAt: number | null;
   processStep: string | null;
   processTitle: string | null;
 }
@@ -483,42 +484,26 @@ function RacetrackPanel({
 // Scholar Card Component
 function ScholarCard({ scholar }: { scholar: Scholar }) {
   const remoteUrl = `/scholar?remote=${scholar.id}`;
-  const score = scholar.progressScore;
-  const cardBg = score === null
-    ? "white"
-    : score <= 1
-      ? "red.50"
-      : score <= 2
-        ? "yellow.50"
-        : score <= 3
-          ? "white"
-          : score <= 4
-            ? "green.50"
-            : "violet.50";
-  const cardBorder = score === null
-    ? "transparent"
-    : score <= 1
-      ? "red.200"
-      : score <= 2
-        ? "yellow.200"
-        : score <= 3
-          ? "transparent"
-          : score <= 4
-            ? "green.200"
-            : "violet.200";
 
   return (
     <Card.Root
-      bg={cardBg}
+      bg="white"
       shadow="sm"
       cursor="pointer"
       _hover={{ shadow: "md", borderColor: "violet.300" }}
       borderWidth="1px"
-      borderColor={cardBorder}
+      borderColor="transparent"
       transition="all 0.15s"
       onClick={() => window.open(remoteUrl, "_blank")}
     >
-      <Card.Body p={4}>
+      <Card.Body p={4} position="relative">
+        <Box position="absolute" top={3} right={3}>
+          <StatusOrb
+            pulseScore={scholar.pulseScore}
+            lastMessageAt={scholar.lastMessageAt}
+            size="lg"
+          />
+        </Box>
         <VStack align="stretch" gap={3}>
           <HStack gap={3}>
               <Avatar

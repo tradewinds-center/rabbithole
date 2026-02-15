@@ -421,6 +421,11 @@ export function ProjectInterface({
         unitId={activeProject.unitId}
         perspectiveId={activeProject.perspectiveId}
         processId={activeProject.processId}
+        pulseScore={projectData?.project?.pulseScore ?? null}
+        lastMessageAt={(() => {
+          const userMsgs = messages.filter((m) => m.role === "user");
+          return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].createdAt : null;
+        })()}
         personaOptions={personaOptions}
         unitOptions={unitOptions}
         perspectiveOptions={perspectiveOptions}
