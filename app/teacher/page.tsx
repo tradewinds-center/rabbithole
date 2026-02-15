@@ -36,6 +36,7 @@ import {
   FiLayers,
   FiX,
   FiCheck,
+  FiLink,
 } from "react-icons/fi";
 import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
@@ -602,6 +603,7 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
 interface FocusEntity {
   _id: string;
   title: string;
+  slug?: string;
   emoji?: string;
   icon?: string | null;
   description?: string;
@@ -639,6 +641,31 @@ function FocusBar({ currentFocus, personas, units, perspectives, processes, onSe
   const focusPerspectiveId = isActive ? currentFocus?.perspectiveId ?? null : null;
   const focusProcessId = isActive ? currentFocus?.processId ?? null : null;
   const hasFocus = focusPersonaId || focusUnitId || focusPerspectiveId || focusProcessId;
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const params: string[] = [];
+    if (focusPersonaId) {
+      const p = personas.find((e) => e._id === focusPersonaId);
+      if (p?.slug) params.push(`persona=${p.slug}`);
+    }
+    if (focusUnitId) {
+      const u = units.find((e) => e._id === focusUnitId);
+      if (u?.slug) params.push(`unit=${u.slug}`);
+    }
+    if (focusPerspectiveId) {
+      const p = perspectives.find((e) => e._id === focusPerspectiveId);
+      if (p?.slug) params.push(`perspective=${p.slug}`);
+    }
+    if (focusProcessId) {
+      const p = processes.find((e) => e._id === focusProcessId);
+      if (p?.slug) params.push(`process=${p.slug}`);
+    }
+    const url = `${window.location.origin}/scholar/new${params.length ? `?${params.join("&")}` : ""}`;
+    navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   // Edit modal state
   const [editModal, setEditModal] = useState<{
@@ -681,9 +708,10 @@ function FocusBar({ currentFocus, personas, units, perspectives, processes, onSe
       px={6}
       py={2}
       bg="violet.50"
-      borderBottom="1px solid"
+      borderTop="0.5px solid"
+      borderBottom="0.5px solid"
       borderColor="violet.200"
-      shadow="0 1px 3px rgba(0,0,0,0.04)"
+      shadow="0 2px 4px rgba(0,0,0,0.06)"
       align="center"
       gap={3}
       transition="all 0.15s"
@@ -764,6 +792,28 @@ function FocusBar({ currentFocus, personas, units, perspectives, processes, onSe
         >
           <FiX style={{ marginRight: "4px" }} />
           Clear Focus
+        </Button>
+      )}
+
+      <Box flex={1} />
+
+      {/* Copy Link button — right-aligned */}
+      {hasFocus && (
+        <Button
+          size="xs"
+          variant="ghost"
+          color="violet.500"
+          fontFamily="heading"
+          fontSize="xs"
+          _hover={{ bg: "violet.100" }}
+          onClick={handleCopyLink}
+          flexShrink={0}
+        >
+          {linkCopied ? (
+            <><FiCheck style={{ marginRight: "4px" }} />Copied!</>
+          ) : (
+            <><FiLink style={{ marginRight: "4px" }} />Copy Link</>
+          )}
         </Button>
       )}
 
