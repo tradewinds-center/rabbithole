@@ -3,7 +3,7 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
-import { buildSystemPrompt } from "./chatHelpers";
+import { buildSystemPrompt } from "./projectHelpers";
 
 const http = httpRouter();
 
@@ -11,36 +11,36 @@ const http = httpRouter();
 auth.addHttpRoutes(http);
 
 /**
- * Chat streaming endpoint.
+ * Project streaming endpoint.
  * Called by the frontend after sendMessage mutation returns a streamId.
- * Reads conversation context, calls Claude API via beta tool runner,
+ * Reads project context, calls Claude API via beta tool runner,
  * streams tokens back via SSE, and periodically persists content to DB.
  */
 http.route({
-  path: "/chat-stream",
+  path: "/project-stream",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const body = await request.json();
     const {
-      conversationId,
+      projectId,
       streamId,
       assistantMsgId: initialAssistantMsgId,
     } = body as {
-      conversationId: string;
+      projectId: string;
       streamId: string;
       assistantMsgId: string;
     };
     let assistantMsgId = initialAssistantMsgId;
 
-    // Fetch conversation and related data from DB
-    const conversation = await ctx.runQuery(
-      internal.chatHelpers.getConversationContext,
-      { conversationId: conversationId as Id<"conversations"> }
+    // Fetch project and related data from DB
+    const project = await ctx.runQuery(
+      internal.projectHelpers.getProjectContext,
+      { projectId: projectId as Id<"projects"> }
     );
 
-    if (!conversation) {
+    if (!project) {
       return new Response(
-        `data: ${JSON.stringify({ error: "Conversation not found" })}\n\n`,
+        `data: ${JSON.stringify({ error: "Project not found" })}\n\n`,
         { status: 404, headers: { "Content-Type": "text/event-stream" } }
       );
     }
@@ -54,15 +54,15 @@ http.route({
 
     // Build system prompt (now includes artifact data)
     const systemPrompt = buildSystemPrompt(
-      conversation.teacherWhisper,
-      conversation.readingLevel,
-      conversation.scholarName,
-      conversation.projectContext,
-      conversation.personaContext,
-      conversation.perspectiveContext,
-      conversation.processContext,
-      conversation.processStateData,
-      conversation.artifactData
+      project.teacherWhisper,
+      project.readingLevel,
+      project.scholarName,
+      project.unitContext,
+      project.personaContext,
+      project.perspectiveContext,
+      project.processContext,
+      project.processStateData,
+      project.artifactData
     );
 
     const encoder = new TextEncoder();
@@ -75,10 +75,10 @@ http.route({
           let tokensUsed = 0;
           let lastPersistLength = 0;
 
-          const convId = conversationId as Id<"conversations">;
+          const projId = projectId as Id<"projects">;
 
           // Build messages for API
-          const apiMessages = conversation.chatHistory.map(
+          const apiMessages = project.chatHistory.map(
             (m: { role: string; content: string }) => ({
               role: m.role as "user" | "assistant",
               content: m.content,
@@ -87,7 +87,7 @@ http.route({
 
           // ── Define tools with run callbacks ──────────────────────────
 
-          const hasProcess = conversation.processContext && conversation.processStateData;
+          const hasProcess = project.processContext && project.processStateData;
 
           const processStepTool = betaTool({
             name: "update_process_step",
@@ -114,7 +114,7 @@ http.route({
             run: async (input) => {
               const status = input.status as "in_progress" | "completed";
               await ctx.runMutation(internal.processState.updateStep, {
-                conversationId: convId,
+                projectId: projId,
                 stepKey: input.step,
                 status,
                 commentary: input.commentary,
@@ -125,9 +125,9 @@ http.route({
                 )
               );
               const label = status === "completed" ? `Completed step: ${input.step}` : `Started step: ${input.step}`;
-              const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+              const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                 currentMessageId: assistantMsgId as Id<"messages">,
-                conversationId: convId,
+                projectId: projId,
                 contentSoFar: fullContent,
                 toolAction: label,
               });
@@ -191,16 +191,16 @@ http.route({
               switch (input.command) {
                 case "create": {
                   const newArtifactId = await ctx.runMutation(internal.artifacts.aiCreate, {
-                    conversationId: convId,
+                    projectId: projId,
                     title: (input as { title?: string }).title || "Document",
                     content: (input as { file_text?: string }).file_text || "",
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
                   );
-                  const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                  const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                     currentMessageId: assistantMsgId as Id<"messages">,
-                    conversationId: convId,
+                    projectId: projId,
                     contentSoFar: fullContent,
                     toolAction: "Created document",
                   });
@@ -215,7 +215,7 @@ http.route({
                 case "view": {
                   if (docId) {
                     const artifact = await ctx.runQuery(internal.artifacts.aiGetContent, {
-                      conversationId: convId,
+                      projectId: projId,
                       artifactId: docId,
                     });
                     if (!artifact || Array.isArray(artifact)) return "Error: Document not found.";
@@ -224,7 +224,7 @@ http.route({
                   }
                   // No document_id — return all documents
                   const allDocs = await ctx.runQuery(internal.artifacts.aiGetContent, {
-                    conversationId: convId,
+                    projectId: projId,
                   });
                   if (!allDocs || (Array.isArray(allDocs) && allDocs.length === 0)) {
                     return "No documents exist yet. Use create to make one.";
@@ -240,7 +240,7 @@ http.route({
                   const newTitle = (input as { title?: string }).title;
                   if (!newTitle) return "Error: rename requires a title parameter.";
                   await ctx.runMutation(internal.artifacts.aiRename, {
-                    conversationId: convId,
+                    projectId: projId,
                     title: newTitle,
                     ...(docId ? { artifactId: docId } : {}),
                   });
@@ -256,7 +256,7 @@ http.route({
                     return "Error: str_replace requires old_str and new_str parameters.";
                   }
                   const result = await ctx.runMutation(internal.artifacts.aiStrReplace, {
-                    conversationId: convId,
+                    projectId: projId,
                     oldStr,
                     newStr,
                     ...(docId ? { artifactId: docId } : {}),
@@ -266,9 +266,9 @@ http.route({
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
                   );
                   {
-                    const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                    const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                       currentMessageId: assistantMsgId as Id<"messages">,
-                      conversationId: convId,
+                      projectId: projId,
                       contentSoFar: fullContent,
                       toolAction: "Edited document",
                     });
@@ -288,7 +288,7 @@ http.route({
                     return "Error: insert requires insert_text parameter.";
                   }
                   await ctx.runMutation(internal.artifacts.aiInsert, {
-                    conversationId: convId,
+                    projectId: projId,
                     insertLine,
                     insertText,
                     ...(docId ? { artifactId: docId } : {}),
@@ -297,9 +297,9 @@ http.route({
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
                   );
                   {
-                    const newId = await ctx.runMutation(internal.chatHelpers.splitStream, {
+                    const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                       currentMessageId: assistantMsgId as Id<"messages">,
-                      conversationId: convId,
+                      projectId: projId,
                       contentSoFar: fullContent,
                       toolAction: "Edited document",
                     });
@@ -321,7 +321,7 @@ http.route({
           // Build tools array based on active features
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
           if (hasProcess) tools.push(processStepTool);
-          if (conversation.projectContext || (conversation.artifactData && conversation.artifactData.length > 0)) tools.push(editDocumentTool);
+          if (project.unitContext || (project.artifactData && project.artifactData.length > 0)) tools.push(editDocumentTool);
 
           // ── Stream with tool runner ──────────────────────────────────
 
@@ -353,7 +353,7 @@ http.route({
                     if (fullContent.length - lastPersistLength > 200) {
                       lastPersistLength = fullContent.length;
                       await ctx.runMutation(
-                        internal.chatHelpers.updateStreamContent,
+                        internal.projectHelpers.updateStreamContent,
                         {
                           messageId: assistantMsgId as Id<"messages">,
                           content: fullContent,
@@ -392,7 +392,7 @@ http.route({
                   if (fullContent.length - lastPersistLength > 200) {
                     lastPersistLength = fullContent.length;
                     await ctx.runMutation(
-                      internal.chatHelpers.updateStreamContent,
+                      internal.projectHelpers.updateStreamContent,
                       {
                         messageId: assistantMsgId as Id<"messages">,
                         content: fullContent,
@@ -408,10 +408,10 @@ http.route({
             }
           }
 
-          // Finalize: save full content, clear stream ID, update conversation
-          await ctx.runMutation(internal.chatHelpers.finalizeStream, {
+          // Finalize: save full content, clear stream ID, update project
+          await ctx.runMutation(internal.projectHelpers.finalizeStream, {
             messageId: assistantMsgId as Id<"messages">,
-            conversationId: convId,
+            projectId: projId,
             content: fullContent,
             model,
             tokensUsed,
@@ -446,9 +446,9 @@ http.route({
   }),
 });
 
-// CORS preflight for chat-stream
+// CORS preflight for project-stream
 http.route({
-  path: "/chat-stream",
+  path: "/project-stream",
   method: "OPTIONS",
   handler: httpAction(async () => {
     return new Response(null, {
@@ -463,7 +463,7 @@ http.route({
 });
 
 /**
- * Analyze a conversation endpoint.
+ * Analyze a project endpoint.
  * Runs both observer and detailed analysis, returns combined results.
  */
 http.route({
@@ -471,16 +471,16 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const body = await request.json();
-    const { conversationId } = body as { conversationId: string };
+    const { projectId } = body as { projectId: string };
 
     try {
       // Run both analyses in parallel
       const [observerResult, detailedResult] = await Promise.all([
         ctx.runAction(internal.analysisActions.runObserverAnalysis, {
-          conversationId: conversationId as Id<"conversations">,
+          projectId: projectId as Id<"projects">,
         }),
         ctx.runAction(internal.analysisActions.runDetailedAnalysis, {
-          conversationId: conversationId as Id<"conversations">,
+          projectId: projectId as Id<"projects">,
         }),
       ]);
 

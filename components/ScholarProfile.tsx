@@ -83,7 +83,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
     scholar: null,
     topics: [],
     suggestions: [],
-    stats: { conversationCount: 0, messageCount: 0, topicCount: 0 },
+    stats: { projectCount: 0, messageCount: 0, topicCount: 0 },
   };
 
   const isLoading = profile === undefined;
@@ -223,7 +223,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
         {/* Inline stats */}
         <HStack gap={5}>
           {[
-            { value: stats.conversationCount, label: "Chats" },
+            { value: stats.projectCount, label: "Projects" },
             { value: stats.messageCount, label: "Messages" },
             { value: stats.topicCount, label: "Topics" },
           ].map((stat) => (

@@ -3,25 +3,25 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
 
 /**
- * List messages for a conversation (used by reactive subscribers).
+ * List messages for a project (used by reactive subscribers).
  */
-export const listByConversation = authedQuery({
-  args: { conversationId: v.id("conversations") },
+export const listByProject = authedQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return [];
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return [];
 
     // Access check
     const isTeacher =
       ctx.user.role === "teacher" || ctx.user.role === "admin";
-    if (!isTeacher && conversation.userId !== ctx.user._id) {
+    if (!isTeacher && project.userId !== ctx.user._id) {
       return [];
     }
 
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .order("asc")
       .collect();
@@ -59,19 +59,19 @@ export const getStreamBody = query({
  */
 export const insertUserMessage = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     content: v.string(),
     personaId: v.optional(v.string()),
-    projectId: v.optional(v.string()),
+    unitId: v.optional(v.string()),
     perspectiveId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("messages", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       role: "user",
       content: args.content,
       personaId: args.personaId,
-      projectId: args.projectId,
+      unitId: args.unitId,
       perspectiveId: args.perspectiveId,
       flagged: false,
     });
@@ -83,20 +83,20 @@ export const insertUserMessage = internalMutation({
  */
 export const insertAssistantPlaceholder = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     streamId: v.string(),
     personaId: v.optional(v.string()),
-    projectId: v.optional(v.string()),
+    unitId: v.optional(v.string()),
     perspectiveId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("messages", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       role: "assistant",
       content: "",
       streamId: args.streamId,
       personaId: args.personaId,
-      projectId: args.projectId,
+      unitId: args.unitId,
       perspectiveId: args.perspectiveId,
       flagged: false,
     });

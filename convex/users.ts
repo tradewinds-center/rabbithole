@@ -52,7 +52,7 @@ export const storeUser = mutation({
 
 /**
  * List all scholars (for teacher dashboard).
- * Returns scholars with conversation counts and status.
+ * Returns scholars with project counts and status.
  */
 export const listScholars = teacherQuery({
   args: {},
@@ -64,46 +64,46 @@ export const listScholars = teacherQuery({
 
     const scholarData = await Promise.all(
       scholars.map(async (scholar) => {
-        // Get conversations (most recent 5, non-archived)
-        const convos = await ctx.db
-          .query("conversations")
+        // Get projects (most recent 5, non-archived)
+        const allProjects = await ctx.db
+          .query("projects")
           .withIndex("by_user", (q) => q.eq("userId", scholar._id))
           .order("desc")
           .collect();
 
-        const activeConvos = convos.filter((c) => !c.isArchived).slice(0, 5);
+        const activeProjects = allProjects.filter((c) => !c.isArchived).slice(0, 5);
 
-        // Count messages across all conversations
+        // Count messages across all projects
         let messageCount = 0;
-        for (const conv of convos) {
+        for (const proj of allProjects) {
           const msgs = await ctx.db
             .query("messages")
-            .withIndex("by_conversation", (q) =>
-              q.eq("conversationId", conv._id)
+            .withIndex("by_project", (q) =>
+              q.eq("projectId", proj._id)
             )
             .collect();
           messageCount += msgs.length;
         }
 
         // Determine overall status (worst status)
-        const hasRed = activeConvos.some((c) => c.status === "red");
-        const hasYellow = activeConvos.some((c) => c.status === "yellow");
+        const hasRed = activeProjects.some((c) => c.status === "red");
+        const hasYellow = activeProjects.some((c) => c.status === "yellow");
         const overallStatus: "green" | "yellow" | "red" = hasRed
           ? "red"
           : hasYellow
             ? "yellow"
             : "green";
 
-        // Get status summary, progress score, and last student message from most recent conversation
-        const mostRecent = activeConvos[0];
+        // Get status summary, progress score, and last student message from most recent project
+        const mostRecent = activeProjects[0];
         const statusSummary = mostRecent?.analysisSummary ?? null;
         const progressScore = mostRecent?.progressScore ?? null;
         let lastMessage: string | null = null;
         if (mostRecent) {
           const msgs = await ctx.db
             .query("messages")
-            .withIndex("by_conversation", (q) =>
-              q.eq("conversationId", mostRecent._id)
+            .withIndex("by_project", (q) =>
+              q.eq("projectId", mostRecent._id)
             )
             .order("desc")
             .collect();
@@ -114,14 +114,14 @@ export const listScholars = teacherQuery({
           }
         }
 
-        // Get process state from most recent conversation
+        // Get process state from most recent project
         let processStep: string | null = null;
         let processTitle: string | null = null;
         if (mostRecent?.processId) {
           const pState = await ctx.db
             .query("processState")
-            .withIndex("by_conversation", (q) =>
-              q.eq("conversationId", mostRecent._id)
+            .withIndex("by_project", (q) =>
+              q.eq("projectId", mostRecent._id)
             )
             .first();
           if (pState) {
@@ -137,7 +137,7 @@ export const listScholars = teacherQuery({
           email: scholar.email,
           name: scholar.name,
           image: scholar.image,
-          conversationCount: activeConvos.length,
+          projectCount: activeProjects.length,
           messageCount,
           overallStatus,
           lastActive: mostRecent?._creationTime ?? scholar._creationTime,

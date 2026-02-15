@@ -4,20 +4,20 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 /**
- * Get all context needed to call Claude for a conversation.
+ * Get all context needed to call Claude for a project.
  * Called by the HTTP action before streaming.
  */
-export const getConversationContext = internalQuery({
-  args: { conversationId: v.id("conversations") },
+export const getProjectContext = internalQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return null;
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
 
     // Get chat history
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .order("asc")
       .collect();
@@ -29,29 +29,29 @@ export const getConversationContext = internalQuery({
         content: m.content,
       }));
 
-    // Get reading level: conversation override takes priority, then scholar's level
-    const scholar = await ctx.db.get(conversation.userId);
-    const readingLevel = conversation.readingLevelOverride ?? scholar?.readingLevel ?? null;
+    // Get reading level: project override takes priority, then scholar's level
+    const scholar = await ctx.db.get(project.userId);
+    const readingLevel = project.readingLevelOverride ?? scholar?.readingLevel ?? null;
 
-    // Get project context
-    let projectContext = null;
-    if (conversation.projectId) {
-      const project = await ctx.db.get(conversation.projectId);
-      if (project) {
-        projectContext = {
-          title: project.title,
-          description: project.description ?? null,
-          systemPrompt: project.systemPrompt ?? null,
-          rubric: project.rubric ?? null,
-          targetBloomLevel: project.targetBloomLevel ?? null,
+    // Get unit context
+    let unitContext = null;
+    if (project.unitId) {
+      const unit = await ctx.db.get(project.unitId);
+      if (unit) {
+        unitContext = {
+          title: unit.title,
+          description: unit.description ?? null,
+          systemPrompt: unit.systemPrompt ?? null,
+          rubric: unit.rubric ?? null,
+          targetBloomLevel: unit.targetBloomLevel ?? null,
         };
       }
     }
 
     // Get persona context
     let personaContext = null;
-    if (conversation.personaId) {
-      const persona = await ctx.db.get(conversation.personaId);
+    if (project.personaId) {
+      const persona = await ctx.db.get(project.personaId);
       if (persona) {
         personaContext = {
           title: persona.title,
@@ -63,8 +63,8 @@ export const getConversationContext = internalQuery({
 
     // Get perspective context
     let perspectiveContext = null;
-    if (conversation.perspectiveId) {
-      const perspective = await ctx.db.get(conversation.perspectiveId);
+    if (project.perspectiveId) {
+      const perspective = await ctx.db.get(project.perspectiveId);
       if (perspective) {
         perspectiveContext = {
           title: perspective.title,
@@ -77,8 +77,8 @@ export const getConversationContext = internalQuery({
     // Get process context + state
     let processContext = null;
     let processStateData = null;
-    if (conversation.processId) {
-      const process = await ctx.db.get(conversation.processId);
+    if (project.processId) {
+      const process = await ctx.db.get(project.processId);
       if (process) {
         processContext = {
           title: process.title,
@@ -89,8 +89,8 @@ export const getConversationContext = internalQuery({
       }
       const pState = await ctx.db
         .query("processState")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", args.conversationId)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", args.projectId)
         )
         .first();
       if (pState) {
@@ -104,8 +104,8 @@ export const getConversationContext = internalQuery({
     // Get artifact data (multi-document)
     const allArtifacts = await ctx.db
       .query("artifacts")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .collect();
     const artifactData = allArtifacts.length > 0
@@ -118,17 +118,17 @@ export const getConversationContext = internalQuery({
       : null;
 
     return {
-      teacherWhisper: conversation.teacherWhisper ?? null,
+      teacherWhisper: project.teacherWhisper ?? null,
       readingLevel,
       scholarName: scholar?.name ?? null,
-      projectContext,
+      unitContext,
       personaContext,
       perspectiveContext,
       processContext,
       processStateData,
       artifactData,
       chatHistory,
-      title: conversation.title,
+      title: project.title,
     };
   },
 });
@@ -149,12 +149,12 @@ export const updateStreamContent = internalMutation({
 });
 
 /**
- * Finalize a stream: save full content, clear streamId, update conversation.
+ * Finalize a stream: save full content, clear streamId, update project.
  */
 export const finalizeStream = internalMutation({
   args: {
     messageId: v.id("messages"),
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     content: v.string(),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
@@ -173,14 +173,14 @@ export const finalizeStream = internalMutation({
       });
     }
 
-    // Update conversation title if first exchange
-    const conversation = await ctx.db.get(args.conversationId);
-    if (conversation && conversation.title === "New Conversation") {
+    // Update project title if first exchange
+    const project = await ctx.db.get(args.projectId);
+    if (project && project.title === "New Project") {
       // Count user messages to see if this is the first exchange
       const messages = await ctx.db
         .query("messages")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", args.conversationId)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", args.projectId)
         )
         .collect();
 
@@ -191,26 +191,26 @@ export const finalizeStream = internalMutation({
         const words = userMessages[0].content.split(" ").slice(0, 6).join(" ");
         const title =
           words.length > 40 ? words.slice(0, 40) + "..." : words;
-        await ctx.db.patch(args.conversationId, { title });
+        await ctx.db.patch(args.projectId, { title });
       }
     }
 
     // Auto-trigger observer analysis in background
     await ctx.scheduler.runAfter(0, internal.analysisActions.runObserverAnalysis, {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
     });
   },
 });
 
 /**
- * Build the system prompt for Claude based on conversation context.
- * Shared by the chat-stream HTTP action.
+ * Build the system prompt for Claude based on project context.
+ * Shared by the project-stream HTTP action.
  */
 export function buildSystemPrompt(
   teacherWhisper: string | null,
   readingLevel: string | null,
   scholarName: string | null,
-  projectContext: {
+  unitContext: {
     title: string;
     description: string | null;
     systemPrompt: string | null;
@@ -261,7 +261,7 @@ Guidelines:
 - Connect topics across disciplines when natural
 - Keep responses concise but substantive
 - You can use markdown in your responses: **bold**, *italic*, lists, headers, etc.
-- If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and introduce the current project warmly. Ask an engaging opening question to get them started. Do NOT mention or repeat "<start>" in your response.`
+- If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and introduce the current unit warmly. Ask an engaging opening question to get them started. Do NOT mention or repeat "<start>" in your response.`
   );
 
   if (scholarName) {
@@ -295,18 +295,18 @@ Guidelines:
     }
   }
 
-  // Project context
-  if (projectContext) {
-    parts.push(`\n\nPROJECT: "${projectContext.title}"`);
-    if (projectContext.systemPrompt) {
-      parts.push(`Instructions: ${projectContext.systemPrompt}`);
+  // Unit context
+  if (unitContext) {
+    parts.push(`\n\nUNIT: "${unitContext.title}"`);
+    if (unitContext.systemPrompt) {
+      parts.push(`Instructions: ${unitContext.systemPrompt}`);
     }
-    if (projectContext.rubric) {
-      parts.push(`Rubric: ${projectContext.rubric}`);
+    if (unitContext.rubric) {
+      parts.push(`Rubric: ${unitContext.rubric}`);
     }
-    if (projectContext.targetBloomLevel) {
+    if (unitContext.targetBloomLevel) {
       parts.push(
-        `Target cognitive level (Bloom's): ${projectContext.targetBloomLevel}. Guide the scholar toward this level of thinking.`
+        `Target cognitive level (Bloom's): ${unitContext.targetBloomLevel}. Guide the scholar toward this level of thinking.`
       );
     }
   }
@@ -351,8 +351,8 @@ ${numberedContent}`);
     parts.push(`\nYou have a tool called "edit_document" to create, view, rename, and edit documents. When editing an existing document, pass the document_id to target the correct one. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit documents and titles directly.
 
 IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header. Do NOT include a title, headline, or byline at the top of document content — that would be redundant. Document body should start directly with the actual content.`);
-  } else if (projectContext) {
-    parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the project involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
+  } else if (unitContext) {
+    parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the unit involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
   }
 
   // Teacher whisper (private guidance)
@@ -375,7 +375,7 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
 export const splitStream = internalMutation({
   args: {
     currentMessageId: v.id("messages"),
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     contentSoFar: v.string(),
     toolAction: v.string(),
   },
@@ -391,12 +391,12 @@ export const splitStream = internalMutation({
 
     // 3. Insert tool message
     await ctx.db.insert("messages", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       role: "tool",
       content: "",
       toolAction: args.toolAction,
       personaId: currentMsg?.personaId,
-      projectId: currentMsg?.projectId,
+      unitId: currentMsg?.unitId,
       perspectiveId: currentMsg?.perspectiveId,
       processId: currentMsg?.processId,
       flagged: false,
@@ -404,11 +404,11 @@ export const splitStream = internalMutation({
 
     // 4. Insert new assistant placeholder
     const newMsgId = await ctx.db.insert("messages", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       role: "assistant",
       content: "",
       personaId: currentMsg?.personaId,
-      projectId: currentMsg?.projectId,
+      unitId: currentMsg?.unitId,
       perspectiveId: currentMsg?.perspectiveId,
       processId: currentMsg?.processId,
       flagged: false,

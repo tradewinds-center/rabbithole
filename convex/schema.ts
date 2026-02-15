@@ -31,9 +31,9 @@ export default defineSchema({
     .index("by_externalId", ["externalId"])
     .index("by_role", ["role"]),
 
-  conversations: defineTable({
+  projects: defineTable({
     userId: v.id("users"),
-    projectId: v.optional(v.id("projects")),
+    unitId: v.optional(v.id("units")),
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
@@ -51,10 +51,10 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])
-    .index("by_project", ["projectId"]),
+    .index("by_unit", ["unitId"]),
 
   messages: defineTable({
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     role: v.union(
       v.literal("user"),
       v.literal("assistant"),
@@ -67,7 +67,7 @@ export default defineSchema({
     // These are strings (not v.id) because they're historical references
     // that should survive if the original entity is deleted
     personaId: v.optional(v.string()),
-    projectId: v.optional(v.string()),
+    unitId: v.optional(v.string()),
     perspectiveId: v.optional(v.string()),
     processId: v.optional(v.string()),
     model: v.optional(v.string()),
@@ -77,11 +77,11 @@ export default defineSchema({
     // For persistent-text-streaming: links to active stream
     streamId: v.optional(v.string()),
   })
-    .index("by_conversation", ["conversationId"])
+    .index("by_project", ["projectId"])
     .index("by_stream", ["streamId"]),
 
   analyses: defineTable({
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     engagementScore: v.optional(v.number()),
     complexityLevel: v.optional(v.number()),
     onTaskScore: v.optional(v.number()),
@@ -90,12 +90,12 @@ export default defineSchema({
     concernFlags: v.optional(v.array(v.string())),
     summary: v.optional(v.string()),
     suggestedIntervention: v.optional(v.string()),
-  }).index("by_conversation", ["conversationId"]),
+  }).index("by_project", ["projectId"]),
 
   observations: defineTable({
     teacherId: v.id("users"),
     scholarId: v.id("users"),
-    conversationId: v.optional(v.id("conversations")),
+    projectId: v.optional(v.id("projects")),
     note: v.string(),
     type: v.union(
       v.literal("praise"),
@@ -106,7 +106,7 @@ export default defineSchema({
   })
     .index("by_scholar", ["scholarId"])
     .index("by_teacher", ["teacherId"])
-    .index("by_conversation", ["conversationId"]),
+    .index("by_project", ["projectId"]),
 
   scholarTopics: defineTable({
     scholarId: v.id("users"),
@@ -121,7 +121,7 @@ export default defineSchema({
     ),
     teacherRating: v.number(), // 1 = thumbs up, -1 = thumbs down, 0 = neutral
     mentionCount: v.number(),
-    lastConversationId: v.optional(v.id("conversations")),
+    lastProjectId: v.optional(v.id("projects")),
   })
     .index("by_scholar", ["scholarId"])
     .index("by_scholar_and_topic", ["scholarId", "topic"]),
@@ -172,7 +172,7 @@ export default defineSchema({
     .index("by_active", ["isActive"])
     .index("by_slug", ["slug"]),
 
-  projects: defineTable({
+  units: defineTable({
     teacherId: v.id("users"),
     title: v.string(),
     slug: v.optional(v.string()),
@@ -199,7 +199,7 @@ export default defineSchema({
   focusSettings: defineTable({
     teacherId: v.id("users"),
     personaId: v.optional(v.id("personas")),
-    projectId: v.optional(v.id("projects")),
+    unitId: v.optional(v.id("units")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
     isActive: v.boolean(),
@@ -226,14 +226,14 @@ export default defineSchema({
     .index("by_slug", ["slug"]),
 
   artifacts: defineTable({
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     title: v.string(),
     content: v.string(),
     lastEditedBy: v.union(v.literal("scholar"), v.literal("ai")),
-  }).index("by_conversation", ["conversationId"]),
+  }).index("by_project", ["projectId"]),
 
   processState: defineTable({
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     processId: v.id("processes"),
     currentStep: v.string(),
     steps: v.array(
@@ -247,5 +247,5 @@ export default defineSchema({
         commentary: v.optional(v.string()),
       })
     ),
-  }).index("by_conversation", ["conversationId"]),
+  }).index("by_project", ["projectId"]),
 });

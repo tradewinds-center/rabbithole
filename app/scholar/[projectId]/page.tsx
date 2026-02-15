@@ -28,7 +28,7 @@ import {
   FiTrash2,
   FiX,
 } from "react-icons/fi";
-import { ChatInterface } from "@/components/ChatInterface";
+import { ProjectInterface } from "@/components/ProjectInterface";
 import { AppLogo } from "@/components/AppLogo";
 
 function timeAgo(timestamp: number): string {
@@ -45,46 +45,46 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
-export default function ScholarChatPage() {
+export default function ScholarProjectPage() {
   return (
     <Suspense fallback={<Flex minH="100vh" bg="gray.50" align="center" justify="center"><Spinner size="xl" color="violet.500" /></Flex>}>
-      <ScholarChatInner />
+      <ScholarProjectInner />
     </Suspense>
   );
 }
 
-function ScholarChatInner() {
+function ScholarProjectInner() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
   const { signOut } = useAuthActions();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const newChatCreatedRef = useRef(false);
+  const newProjectCreatedRef = useRef(false);
 
-  const chatId = params.chatId as string; // Convex ID or "new"
-  const isNewChat = chatId === "new";
+  const projectId = params.projectId as string; // Convex ID or "new"
+  const isNewProject = projectId === "new";
 
   // Remote mode: teacher viewing as a scholar
   const remoteUserId = searchParams.get("remote");
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
 
-  // Dimension params from URL (for pre-setting dimensions on new conversations)
+  // Dimension params from URL (for pre-setting dimensions on new projects)
   const urlPersona = searchParams.get("persona");
-  const urlProject = searchParams.get("project");
+  const urlUnit = searchParams.get("unit");
   const urlPerspective = searchParams.get("perspective");
   const urlProcess = searchParams.get("process");
-  const hasDimensionParams = !!(urlPersona || urlProject || urlPerspective || urlProcess);
+  const hasDimensionParams = !!(urlPersona || urlUnit || urlPerspective || urlProcess);
 
-  // Fetch conversations reactively via Convex
-  const conversations = useQuery(
-    api.conversations.list,
+  // Fetch projects reactively via Convex
+  const projects = useQuery(
+    api.projects.list,
     isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
   ) ?? [];
 
   // Fetch dimension lists for resolving URL param titles to IDs
   const personas = useQuery(api.personas.list) ?? [];
-  const projects = useQuery(api.projects.list) ?? [];
+  const units = useQuery(api.units.list) ?? [];
   const perspectives = useQuery(api.perspectives.list) ?? [];
   const processes = useQuery(api.processes.list) ?? [];
 
@@ -94,14 +94,14 @@ function ScholarChatInner() {
     isRemoteMode && remoteUserId ? { userId: remoteUserId as Id<"users"> } : "skip"
   );
 
-  const createConversation = useMutation(api.conversations.create);
-  const archiveConversation = useMutation(api.conversations.archive);
+  const createProject = useMutation(api.projects.create);
+  const archiveProject = useMutation(api.projects.archive);
 
   // Resolve URL param slugs to dimension IDs
   const resolvedDimensions = (() => {
     const result: {
       personaId?: Id<"personas">;
-      projectId?: Id<"projects">;
+      unitId?: Id<"units">;
       perspectiveId?: Id<"perspectives">;
       processId?: Id<"processes">;
     } = {};
@@ -109,9 +109,9 @@ function ScholarChatInner() {
       const match = personas.find((p) => p.slug === urlPersona);
       if (match) result.personaId = match._id;
     }
-    if (urlProject) {
-      const match = projects.find((p) => p.slug === urlProject);
-      if (match) result.projectId = match._id;
+    if (urlUnit) {
+      const match = units.find((u) => u.slug === urlUnit);
+      if (match) result.unitId = match._id;
     }
     if (urlPerspective) {
       const match = perspectives.find((p) => p.slug === urlPerspective);
@@ -138,24 +138,24 @@ function ScholarChatInner() {
     }
   }, [user, isUserLoading, router, remoteUserId, hasDimensionParams]);
 
-  // Auto-create conversation when chatId is "new"
+  // Auto-create project when projectId is "new"
   useEffect(() => {
-    if (!isNewChat || newChatCreatedRef.current) return;
+    if (!isNewProject || newProjectCreatedRef.current) return;
     // Wait for dimension lists to load if we have dimension params
-    if (hasDimensionParams && (personas.length === 0 && projects.length === 0 && perspectives.length === 0 && processes.length === 0)) return;
+    if (hasDimensionParams && (personas.length === 0 && units.length === 0 && perspectives.length === 0 && processes.length === 0)) return;
 
-    newChatCreatedRef.current = true;
+    newProjectCreatedRef.current = true;
 
     const createArgs: Record<string, unknown> = {};
     if (isRemoteMode && remoteUserId) {
       createArgs.userId = remoteUserId as Id<"users">;
     }
     if (resolvedDimensions.personaId) createArgs.personaId = resolvedDimensions.personaId;
-    if (resolvedDimensions.projectId) createArgs.projectId = resolvedDimensions.projectId;
+    if (resolvedDimensions.unitId) createArgs.unitId = resolvedDimensions.unitId;
     if (resolvedDimensions.perspectiveId) createArgs.perspectiveId = resolvedDimensions.perspectiveId;
     if (resolvedDimensions.processId) createArgs.processId = resolvedDimensions.processId;
 
-    createConversation(createArgs as Parameters<typeof createConversation>[0])
+    createProject(createArgs as Parameters<typeof createProject>[0])
       .then((result) => {
         if (result) {
           const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
@@ -163,25 +163,25 @@ function ScholarChatInner() {
         }
       })
       .catch((error) => {
-        console.error("Error creating conversation:", error);
-        newChatCreatedRef.current = false;
+        console.error("Error creating project:", error);
+        newProjectCreatedRef.current = false;
       });
-  }, [isNewChat, hasDimensionParams, personas, projects, perspectives, processes, resolvedDimensions, createConversation, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNewProject, hasDimensionParams, personas, units, perspectives, processes, resolvedDimensions, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Navigate to /scholar/new (optionally with remote param)
-  const handleNewConversation = useCallback(() => {
+  const handleNewProject = useCallback(() => {
     const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-    newChatCreatedRef.current = false;
+    newProjectCreatedRef.current = false;
     router.push(`/scholar/new${remoteParam}`);
   }, [router, remoteUserId]);
 
-  // Archive conversation
-  const handleArchiveConversation = async (id: string) => {
+  // Archive project
+  const handleArchiveProject = async (id: string) => {
     try {
-      await archiveConversation({ id: id as Id<"conversations"> });
-      if (chatId === id) {
-        // Navigate to another conversation or welcome
-        const remaining = conversations.filter((c) => c._id !== id);
+      await archiveProject({ id: id as Id<"projects"> });
+      if (projectId === id) {
+        // Navigate to another project or welcome
+        const remaining = projects.filter((c) => c._id !== id);
         const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
         if (remaining.length > 0) {
           router.replace(`/scholar/${remaining[0]._id}${remoteParam}`);
@@ -190,11 +190,11 @@ function ScholarChatInner() {
         }
       }
     } catch (error) {
-      console.error("Error archiving conversation:", error);
+      console.error("Error archiving project:", error);
     }
   };
 
-  if (isUserLoading || conversations === undefined) {
+  if (isUserLoading || projects === undefined) {
     return (
       <Flex minH="100vh" bg="gray.50" align="center" justify="center">
         <Spinner size="xl" color="violet.500" />
@@ -212,8 +212,8 @@ function ScholarChatInner() {
     (user.role === "teacher" || user.role === "admin")
   );
 
-  // Show spinner while "new" conversation is being created
-  const showChat = !isNewChat && chatId;
+  // Show spinner while "new" project is being created
+  const showProject = !isNewProject && projectId;
 
   return (
     <Flex h="100vh" bg="gray.50">
@@ -249,7 +249,7 @@ function ScholarChatInner() {
                 </Drawer.CloseTrigger>
               </Flex>
 
-              {/* New Chat Button */}
+              {/* New Project Button */}
               <Box p={3}>
                 <Button
                   w="full"
@@ -259,16 +259,16 @@ function ScholarChatInner() {
                   _hover={{ bg: "violet.700" }}
                   fontFamily="heading"
                   onClick={() => {
-                    handleNewConversation();
+                    handleNewProject();
                     setIsSidebarOpen(false);
                   }}
                 >
                   <FiPlus style={{ marginRight: "8px" }} />
-                  New Chat
+                  New Project
                 </Button>
               </Box>
 
-              {/* Conversations List */}
+              {/* Projects List */}
               <VStack
                 flex={1}
                 overflowY="auto"
@@ -276,14 +276,14 @@ function ScholarChatInner() {
                 gap={1}
                 align="stretch"
               >
-                {conversations.map((conv) => (
+                {projects.map((conv) => (
                   <HStack
                     key={conv._id}
                     p={3}
                     borderRadius="lg"
                     cursor="pointer"
-                    bg={chatId === conv._id ? "violet.50" : "transparent"}
-                    _hover={{ bg: chatId === conv._id ? "violet.50" : "gray.100" }}
+                    bg={projectId === conv._id ? "violet.50" : "transparent"}
+                    _hover={{ bg: projectId === conv._id ? "violet.50" : "gray.100" }}
                     css={{ "& .archive-btn": { opacity: 0 }, "&:hover .archive-btn": { opacity: 0.5 } }}
                     onClick={() => {
                       const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
@@ -321,14 +321,14 @@ function ScholarChatInner() {
                       _hover={{ opacity: 1, bg: "gray.200" }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleArchiveConversation(conv._id);
+                        handleArchiveProject(conv._id);
                       }}
                     >
                       <FiTrash2 />
                     </IconButton>
                   </HStack>
                 ))}
-                {conversations.length === 0 && (
+                {projects.length === 0 && (
                   <Text
                     color="charcoal.300"
                     fontSize="sm"
@@ -336,7 +336,7 @@ function ScholarChatInner() {
                     textAlign="center"
                     py={4}
                   >
-                    No conversations yet
+                    No projects yet
                   </Text>
                 )}
               </VStack>
@@ -383,12 +383,12 @@ function ScholarChatInner() {
         </Portal>
       </Drawer.Root>
 
-      {/* Main Chat Area */}
+      {/* Main Project Area */}
       <Flex flex={1} flexDir="column" overflow="hidden">
-        {showChat ? (
-          <ChatInterface
-            conversationId={chatId}
-            onConversationUpdate={() => {}}
+        {showProject ? (
+          <ProjectInterface
+            projectId={projectId}
+            onProjectUpdate={() => {}}
             onOpenSidebar={() => setIsSidebarOpen(true)}
             userName={displayName}
             userImage={displayImage}
@@ -428,9 +428,9 @@ function ScholarChatInner() {
                 fontFamily="heading"
                 color="navy.500"
               >
-                {isNewChat ? "Creating conversation..." : "Welcome to Makawulu"}
+                {isNewProject ? "Creating project..." : "Welcome to Makawulu"}
               </Text>
-              {isNewChat ? (
+              {isNewProject ? (
                 <Spinner size="lg" color="violet.500" mt={4} />
               ) : (
                 <>
@@ -440,7 +440,7 @@ function ScholarChatInner() {
                     textAlign="center"
                     maxW="md"
                   >
-                    Your AI learning companion. Start a new conversation to explore
+                    Your AI learning companion. Start a new project to explore
                     ideas, ask questions, and dive deep into any topic that sparks
                     your curiosity.
                   </Text>
@@ -450,11 +450,11 @@ function ScholarChatInner() {
                     color="white"
                     _hover={{ bg: "violet.700" }}
                     fontFamily="heading"
-                    onClick={handleNewConversation}
+                    onClick={handleNewProject}
                     mt={2}
                   >
                     <FiPlus style={{ marginRight: "8px" }} />
-                    Start a Conversation
+                    Start a Project
                   </Button>
                 </>
               )}

@@ -3,7 +3,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Makawulu AI | Tradewinds School",
+  title: "Tradewinds Learn",
   description:
     "Learning AI Network for Tradewinds School - seeing with eight eyes, multiple perspectives",
   icons: {

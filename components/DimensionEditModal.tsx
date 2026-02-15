@@ -40,7 +40,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
-export type DimensionType = "project" | "persona" | "perspective" | "process";
+export type DimensionType = "unit" | "persona" | "perspective" | "process";
 
 const BLOOM_LEVELS = [
   { value: "", label: "None" },
@@ -75,7 +75,7 @@ interface DimensionEditModalProps {
 }
 
 const TYPE_LABELS: Record<DimensionType, string> = {
-  project: "Project",
+  unit: "Unit",
   persona: "Persona",
   perspective: "Perspective",
   process: "Process",
@@ -285,8 +285,8 @@ export function DimensionEditModal({
   // Mutations
   const createPersona = useMutation(api.personas.create);
   const updatePersona = useMutation(api.personas.update);
-  const createProject = useMutation(api.projects.create);
-  const updateProject = useMutation(api.projects.update);
+  const createUnit = useMutation(api.units.create);
+  const updateUnit = useMutation(api.units.update);
   const createPerspective = useMutation(api.perspectives.create);
   const updatePerspective = useMutation(api.perspectives.update);
   const createProcess = useMutation(api.processes.create);
@@ -359,10 +359,10 @@ export function DimensionEditModal({
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
           });
-        } else if (dimensionType === "project") {
+        } else if (dimensionType === "unit") {
           const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
-          await updateProject({
-            id: entityId as Id<"projects">,
+          await updateUnit({
+            id: entityId as Id<"units">,
             title: formData.title,
             emoji: formData.emoji || undefined,
             description: formData.description || undefined,
@@ -396,9 +396,9 @@ export function DimensionEditModal({
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
           });
-        } else if (dimensionType === "project") {
+        } else if (dimensionType === "unit") {
           const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
-          await createProject({
+          await createUnit({
             title: formData.title,
             emoji: formData.emoji || undefined,
             description: formData.description || undefined,
@@ -476,7 +476,7 @@ export function DimensionEditModal({
                         dimensionType === "persona" ? "e.g., Sensei"
                         : dimensionType === "process" ? "e.g., CRAFT Writing"
                         : dimensionType === "perspective" ? "e.g., Big Ideas"
-                        : "e.g., Hawaiian Ecosystem Research"
+                        : "e.g., Animal Adaptations"
                       }
                       fontFamily="heading"
                       fontSize="lg"
@@ -520,7 +520,7 @@ export function DimensionEditModal({
                   />
                 </FieldRow>
 
-                {dimensionType === "project" && (
+                {dimensionType === "unit" && (
                   <>
                     <FieldRow
                       label="Rubric"

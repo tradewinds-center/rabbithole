@@ -386,7 +386,7 @@ function ArtifactEditor({
         <Textarea
           value={localContent}
           onChange={handleContentChange}
-          placeholder="Your document will appear here..."
+          placeholder="Start writing"
           resize="none"
           h="100%"
           fontFamily="body"

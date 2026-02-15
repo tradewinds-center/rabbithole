@@ -38,7 +38,7 @@ interface Message {
   toolAction?: string;
 }
 
-interface Conversation {
+interface Project {
   id: string;
   title: string;
   status: "green" | "yellow" | "red";
@@ -85,16 +85,16 @@ const BLOOM_ICONS: Record<string, string> = {
   create: "6",
 };
 
-interface ConversationViewerProps {
-  conversationId: string;
+interface ProjectViewerProps {
+  projectId: string;
   onClose: () => void;
   onUpdate: () => void;
 }
 
-export function ConversationViewer({
-  conversationId,
+export function ProjectViewer({
+  projectId,
   onClose,
-}: ConversationViewerProps) {
+}: ProjectViewerProps) {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [whisper, setWhisper] = useState("");
@@ -102,14 +102,14 @@ export function ConversationViewer({
   const [activeTab, setActiveTab] = useState<"messages" | "insights">("messages");
 
   // Convex queries - reactively update when data changes
-  const convData = useQuery(api.conversations.getWithMessages, {
-    id: conversationId as Id<"conversations">,
+  const projData = useQuery(api.projects.getWithMessages, {
+    id: projectId as Id<"projects">,
   });
-  const conversation = (convData?.conversation as Conversation | undefined) ?? null;
-  const messages = (convData?.messages as Message[] | undefined) ?? [];
+  const project = (projData?.project as Project | undefined) ?? null;
+  const messages = (projData?.messages as Message[] | undefined) ?? [];
 
   const latestAnalysis = useQuery(api.analyses.getLatest, {
-    conversationId: conversationId as Id<"conversations">,
+    projectId: projectId as Id<"projects">,
   });
 
   // Map latestAnalysis to the Analysis interface
@@ -126,15 +126,15 @@ export function ConversationViewer({
       }
     : null;
 
-  // Convex mutation for updating conversation
-  const updateConversation = useMutation(api.conversations.update);
+  // Convex mutation for updating project
+  const updateProject = useMutation(api.projects.update);
 
-  // Sync whisper from conversation data
+  // Sync whisper from project data
   useEffect(() => {
-    if (conversation?.teacherWhisper !== undefined) {
-      setWhisper(conversation.teacherWhisper ?? "");
+    if (project?.teacherWhisper !== undefined) {
+      setWhisper(project.teacherWhisper ?? "");
     }
-  }, [conversation?.teacherWhisper]);
+  }, [project?.teacherWhisper]);
 
   // Run AI analysis via HTTP action
   const handleAnalyze = async () => {
@@ -144,7 +144,7 @@ export function ConversationViewer({
       const res = await fetch(`${convexUrl}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId }),
+        body: JSON.stringify({ projectId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -162,8 +162,8 @@ export function ConversationViewer({
   const handleSaveWhisper = async () => {
     setIsSavingWhisper(true);
     try {
-      await updateConversation({
-        id: conversationId as Id<"conversations">,
+      await updateProject({
+        id: projectId as Id<"projects">,
         teacherWhisper: whisper || undefined,
       });
     } catch (error) {
@@ -176,8 +176,8 @@ export function ConversationViewer({
   // Update status via Convex mutation
   const handleUpdateStatus = async (status: "green" | "yellow" | "red") => {
     try {
-      await updateConversation({
-        id: conversationId as Id<"conversations">,
+      await updateProject({
+        id: projectId as Id<"projects">,
         status,
       });
     } catch (error) {
@@ -191,7 +191,7 @@ export function ConversationViewer({
     red: { icon: FiAlertCircle, label: "Intervention", color: "red" },
   };
 
-  if (convData === undefined) {
+  if (projData === undefined) {
     return (
       <Box
         w={{ base: "full", md: "450px" }}
@@ -236,20 +236,20 @@ export function ConversationViewer({
             color="navy.500"
             fontSize="lg"
           >
-            {conversation?.title}
+            {project?.title}
           </Text>
           <HStack gap={2}>
-            {conversation?.status && (
+            {project?.status && (
               <Badge
-                bg={`${statusConfig[conversation.status].color}.100`}
-                color={`${statusConfig[conversation.status].color}.700`}
+                bg={`${statusConfig[project.status].color}.100`}
+                color={`${statusConfig[project.status].color}.700`}
                 px={2}
                 py={0.5}
                 borderRadius="full"
                 fontFamily="heading"
                 fontSize="xs"
               >
-                {statusConfig[conversation.status].label}
+                {statusConfig[project.status].label}
               </Badge>
             )}
           </HStack>
@@ -640,7 +640,7 @@ export function ConversationViewer({
                 style={{ marginRight: "8px" }}
                 className={isAnalyzing ? "animate-spin" : ""}
               />
-              {isAnalyzing ? "Analyzing..." : aiAnalysis ? "Re-analyze" : "Analyze Conversation"}
+              {isAnalyzing ? "Analyzing..." : aiAnalysis ? "Re-analyze" : "Analyze Project"}
             </Button>
           </VStack>
         )}
@@ -681,15 +681,15 @@ export function ConversationViewer({
                 key={status}
                 aria-label={`Set ${status}`}
                 size="sm"
-                variant={conversation?.status === status ? "solid" : "outline"}
+                variant={project?.status === status ? "solid" : "outline"}
                 bg={
-                  conversation?.status === status
+                  project?.status === status
                     ? `${status === "yellow" ? "yellow.500" : status}.500`
                     : "transparent"
                 }
                 borderColor={`${status === "yellow" ? "yellow.500" : status}.500`}
                 color={
-                  conversation?.status === status
+                  project?.status === status
                     ? status === "yellow"
                       ? "yellow.900"
                       : "white"

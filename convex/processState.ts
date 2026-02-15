@@ -3,35 +3,35 @@ import { authedQuery, teacherQuery } from "./lib/customFunctions";
 import { internalMutation } from "./_generated/server";
 
 /**
- * Get process state for a conversation (reactive, used by ProcessPanel).
+ * Get process state for a project (reactive, used by ProcessPanel).
  */
-export const getByConversation = authedQuery({
-  args: { conversationId: v.id("conversations") },
+export const getByProject = authedQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("processState")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .first();
   },
 });
 
 /**
- * Initialize process state when a process is set on a conversation.
+ * Initialize process state when a process is set on a project.
  * Creates all steps as "not_started", sets currentStep to the first step.
  */
 export const initialize = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     processId: v.id("processes"),
   },
   handler: async (ctx, args) => {
-    // Delete existing processState for this conversation
+    // Delete existing processState for this project
     const existing = await ctx.db
       .query("processState")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .first();
     if (existing) {
@@ -43,7 +43,7 @@ export const initialize = internalMutation({
     if (!process || process.steps.length === 0) return;
 
     await ctx.db.insert("processState", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       processId: args.processId,
       currentStep: process.steps[0].key,
       steps: process.steps.map((s) => ({
@@ -59,7 +59,7 @@ export const initialize = internalMutation({
  */
 export const updateStep = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     stepKey: v.string(),
     status: v.union(
       v.literal("in_progress"),
@@ -70,8 +70,8 @@ export const updateStep = internalMutation({
   handler: async (ctx, args) => {
     const state = await ctx.db
       .query("processState")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .first();
     if (!state) return;
@@ -95,15 +95,15 @@ export const updateStep = internalMutation({
 });
 
 /**
- * Remove process state for a conversation (when process is cleared).
+ * Remove process state for a project (when process is cleared).
  */
 export const remove = internalMutation({
-  args: { conversationId: v.id("conversations") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("processState")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .first();
     if (existing) {
@@ -122,23 +122,23 @@ export const getRacetrackData = teacherQuery({
     const process = await ctx.db.get(args.processId);
     if (!process) return null;
 
-    // Find all non-archived conversations using this process
-    const conversations = await ctx.db
-      .query("conversations")
+    // Find all non-archived projects using this process
+    const projects = await ctx.db
+      .query("projects")
       .filter((q) => q.eq(q.field("processId"), args.processId))
       .collect();
-    const activeConvos = conversations.filter((c) => !c.isArchived);
+    const activeProjects = projects.filter((p) => !p.isArchived);
 
-    // For each conversation, get processState + scholar info
+    // For each project, get processState + scholar info
     const scholarResults = await Promise.all(
-      activeConvos.map(async (conv) => {
+      activeProjects.map(async (proj) => {
         const state = await ctx.db
           .query("processState")
-          .withIndex("by_conversation", (q) =>
-            q.eq("conversationId", conv._id)
+          .withIndex("by_project", (q) =>
+            q.eq("projectId", proj._id)
           )
           .first();
-        const scholar = await ctx.db.get(conv.userId);
+        const scholar = await ctx.db.get(proj.userId);
         if (!state || !scholar) return null;
         return {
           id: scholar._id,

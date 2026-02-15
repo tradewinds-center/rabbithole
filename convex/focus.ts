@@ -23,7 +23,7 @@ export const getCurrent = authedQuery({
 export const set = teacherMutation({
   args: {
     personaId: v.optional(v.id("personas")),
-    projectId: v.optional(v.id("projects")),
+    unitId: v.optional(v.id("units")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
   },
@@ -41,7 +41,7 @@ export const set = teacherMutation({
     return await ctx.db.insert("focusSettings", {
       teacherId: ctx.user._id,
       personaId: args.personaId,
-      projectId: args.projectId,
+      unitId: args.unitId,
       perspectiveId: args.perspectiveId,
       processId: args.processId,
       isActive: true,

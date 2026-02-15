@@ -1,5 +1,23 @@
 import { internalMutation, mutation } from "./_generated/server";
 
+export const clearAll = internalMutation({
+  handler: async (ctx) => {
+    const tables = [
+      "projects", "messages", "analyses", "observations",
+      "scholarTopics", "suggestedTopics", "personas", "perspectives",
+      "units", "focusSettings", "processes", "artifacts", "processState",
+      "users",
+    ] as const;
+    for (const table of tables) {
+      const docs = await ctx.db.query(table).collect();
+      for (const doc of docs) {
+        await ctx.db.delete(doc._id);
+      }
+      console.log(`Cleared ${table}: ${docs.length} docs`);
+    }
+  },
+});
+
 export const seedAll = internalMutation({
   handler: async (ctx) => {
     // Check if already seeded (personas exist)
@@ -131,9 +149,9 @@ export const seedAll = internalMutation({
       });
     }
 
-    // ── Seed Projects ─────────────────────────────────────────────
+    // ── Seed Units ──────────────────────────────────────────────
 
-    const projects = [
+    const units = [
       {
         title: "Animal Adaptations",
         description:
@@ -154,12 +172,12 @@ export const seedAll = internalMutation({
       },
     ];
 
-    for (const p of projects) {
-      await ctx.db.insert("projects", {
+    for (const u of units) {
+      await ctx.db.insert("units", {
         teacherId: systemTeacherId,
-        title: p.title,
-        description: p.description,
-        targetBloomLevel: p.targetBloomLevel,
+        title: u.title,
+        description: u.description,
+        targetBloomLevel: u.targetBloomLevel,
         isActive: true,
       });
     }
@@ -308,19 +326,129 @@ export const seedAll = internalMutation({
       }
     }
 
+    // ── Seed Processes ─────────────────────────────────────────────
+
+    await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "CRAFT",
+      emoji: "✍️",
+      description: "A structured writing process: Choose, Research, Arrange, Form, Transform",
+      systemPrompt: `Guide the scholar through the CRAFT writing process. Each step builds on the previous one. Encourage the scholar to fully engage with each step before moving on, but allow them to revisit earlier steps when they discover something new. Use the update_process_step tool to track their progress.
+
+- C (Choose): Help the scholar choose and narrow their topic. Ask what interests them, what they want to explore, who their audience is.
+- R (Research): Guide research and gathering of ideas, facts, examples. Encourage multiple sources and perspectives.
+- A (Arrange): Help organize ideas into a logical structure. Discuss possible outlines, groupings, or narrative arcs.
+- F (Form): Support the actual writing/drafting. Encourage getting ideas down without perfectionism. Offer feedback on clarity and flow.
+- T (Transform): Guide revision and polishing. Help them strengthen word choice, improve transitions, and refine their voice.`,
+      steps: [
+        { key: "C", title: "Choose", description: "Select and narrow your topic" },
+        { key: "R", title: "Research", description: "Gather ideas, facts, and examples" },
+        { key: "A", title: "Arrange", description: "Organize ideas into a structure" },
+        { key: "F", title: "Form", description: "Write your first draft" },
+        { key: "T", title: "Transform", description: "Revise and polish your work" },
+      ],
+      isActive: true,
+    });
+
+    await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "OREO",
+      emoji: "🍪",
+      description: "A structured argument process: Opinion, Reason, Evidence, Opinion",
+      systemPrompt: `Guide the scholar through the OREO structured argument process. Each step builds a persuasive argument. Use the update_process_step tool to track their progress.
+
+- O (Opinion): Help the scholar clearly state their position on the topic. What do they believe or think? Encourage a strong, clear opening statement.
+- R (Reason): Why do they hold this opinion? Guide them to articulate their reasoning. Ask probing questions to deepen their logic.
+- E (Evidence): What examples, facts, or experiences support their reason? Help them find concrete evidence. Encourage specificity over generality.
+- O (Opinion — Restate): Bring it full circle. Help them restate their opinion with conviction, now strengthened by reason and evidence. The closing should feel earned, not just repeated.`,
+      steps: [
+        { key: "O1", title: "Opinion", description: "State your position" },
+        { key: "R", title: "Reason", description: "Explain why" },
+        { key: "E", title: "Evidence", description: "Support with examples" },
+        { key: "O2", title: "Opinion", description: "Restate with conviction" },
+      ],
+      isActive: true,
+    });
+
+    await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "THINK",
+      emoji: "🧠",
+      description: "A research process: Topic, Hypothesis, Investigate, Narrate, Keep Improving",
+      systemPrompt: `Guide the scholar through the THINK research process. Each step builds toward a well-researched argument or report. Use the update_process_step tool to track their progress.
+
+- T (Topic): Help the scholar identify a clear question or problem to investigate. Narrow broad topics into specific, researchable questions.
+- H (Hypothesis): What do they think the answer might be? Help them state a claim or prediction. It's okay if it changes — that's how research works.
+- I (Investigate): Gather evidence and information. Guide them to seek multiple sources, consider different perspectives, and take notes. Help them evaluate what's credible.
+- N (Narrate): Draft the argument or report. Help them organize their findings into a clear narrative with an introduction, evidence, and conclusion.
+- K (Keep Improving): Revise for clarity and strength. Check the logic, tighten the writing, and make sure evidence supports claims. Encourage self-reflection on what they learned.`,
+      steps: [
+        { key: "T", title: "Topic", description: "Identify the question or problem" },
+        { key: "H", title: "Hypothesis", description: "State the claim" },
+        { key: "I", title: "Investigate", description: "Gather evidence and information" },
+        { key: "N", title: "Narrate", description: "Draft the argument" },
+        { key: "K", title: "Keep Improving", description: "Revise for clarity and strength" },
+      ],
+      isActive: true,
+    });
+
+    await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "Weekend News",
+      emoji: "📰",
+      description: "Write a news story about your weekend",
+      systemPrompt: `Guide the scholar through writing a weekend news story using the Weekend News process steps. Use the edit_document tool to build the story collaboratively. At each step, update the document with the scholar's work.
+
+- BRAINSTORM: Ask the scholar about their weekend. What happened? What was interesting, surprising, or important? Help them pick the best story.
+- HEADLINE: Help craft a catchy, informative headline. Use the rename command to set it as the document title.
+- DRAFT: Build the lede and body paragraphs in the document. The lede should answer who/what/when/where. Add details and quotes. Do NOT put a headline or byline in the document body — the title serves as the headline.
+- REVISE: Read through together. Tighten language, improve flow, check facts, strengthen voice.
+- PUBLISH: Final polish. Read aloud (or encourage the scholar to). Celebrate the finished piece.`,
+      steps: [
+        { key: "B", title: "Brainstorm", description: "What happened this weekend?" },
+        { key: "H", title: "Headline", description: "Craft a catchy headline" },
+        { key: "D", title: "Draft", description: "Write the lede and body" },
+        { key: "R", title: "Revise", description: "Tighten and improve" },
+        { key: "P", title: "Publish", description: "Final polish and celebrate" },
+      ],
+      isActive: true,
+    });
+
+    await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "Civic Analysis",
+      emoji: "🗳️",
+      description: "VOICE — A 5-step civic analysis process for building a Citizens' Report",
+      systemPrompt: `Guide the scholar through the VOICE civic analysis process. Each step builds toward a complete Citizens' Report in the document panel. Use the update_process_step tool to track their progress.
+
+- V (View): Help the scholar clearly state the issue. What is it? Why does it matter? Separate facts from opinions right away. Use the document to write a clear Issue Statement. Rename the document to reflect the issue.
+- O (Origins): What's the background? How did this issue come about? Is it governed by a law, a norm, or both? Help them research and understand the context.
+- I (Interests): Who are the stakeholders? What does each side want and why? Guide the scholar to present viewpoints fairly — even the ones they disagree with.
+- C (Civic Check): What democratic principles apply? (majority rule, minority rights, due process, consent of the governed, separation of powers, rule of law, etc.) How do different political philosophies approach this?
+- E (Evaluate): What's the fairest approach? Help the scholar write their recommendation. It must be grounded in principles, not just feelings.`,
+      steps: [
+        { key: "V", title: "View", description: "State the issue clearly and factually" },
+        { key: "O", title: "Origins", description: "Background, context, norms vs laws" },
+        { key: "I", title: "Interests", description: "Stakeholders and their viewpoints" },
+        { key: "C", title: "Civic Check", description: "Which democratic principles apply?" },
+        { key: "E", title: "Evaluate", description: "Write your recommendation" },
+      ],
+      isActive: true,
+    });
+
     console.log(
-      "Seeded: 5 personas, 7 perspectives, 3 projects, scholar topics, 1 system teacher, 8 test users"
+      "Seeded: 5 personas, 7 perspectives, 3 units, 5 processes, scholar topics, 1 system teacher, 8 test users"
     );
   },
 });
 
 /**
- * Add projects and scholar topics to an already-seeded database.
- * Run once: npx convex run seed:seedProjectsAndTopics
+ * Add units and scholar topics to an already-seeded database.
+ * Run once: npx convex run seed:seedUnitsAndTopics
  */
-export const seedProjectsAndTopics = internalMutation({
+export const seedUnitsAndTopics = internalMutation({
   handler: async (ctx) => {
-    // Find system teacher (or any teacher) for project ownership
+    // Find system teacher (or any teacher) for unit ownership
     const systemTeacher = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
@@ -330,14 +458,14 @@ export const seedProjectsAndTopics = internalMutation({
       .filter((q) => q.eq(q.field("role"), "teacher"))
       .first();
     if (!teacher) {
-      console.log("No teacher found, cannot seed projects.");
+      console.log("No teacher found, cannot seed units.");
       return;
     }
 
-    // Seed projects if none exist
-    const existingProjects = await ctx.db.query("projects").first();
-    if (!existingProjects) {
-      const projects = [
+    // Seed units if none exist
+    const existingUnits = await ctx.db.query("units").first();
+    if (!existingUnits) {
+      const units = [
         {
           title: "Animal Adaptations",
           description:
@@ -357,18 +485,18 @@ export const seedProjectsAndTopics = internalMutation({
           targetBloomLevel: "apply" as const,
         },
       ];
-      for (const p of projects) {
-        await ctx.db.insert("projects", {
+      for (const u of units) {
+        await ctx.db.insert("units", {
           teacherId: teacher._id,
-          title: p.title,
-          description: p.description,
-          targetBloomLevel: p.targetBloomLevel,
+          title: u.title,
+          description: u.description,
+          targetBloomLevel: u.targetBloomLevel,
           isActive: true,
         });
       }
-      console.log("Seeded 3 projects.");
+      console.log("Seeded 3 units.");
     } else {
-      console.log("Projects already exist, skipping.");
+      console.log("Units already exist, skipping.");
     }
 
     // Seed scholar topics if none exist
@@ -486,7 +614,51 @@ export const seedProcesses = internalMutation({
       isActive: true,
     });
 
-    console.log("Seeded CRAFT process.");
+    // ── OREO (Structured Argument) ──────────────────────────────
+    await ctx.db.insert("processes", {
+      teacherId: teacher._id,
+      title: "OREO",
+      emoji: "🍪",
+      description: "A structured argument process: Opinion, Reason, Evidence, Opinion",
+      systemPrompt: `Guide the scholar through the OREO structured argument process. Each step builds a persuasive argument. Use the update_process_step tool to track their progress.
+
+- O (Opinion): Help the scholar clearly state their position on the topic. What do they believe or think? Encourage a strong, clear opening statement.
+- R (Reason): Why do they hold this opinion? Guide them to articulate their reasoning. Ask probing questions to deepen their logic.
+- E (Evidence): What examples, facts, or experiences support their reason? Help them find concrete evidence. Encourage specificity over generality.
+- O (Opinion — Restate): Bring it full circle. Help them restate their opinion with conviction, now strengthened by reason and evidence. The closing should feel earned, not just repeated.`,
+      steps: [
+        { key: "O1", title: "Opinion", description: "State your position" },
+        { key: "R", title: "Reason", description: "Explain why" },
+        { key: "E", title: "Evidence", description: "Support with examples" },
+        { key: "O2", title: "Opinion", description: "Restate with conviction" },
+      ],
+      isActive: true,
+    });
+
+    // ── THINK (Research Projects) ────────────────────────────────
+    await ctx.db.insert("processes", {
+      teacherId: teacher._id,
+      title: "THINK",
+      emoji: "🧠",
+      description: "A research process: Topic, Hypothesis, Investigate, Narrate, Keep Improving",
+      systemPrompt: `Guide the scholar through the THINK research process. Each step builds toward a well-researched argument or report. Use the update_process_step tool to track their progress.
+
+- T (Topic): Help the scholar identify a clear question or problem to investigate. Narrow broad topics into specific, researchable questions.
+- H (Hypothesis): What do they think the answer might be? Help them state a claim or prediction. It's okay if it changes — that's how research works.
+- I (Investigate): Gather evidence and information. Guide them to seek multiple sources, consider different perspectives, and take notes. Help them evaluate what's credible.
+- N (Narrate): Draft the argument or report. Help them organize their findings into a clear narrative with an introduction, evidence, and conclusion.
+- K (Keep Improving): Revise for clarity and strength. Check the logic, tighten the writing, and make sure evidence supports claims. Encourage self-reflection on what they learned.`,
+      steps: [
+        { key: "T", title: "Topic", description: "Identify the question or problem" },
+        { key: "H", title: "Hypothesis", description: "State the claim" },
+        { key: "I", title: "Investigate", description: "Gather evidence and information" },
+        { key: "N", title: "Narrate", description: "Draft the argument" },
+        { key: "K", title: "Keep Improving", description: "Revise for clarity and strength" },
+      ],
+      isActive: true,
+    });
+
+    console.log("Seeded CRAFT, OREO, and THINK processes.");
   },
 });
 
@@ -510,18 +682,18 @@ export const seedWeekendNews = internalMutation({
       return;
     }
 
-    // Check if Weekend News project already exists
-    const existingProject = await ctx.db
-      .query("projects")
+    // Check if Weekend News unit already exists
+    const existingUnit = await ctx.db
+      .query("units")
       .filter((q) => q.eq(q.field("title"), "Weekend News"))
       .first();
-    if (existingProject) {
-      console.log("Weekend News project already exists, skipping.");
+    if (existingUnit) {
+      console.log("Weekend News unit already exists, skipping.");
       return;
     }
 
-    // Create the project
-    await ctx.db.insert("projects", {
+    // Create the unit
+    await ctx.db.insert("units", {
       teacherId: teacher._id,
       title: "Weekend News",
       description: "Write a news story about something that happened over the weekend. Practice journalism skills: headlines, ledes, details, and voice.",
@@ -560,7 +732,7 @@ The document title serves as the headline — do NOT repeat a headline or byline
       isActive: true,
     });
 
-    console.log("Seeded Weekend News project + process.");
+    console.log("Seeded Weekend News unit + process.");
   },
 });
 
@@ -619,13 +791,13 @@ You are warm and encouraging, but you hold scholars to a high standard of fairne
       console.log("Citizen persona already exists, skipping.");
     }
 
-    // ── Project: Citizens' Report ─────────────────────────────────
-    const existingProject = await ctx.db
-      .query("projects")
+    // ── Unit: Citizens' Report ──────────────────────────────────
+    const existingUnit = await ctx.db
+      .query("units")
       .filter((q) => q.eq(q.field("title"), "Citizens' Report"))
       .first();
-    if (!existingProject) {
-      await ctx.db.insert("projects", {
+    if (!existingUnit) {
+      await ctx.db.insert("units", {
         teacherId: teacher._id,
         title: "Citizens' Report",
         slug: "citizens-report",
@@ -654,9 +826,9 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         targetBloomLevel: "evaluate",
         isActive: true,
       });
-      console.log("Seeded Citizens' Report project.");
+      console.log("Seeded Citizens' Report unit.");
     } else {
-      console.log("Citizens' Report project already exists, skipping.");
+      console.log("Citizens' Report unit already exists, skipping.");
     }
 
     // ── Perspective: Democratic Principles ─────────────────────────
@@ -739,7 +911,7 @@ export const patchSlugs = internalMutation({
       title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
     let patched = 0;
-    const tables = ["personas", "projects", "perspectives", "processes"] as const;
+    const tables = ["personas", "units", "perspectives", "processes"] as const;
     for (const table of tables) {
       const items = await ctx.db.query(table).collect();
       for (const item of items) {

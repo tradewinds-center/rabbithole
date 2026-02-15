@@ -34,7 +34,7 @@ Evaluate the conversation on these dimensions:
 
 6. **Concern Flags**: Any concerns? (off-task behavior, signs of frustration, inappropriate content, etc.)
 
-7. **Status Recommendation**: Based on your analysis, what status should this conversation have?
+7. **Status Recommendation**: Based on your analysis, what status should this project have?
    - GREEN: On track, productive learning happening
    - YELLOW: Some concerns, may benefit from teacher awareness
    - RED: Requires teacher intervention (significant off-task, distress, inappropriate content)
@@ -66,15 +66,15 @@ Respond in JSON format:
 }`;
 
 /**
- * Run observer analysis on a conversation (saves analysis record + updates conversation status).
+ * Run observer analysis on a project (saves analysis record + updates project status).
  */
 export const runObserverAnalysis = internalAction({
-  args: { conversationId: v.id("conversations") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    // Get conversation context
+    // Get project context
     const context = await ctx.runQuery(
-      internal.chatHelpers.getConversationContext,
-      { conversationId: args.conversationId }
+      internal.projectHelpers.getProjectContext,
+      { projectId: args.projectId }
     );
     if (!context || context.chatHistory.length === 0) {
       return null;
@@ -88,7 +88,7 @@ export const runObserverAnalysis = internalAction({
       ? `[Earlier messages omitted — showing last 20 of ${context.chatHistory.length}]\n\n`
       : "";
 
-    const conversationText = truncationNote + recentHistory
+    const projectText = truncationNote + recentHistory
       .map(
         (m: { role: string; content: string }) =>
           `${m.role.toUpperCase()}: ${m.content}`
@@ -106,7 +106,7 @@ export const runObserverAnalysis = internalAction({
       messages: [
         {
           role: "user",
-          content: `Please analyze this conversation:\n\n${conversationText}`,
+          content: `Please analyze this conversation:\n\n${projectText}`,
         },
       ],
     });
@@ -136,7 +136,7 @@ export const runObserverAnalysis = internalAction({
 
     // Save analysis to DB
     await ctx.runMutation(internal.analysisHelpers.saveAnalysis, {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       engagementScore: analysis.engagementScore,
       complexityLevel: analysis.complexityLevel,
       onTaskScore: analysis.onTaskScore,
@@ -158,11 +158,11 @@ export const runObserverAnalysis = internalAction({
  * Run detailed AI analysis (with Bloom's taxonomy, nudges, follow-ups).
  */
 export const runDetailedAnalysis = internalAction({
-  args: { conversationId: v.id("conversations") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(
-      internal.chatHelpers.getConversationContext,
-      { conversationId: args.conversationId }
+      internal.projectHelpers.getProjectContext,
+      { projectId: args.projectId }
     );
     if (!context || context.chatHistory.length === 0) {
       return null;
@@ -236,26 +236,26 @@ Respond ONLY with valid JSON, no other text.`;
 
     // Update scholar topics based on analysis
     if (analysis.topics && analysis.topics.length > 0) {
-      // Get conversation to find scholar ID
-      const conv = await ctx.runQuery(
-        internal.analysisHelpers.getConversation,
-        { conversationId: args.conversationId }
+      // Get project to find scholar ID
+      const proj = await ctx.runQuery(
+        internal.analysisHelpers.getProject,
+        { projectId: args.projectId }
       );
-      if (conv) {
+      if (proj) {
         for (const topic of analysis.topics) {
           await ctx.runMutation(internal.analysisHelpers.upsertScholarTopic, {
-            scholarId: conv.userId,
+            scholarId: proj.userId,
             topic,
             bloomLevel: analysis.bloomLevel || "remember",
-            conversationId: args.conversationId,
+            projectId: args.projectId,
           });
         }
       }
     }
 
-    // Update conversation summary
-    await ctx.runMutation(internal.analysisHelpers.updateConversationSummary, {
-      conversationId: args.conversationId,
+    // Update project summary
+    await ctx.runMutation(internal.analysisHelpers.updateProjectSummary, {
+      projectId: args.projectId,
       summary: analysis.summary,
     });
 

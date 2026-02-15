@@ -1,6 +1,6 @@
-export { ChatInterface } from "./ChatInterface";
-export { ChatHeader } from "./ChatHeader";
-export { ConversationViewer } from "./ConversationViewer";
+export { ProjectInterface } from "./ProjectInterface";
+export { ProjectHeader } from "./ProjectHeader";
+export { ProjectViewer } from "./ProjectViewer";
 export { ScholarProfile } from "./ScholarProfile";
 export { EntityManager } from "./EntityManager";
 export { ProcessPanel } from "./ProcessPanel";

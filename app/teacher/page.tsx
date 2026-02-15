@@ -45,12 +45,12 @@ import { DimensionEditModal } from "@/components/DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "@/components/DimensionEditModal";
 import { AppLogo } from "@/components/AppLogo";
 
-type Tab = "scholars" | "live" | "projects" | "personas" | "perspectives" | "processes";
+type Tab = "scholars" | "live" | "units" | "personas" | "perspectives" | "processes";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
   { key: "live", label: "Conductor", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
-  { key: "projects", label: "Projects", icon: FiBook },
+  { key: "units", label: "Units", icon: FiBook },
   { key: "personas", label: "Personas", icon: FiSmile },
   { key: "perspectives", label: "Perspectives", icon: FiEye },
   { key: "processes", label: "Processes", icon: FiLayers },
@@ -61,7 +61,7 @@ interface Scholar {
   email?: string;
   name?: string;
   image?: string;
-  conversationCount: number;
+  projectCount: number;
   messageCount: number;
   overallStatus: "green" | "yellow" | "red";
   lastActive: number;
@@ -84,7 +84,7 @@ export default function TeacherDashboard() {
 
   // Focus mode data
   const personas = useQuery(api.personas.list) ?? [];
-  const projects = useQuery(api.projects.list) ?? [];
+  const units = useQuery(api.units.list) ?? [];
   const perspectives = useQuery(api.perspectives.list) ?? [];
   const processes = useQuery(api.processes.list) ?? [];
   const currentFocus = useQuery(api.focus.getCurrent);
@@ -238,7 +238,7 @@ export default function TeacherDashboard() {
                           {scholar.name}
                         </Text>
                         <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                          {scholar.conversationCount} chats
+                          {scholar.projectCount} projects
                         </Text>
                       </VStack>
                     </HStack>
@@ -277,7 +277,7 @@ export default function TeacherDashboard() {
             scholars={scholars}
             currentFocus={currentFocus ?? null}
             personas={personas}
-            projects={projects}
+            units={units}
             perspectives={perspectives}
             processes={processes}
             onSetFocus={async (args) => { await setFocus(args); }}
@@ -286,9 +286,9 @@ export default function TeacherDashboard() {
         )}
 
         {/* Entity management tabs */}
-        {(activeTab === "projects" || activeTab === "personas" || activeTab === "perspectives" || activeTab === "processes") && (
+        {(activeTab === "units" || activeTab === "personas" || activeTab === "perspectives" || activeTab === "processes") && (
           <Box flex={1} overflow="auto" px={6} py={4}>
-            {activeTab === "projects" && <EntityManager entityType="project" />}
+            {activeTab === "units" && <EntityManager entityType="unit" />}
             {activeTab === "personas" && <EntityManager entityType="persona" />}
             {activeTab === "perspectives" && <EntityManager entityType="perspective" />}
             {activeTab === "processes" && <EntityManager entityType="process" />}
@@ -304,7 +304,7 @@ function LiveView({
   scholars,
   currentFocus,
   personas,
-  projects,
+  units,
   perspectives,
   processes,
   onSetFocus,
@@ -313,7 +313,7 @@ function LiveView({
   scholars: Scholar[];
   currentFocus: FocusBarProps["currentFocus"];
   personas: FocusEntity[];
-  projects: FocusEntity[];
+  units: FocusEntity[];
   perspectives: FocusEntity[];
   processes: FocusEntity[];
   onSetFocus: FocusBarProps["onSet"];
@@ -332,7 +332,7 @@ function LiveView({
       <FocusBar
         currentFocus={currentFocus}
         personas={personas}
-        projects={projects}
+        units={units}
         perspectives={perspectives}
         processes={processes}
         onSet={onSetFocus}
@@ -554,7 +554,7 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
           >
             <HStack gap={1}>
               <FiMessageSquare />
-              <Text>{scholar.conversationCount} chats</Text>
+              <Text>{scholar.projectCount} projects</Text>
             </HStack>
             <Text>{scholar.messageCount} messages</Text>
           </HStack>
@@ -614,31 +614,31 @@ interface FocusEntity {
 interface FocusBarProps {
   currentFocus: {
     personaId?: string | null;
-    projectId?: string | null;
+    unitId?: string | null;
     perspectiveId?: string | null;
     processId?: string | null;
     isActive: boolean;
   } | null;
   personas: FocusEntity[];
-  projects: FocusEntity[];
+  units: FocusEntity[];
   perspectives: FocusEntity[];
   processes: FocusEntity[];
   onSet: (args: {
     personaId?: Id<"personas">;
-    projectId?: Id<"projects">;
+    unitId?: Id<"units">;
     perspectiveId?: Id<"perspectives">;
     processId?: Id<"processes">;
   }) => void;
   onClear: () => void;
 }
 
-function FocusBar({ currentFocus, personas, projects, perspectives, processes, onSet, onClear }: FocusBarProps) {
+function FocusBar({ currentFocus, personas, units, perspectives, processes, onSet, onClear }: FocusBarProps) {
   const isActive = currentFocus?.isActive ?? false;
   const focusPersonaId = isActive ? currentFocus?.personaId ?? null : null;
-  const focusProjectId = isActive ? currentFocus?.projectId ?? null : null;
+  const focusUnitId = isActive ? currentFocus?.unitId ?? null : null;
   const focusPerspectiveId = isActive ? currentFocus?.perspectiveId ?? null : null;
   const focusProcessId = isActive ? currentFocus?.processId ?? null : null;
-  const hasFocus = focusPersonaId || focusProjectId || focusPerspectiveId || focusProcessId;
+  const hasFocus = focusPersonaId || focusUnitId || focusPerspectiveId || focusProcessId;
 
   // Edit modal state
   const [editModal, setEditModal] = useState<{
@@ -653,26 +653,26 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
   };
 
   const handleSelect = (
-    dim: "personaId" | "projectId" | "perspectiveId" | "processId",
+    dim: "personaId" | "unitId" | "perspectiveId" | "processId",
     value: string | null
   ) => {
     const args: Record<string, string | undefined> = {
       personaId: focusPersonaId ?? undefined,
-      projectId: focusProjectId ?? undefined,
+      unitId: focusUnitId ?? undefined,
       perspectiveId: focusPerspectiveId ?? undefined,
       processId: focusProcessId ?? undefined,
     };
     args[dim] = value ?? undefined;
     onSet(args as {
       personaId?: Id<"personas">;
-      projectId?: Id<"projects">;
+      unitId?: Id<"units">;
       perspectiveId?: Id<"perspectives">;
       processId?: Id<"processes">;
     });
   };
 
   const personaOptions = personas.map((p) => ({ id: p._id, title: p.title, emoji: p.emoji }));
-  const projectOptions = projects.map((p) => ({ id: p._id, title: p.title }));
+  const unitOptions = units.map((p) => ({ id: p._id, title: p.title }));
   const perspectiveOptions = perspectives.map((p) => ({ id: p._id, title: p.title, icon: p.icon }));
   const processOptions = processes.map((p) => ({ id: p._id, title: p.title, emoji: p.emoji }));
 
@@ -710,17 +710,17 @@ function FocusBar({ currentFocus, personas, projects, perspectives, processes, o
           onEdit={(id) => openEdit("persona", id, personas)}
         />
         <DimensionPicker
-          label="Project"
+          label="Unit"
           defaultLabel="Free Choice"
-          activeId={focusProjectId}
-          options={projectOptions}
-          onChange={(id) => handleSelect("projectId", id)}
+          activeId={focusUnitId}
+          options={unitOptions}
+          onChange={(id) => handleSelect("unitId", id)}
           renderOption={(p) => `📚 ${p.title}`}
           renderActive={() => {
-            const active = projects.find((p) => p._id === focusProjectId);
+            const active = units.find((p) => p._id === focusUnitId);
             return active ? `📚 ${active.title}` : null;
           }}
-          onEdit={(id) => openEdit("project", id, projects)}
+          onEdit={(id) => openEdit("unit", id, units)}
         />
         <DimensionPicker
           label="Lens"

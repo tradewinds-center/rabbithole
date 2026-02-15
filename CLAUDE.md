@@ -7,24 +7,25 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 ## Roadmap
 
 - [ ] **Status Orbs** - Replace color-coded backgrounds on teacher dashboard with spherical "orbs" next to each student (green/blue/yellow/red/idle). Also show the orb somewhere peripherally visible in scholar view so status is always apparent to everyone.
-- [x] **Unified Dimension Picker** - Shared `DimensionPicker` component used in both scholar ChatHeader and teacher FocusBar. All dimensions in a single labeled row.
+- [x] **Unified Dimension Picker** - Shared `DimensionPicker` component used in both scholar ProjectHeader and teacher FocusBar. All dimensions in a single labeled row.
 - [ ] **Scholar Layout Revamp** - Revamp scholar view layout so artifact and process panel can be visible at the same time (currently one or the other).
 - [x] **Rename "Conductor View" to "Conductor"**
-- [ ] **Scholar Home View** - Each scholar gets a home view with a list of their chats to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
+- [ ] **Scholar Home View** - Each scholar gets a home view with a list of their projects to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
-- [x] **Categorize by Assignment** - Link conversations to specific assignments/projects
+- [x] **Categorize by Assignment** - Link projects to specific units
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
 - [x] **Reading Level** - Teacher-settable reading level per scholar
 - [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
 - [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
-- [ ] **Focus Mode** - Teacher can "lock" a particular project so scholars must work in it
+- [ ] **Focus Mode** - Teacher can "lock" a particular unit so scholars must work in it
 - [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
 - [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
 - [ ] **Text-to-Speech** - Click to have Makawulu read responses aloud (OpenAI TTS or browser SpeechSynthesis)
 - [x] **Convex Migration** - Migrated from SQLite/Drizzle/NextAuth to Convex (Feb 2026)
 - [x] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId})
+- [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
 
 ---
 
@@ -32,9 +33,9 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 **Makawulu** (from Hawaiian "makawalu" - seeing with eight eyes, multiple perspectives) is a Socratic AI tutoring platform where:
 
-- **Scholars** have conversations with Claude (AI tutor)
+- **Scholars** work on projects with Claude (AI tutor)
 - **Teachers** monitor, analyze, and guide learning through a dashboard
-- **System** auto-analyzes conversations for engagement, complexity, topics, and concerns
+- **System** auto-analyzes projects for engagement, complexity, topics, and concerns
 
 ---
 
@@ -54,15 +55,15 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 ## Key Features
 
 ### Scholar Interface
-- Create and manage conversations with AI tutor
+- Create and manage projects with AI tutor
 - Real-time streaming chat (HTTP SSE via Convex HTTP action)
 - Voice dictation (OpenAI Whisper)
-- Dimension selectors: persona, project, perspective
-- Archive/rename conversations
+- Dimension selectors: persona, unit, perspective
+- Archive/rename projects
 
 ### Teacher Dashboard
 - View all scholars with real-time status updates (no polling needed)
-- Read any conversation with AI analysis
+- Read any project with AI analysis
 - **Teacher Whispers**: Inject private guidance into system prompt
 - **Topic Tracking**: Bloom's taxonomy levels, teacher ratings, mention counts
 - **Suggested Topics**: Curate exploration areas for each scholar
@@ -87,14 +88,13 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 | `lib/auth.ts` | Helpers: getCurrentUser, requireTeacher, requireAdmin |
 | `lib/customFunctions.ts` | authedQuery/Mutation, teacherQuery/Mutation wrappers |
 | `users.ts` | User queries: currentUser, listScholars, getUser |
-| `conversations.ts` | CRUD + getWithMessages (reactive) |
+| `projects.ts` | Project CRUD + sendMessage + getWithMessages (reactive) |
 | `messages.ts` | Message queries and insertions |
-| `chat.ts` | sendMessage mutation (creates user msg + placeholder) |
-| `chatHelpers.ts` | System prompt builder, conversation context |
-| `http.ts` | HTTP actions: /chat-stream (SSE), /analyze |
+| `projectHelpers.ts` | System prompt builder, project context |
+| `http.ts` | HTTP actions: /project-stream (SSE), /analyze |
 | `personas.ts` | Persona CRUD |
 | `perspectives.ts` | Perspective CRUD |
-| `projects.ts` | Project CRUD |
+| `units.ts` | Unit (curriculum assignment) CRUD |
 | `scholars.ts` | Scholar profile, topics, suggestions |
 | `observations.ts` | Teacher observation CRUD |
 | `analyses.ts` | Analysis queries |
@@ -110,15 +110,16 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 | `app/providers.tsx` | ConvexAuthProvider + ChakraProvider |
 | `app/page.tsx` | Auth redirect (role-based routing) |
 | `app/login/page.tsx` | Google OAuth + test user login |
-| `app/scholar/page.tsx` | Scholar chat interface with sidebar |
+| `app/scholar/page.tsx` | Scholar landing (redirects to project) |
+| `app/scholar/[projectId]/page.tsx` | Scholar project view with sidebar |
 | `app/teacher/page.tsx` | Teacher dashboard (real-time via useQuery) |
 | `hooks/useCurrentUser.ts` | Current user hook (replaces useSession) |
 | `hooks/useVoiceDictation.ts` | Voice recording + Convex transcription |
-| `components/ChatInterface.tsx` | Streaming chat UI |
-| `components/ChatHeader.tsx` | Dimension selector dropdowns |
-| `components/ConversationViewer.tsx` | Teacher conversation viewer + analysis |
+| `components/ProjectInterface.tsx` | Streaming chat UI |
+| `components/ProjectHeader.tsx` | Dimension selector dropdowns + editable title |
+| `components/ProjectViewer.tsx` | Teacher project viewer + analysis |
 | `components/ScholarProfile.tsx` | Scholar topics/suggestions panel |
-| `components/EntityManager.tsx` | CRUD for personas/projects/perspectives |
+| `components/EntityManager.tsx` | CRUD for personas/units/perspectives |
 
 ---
 
@@ -126,22 +127,26 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 ```
 users             -> scholars and teachers (role-based)
-conversations     -> per-scholar, with status and teacherWhisper
-messages          -> conversation history
+projects          -> per-scholar work sessions, with status and teacherWhisper
+messages          -> project message history
+artifacts         -> shared documents within a project
+processState      -> guided workflow step tracking
 analyses          -> AI analysis results
 observations      -> teacher notes on scholars
 scholarTopics     -> topics discovered + Bloom level + teacher rating
 suggestedTopics   -> teacher-curated suggestions
 personas          -> AI persona configurations
 perspectives      -> learning perspectives (Makawalu lenses)
-projects          -> teacher-created assignments/projects
+units             -> teacher-created curriculum assignments
+processes         -> guided step workflows (CRAFT, Weekend News)
+focusSettings     -> teacher dimension locks per scholar
 ```
 
 **Key relationships:**
-- 1 User -> Many Conversations -> Many Messages
-- 1 Conversation -> Many Analyses
+- 1 User -> Many Projects -> Many Messages
+- 1 Project -> Many Analyses
 - 1 Scholar -> Many Topics, Many Suggestions, Many Observations
-- Conversations reference optional persona, project, perspective
+- Projects reference optional persona, unit, perspective, process
 
 ---
 
@@ -149,7 +154,7 @@ projects          -> teacher-created assignments/projects
 
 | Role | Access |
 |------|--------|
-| Scholar | Own conversations only |
+| Scholar | Own projects only |
 | Teacher | All scholars, dashboard, whispers, observations |
 | Admin | Full system access |
 
@@ -221,7 +226,7 @@ GOOGLE_CLIENT_SECRET    # OAuth (set in Convex dashboard)
 ## Notes
 
 - Convex provides real-time reactivity -- teacher dashboard updates instantly when scholars send messages (no polling)
-- Chat streaming uses HTTP SSE via Convex HTTP action at /chat-stream
+- Chat streaming uses HTTP SSE via Convex HTTP action at /project-stream
 - Teacher whispers are appended to system prompt, invisible to scholars
 - Bloom's taxonomy: remember -> understand -> apply -> analyze -> evaluate -> create
 - Voice dictation converts audio to base64, sends to Convex action which calls OpenAI Whisper

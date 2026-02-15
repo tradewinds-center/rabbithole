@@ -15,7 +15,7 @@ const bloomLevelValidator = v.union(
  */
 export const saveAnalysis = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     engagementScore: v.number(),
     complexityLevel: v.number(),
     onTaskScore: v.number(),
@@ -30,7 +30,7 @@ export const saveAnalysis = internalMutation({
   handler: async (ctx, args) => {
     // Save the analysis record
     await ctx.db.insert("analyses", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       engagementScore: args.engagementScore,
       complexityLevel: args.complexityLevel,
       onTaskScore: args.onTaskScore,
@@ -41,8 +41,8 @@ export const saveAnalysis = internalMutation({
       suggestedIntervention: args.suggestedIntervention,
     });
 
-    // Update conversation status + progress score
-    await ctx.db.patch(args.conversationId, {
+    // Update project status + progress score
+    await ctx.db.patch(args.projectId, {
       status: args.status,
       analysisSummary: args.summary,
       progressScore: args.progressScore,
@@ -51,12 +51,12 @@ export const saveAnalysis = internalMutation({
 });
 
 /**
- * Get a conversation (for use in actions that need the userId).
+ * Get a project (for use in actions that need the userId).
  */
-export const getConversation = internalQuery({
-  args: { conversationId: v.id("conversations") },
+export const getProject = internalQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.conversationId);
+    return await ctx.db.get(args.projectId);
   },
 });
 
@@ -68,7 +68,7 @@ export const upsertScholarTopic = internalMutation({
     scholarId: v.id("users"),
     topic: v.string(),
     bloomLevel: bloomLevelValidator,
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -81,7 +81,7 @@ export const upsertScholarTopic = internalMutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         mentionCount: existing.mentionCount + 1,
-        lastConversationId: args.conversationId,
+        lastProjectId: args.projectId,
         bloomLevel: args.bloomLevel,
       });
     } else {
@@ -91,22 +91,22 @@ export const upsertScholarTopic = internalMutation({
         bloomLevel: args.bloomLevel,
         teacherRating: 0,
         mentionCount: 1,
-        lastConversationId: args.conversationId,
+        lastProjectId: args.projectId,
       });
     }
   },
 });
 
 /**
- * Update conversation's analysis summary.
+ * Update project's analysis summary.
  */
-export const updateConversationSummary = internalMutation({
+export const updateProjectSummary = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     summary: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.conversationId, {
+    await ctx.db.patch(args.projectId, {
       analysisSummary: args.summary,
     });
   },

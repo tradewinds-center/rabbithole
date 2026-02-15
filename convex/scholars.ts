@@ -41,18 +41,18 @@ export const getProfile = teacherQuery({
       .order("desc")
       .collect();
 
-    // Get conversation stats
-    const conversations = await ctx.db
-      .query("conversations")
+    // Get project stats
+    const projects = await ctx.db
+      .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
       .collect();
 
     let messageCount = 0;
-    for (const conv of conversations) {
+    for (const proj of projects) {
       const msgs = await ctx.db
         .query("messages")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", conv._id)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", proj._id)
         )
         .collect();
       messageCount += msgs.length;
@@ -82,7 +82,7 @@ export const getProfile = teacherQuery({
         explored: s.explored,
       })),
       stats: {
-        conversationCount: conversations.length,
+        projectCount: projects.length,
         messageCount,
         topicCount: topics.length,
       },

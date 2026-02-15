@@ -55,7 +55,7 @@ const CONFIG: Record<DimensionType, {
   icon: typeof FiBook;
   color: string;
 }> = {
-  project: { label: "Project", plural: "Projects", icon: FiBook, color: "violet" },
+  unit: { label: "Unit", plural: "Units", icon: FiBook, color: "violet" },
   persona: { label: "Persona", plural: "Personas", icon: FiSmile, color: "orange" },
   perspective: { label: "Perspective", plural: "Perspectives", icon: FiEye, color: "teal" },
   process: { label: "Process", plural: "Processes", icon: FiLayers, color: "blue" },
@@ -67,13 +67,13 @@ export function EntityManager({ entityType }: EntityManagerProps) {
 
   const entities = useQuery(
     entityType === "persona" ? api.personas.list :
-    entityType === "project" ? api.projects.list :
+    entityType === "unit" ? api.units.list :
     entityType === "process" ? api.processes.list :
     api.perspectives.list
   ) as Entity[] | undefined;
 
   const deactivatePersona = useMutation(api.personas.deactivate);
-  const deactivateProject = useMutation(api.projects.deactivate);
+  const deactivateUnit = useMutation(api.units.deactivate);
   const deactivatePerspective = useMutation(api.perspectives.deactivate);
   const deactivateProcess = useMutation(api.processes.deactivate);
 
@@ -106,8 +106,8 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     try {
       if (entityType === "persona") {
         await deactivatePersona({ id: entityId as Id<"personas"> });
-      } else if (entityType === "project") {
-        await deactivateProject({ id: entityId as Id<"projects"> });
+      } else if (entityType === "unit") {
+        await deactivateUnit({ id: entityId as Id<"units"> });
       } else if (entityType === "process") {
         await deactivateProcess({ id: entityId as Id<"processes"> });
       } else {
@@ -190,7 +190,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                         <Text fontWeight="600" fontFamily="heading" color="navy.500">
                           {entity.title}
                         </Text>
-                        {entityType === "project" && entity.targetBloomLevel && (
+                        {entityType === "unit" && entity.targetBloomLevel && (
                           <Badge bg="violet.100" color="violet.700" fontSize="xs">
                             {entity.targetBloomLevel}
                           </Badge>

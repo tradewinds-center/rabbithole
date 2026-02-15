@@ -2,15 +2,15 @@ import { v } from "convex/values";
 import { teacherQuery } from "./lib/customFunctions";
 
 /**
- * Get analysis history for a conversation (most recent first).
+ * Get analysis history for a project (most recent first).
  */
 export const getHistory = teacherQuery({
-  args: { conversationId: v.id("conversations") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("analyses")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .order("desc")
       .collect();
@@ -18,15 +18,15 @@ export const getHistory = teacherQuery({
 });
 
 /**
- * Get the most recent analysis for a conversation.
+ * Get the most recent analysis for a project.
  */
 export const getLatest = teacherQuery({
-  args: { conversationId: v.id("conversations") },
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("analyses")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .order("desc")
       .first();

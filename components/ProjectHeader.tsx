@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Box,
   Flex,
@@ -9,6 +9,7 @@ import {
   IconButton,
   Tooltip,
   Portal,
+  Input,
 } from "@chakra-ui/react";
 import { FiMenu } from "react-icons/fi";
 import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
@@ -20,31 +21,31 @@ import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
 
 interface FocusLock {
   personaId?: string | null;
-  projectId?: string | null;
+  unitId?: string | null;
   perspectiveId?: string | null;
   processId?: string | null;
 }
 
-interface ChatHeaderProps {
-  conversationTitle: string;
+interface ProjectHeaderProps {
+  projectTitle: string;
   // Current selections
   personaId: string | null;
-  projectId: string | null;
+  unitId: string | null;
   perspectiveId: string | null;
   processId: string | null;
   // Options
   personaOptions: DimensionOption[];
-  projectOptions: DimensionOption[];
+  unitOptions: DimensionOption[];
   perspectiveOptions: DimensionOption[];
   processOptions: DimensionOption[];
   // Full entity data for edit modal (optional — only needed when edit is enabled)
   personaData?: DimensionEditData[];
-  projectData?: DimensionEditData[];
+  unitData?: DimensionEditData[];
   perspectiveData?: DimensionEditData[];
   processData?: DimensionEditData[];
   // Handlers
   onPersonaChange: (id: string | null) => void;
-  onProjectChange: (id: string | null) => void;
+  onUnitChange: (id: string | null) => void;
   onPerspectiveChange: (id: string | null) => void;
   onProcessChange: (id: string | null) => void;
   // Focus lock (optional)
@@ -59,27 +60,29 @@ interface ChatHeaderProps {
   isTestMode?: boolean;
   // Current process step key (e.g. "C", "R", "A") for badge display
   currentStepKey?: string | null;
+  // Project rename
+  onProjectRename?: (title: string) => void;
   // Right panel toggle
   showRightPanel?: boolean;
   onToggleRightPanel?: () => void;
 }
 
-export function ChatHeader({
-  conversationTitle,
+export function ProjectHeader({
+  projectTitle,
   personaId,
-  projectId,
+  unitId,
   perspectiveId,
   processId,
   personaOptions,
-  projectOptions,
+  unitOptions,
   perspectiveOptions,
   processOptions,
   personaData,
-  projectData,
+  unitData,
   perspectiveData,
   processData,
   onPersonaChange,
-  onProjectChange,
+  onUnitChange,
   onPerspectiveChange,
   onProcessChange,
   focusLock,
@@ -89,15 +92,40 @@ export function ChatHeader({
   userImage,
   isTestMode,
   currentStepKey,
+  onProjectRename,
   showRightPanel,
   onToggleRightPanel,
-}: ChatHeaderProps) {
+}: ProjectHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
   const personaLocked = effectiveLock?.personaId != null;
-  const projectLocked = effectiveLock?.projectId != null;
+  const unitLocked = effectiveLock?.unitId != null;
   const perspectiveLocked = effectiveLock?.perspectiveId != null;
   const processLocked = effectiveLock?.processId != null;
+
+  // Inline title editing
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(projectTitle);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEditingTitle) setEditTitle(projectTitle);
+  }, [projectTitle, isEditingTitle]);
+
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  const commitTitle = () => {
+    setIsEditingTitle(false);
+    const trimmed = editTitle.trim();
+    if (trimmed && trimmed !== projectTitle && onProjectRename) {
+      onProjectRename(trimmed);
+    }
+  };
 
   // Edit modal state
   const [editModal, setEditModal] = useState<{
@@ -133,18 +161,43 @@ export function ChatHeader({
           </IconButton>
         )}
 
-        <Text
-          flex={1}
-          fontWeight="600"
-          fontFamily="heading"
-          color="navy.500"
-          fontSize="sm"
-          overflow="hidden"
-          textOverflow="ellipsis"
-          whiteSpace="nowrap"
-        >
-          {conversationTitle}
-        </Text>
+        {isEditingTitle && onProjectRename ? (
+          <Input
+            ref={titleInputRef}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTitle();
+              if (e.key === "Escape") { setIsEditingTitle(false); setEditTitle(projectTitle); }
+            }}
+            flex={1}
+            fontWeight="600"
+            fontFamily="heading"
+            color="navy.500"
+            fontSize="sm"
+            size="sm"
+            variant="flushed"
+            borderColor="violet.300"
+            px={0}
+          />
+        ) : (
+          <Text
+            flex={1}
+            fontWeight="600"
+            fontFamily="heading"
+            color="navy.500"
+            fontSize="sm"
+            overflow="hidden"
+            textOverflow="ellipsis"
+            whiteSpace="nowrap"
+            cursor={onProjectRename ? "text" : "default"}
+            onClick={onProjectRename ? () => setIsEditingTitle(true) : undefined}
+            _hover={onProjectRename ? { color: "violet.500" } : undefined}
+          >
+            {projectTitle}
+          </Text>
+        )}
 
         {isSynced !== undefined && (
           <Tooltip.Root openDelay={400} closeDelay={0}>
@@ -220,19 +273,19 @@ export function ChatHeader({
           onEdit={isTestMode && personaData ? (id) => openEdit("persona", id, personaData) : undefined}
         />
         <DimensionPicker
-          label="Project"
+          label="Unit"
           defaultLabel="None"
-          activeId={projectId}
-          options={projectOptions}
-          locked={projectLocked}
-          lockedTitle={projectOptions.find((p) => p.id === projectId)?.title}
-          onChange={onProjectChange}
+          activeId={unitId}
+          options={unitOptions}
+          locked={unitLocked}
+          lockedTitle={unitOptions.find((p) => p.id === unitId)?.title}
+          onChange={onUnitChange}
           renderOption={(p) => `📚 ${p.title}`}
           renderActive={() => {
-            const a = projectOptions.find((p) => p.id === projectId);
+            const a = unitOptions.find((p) => p.id === unitId);
             return a ? `📚 ${a.title}` : null;
           }}
-          onEdit={isTestMode && projectData ? (id) => openEdit("project", id, projectData) : undefined}
+          onEdit={isTestMode && unitData ? (id) => openEdit("unit", id, unitData) : undefined}
         />
         <DimensionPicker
           label="Lens"

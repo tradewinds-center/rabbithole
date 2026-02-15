@@ -23,15 +23,15 @@ export const listByScholar = teacherQuery({
 });
 
 /**
- * List observations for a conversation.
+ * List observations for a project.
  */
-export const listByConversation = teacherQuery({
-  args: { conversationId: v.id("conversations") },
+export const listByProject = teacherQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("observations")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .order("desc")
       .collect();
@@ -44,7 +44,7 @@ export const listByConversation = teacherQuery({
 export const add = teacherMutation({
   args: {
     scholarId: v.id("users"),
-    conversationId: v.optional(v.id("conversations")),
+    projectId: v.optional(v.id("projects")),
     note: v.string(),
     type: observationTypeValidator,
   },
@@ -52,7 +52,7 @@ export const add = teacherMutation({
     const id = await ctx.db.insert("observations", {
       teacherId: ctx.user._id,
       scholarId: args.scholarId,
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       note: args.note.trim(),
       type: args.type,
     });

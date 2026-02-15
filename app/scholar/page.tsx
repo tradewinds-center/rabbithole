@@ -10,9 +10,9 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Flex, Spinner } from "@chakra-ui/react";
 
 /**
- * /scholar — Landing page. Redirects to the first conversation or shows "new".
+ * /scholar — Landing page. Redirects to the first project or shows "new".
  * If ?remote=userId is set, stays in remote mode.
- * All actual UI lives in /scholar/[chatId]/page.tsx.
+ * All actual UI lives in /scholar/[projectId]/page.tsx.
  */
 export default function ScholarPage() {
   return (
@@ -30,8 +30,8 @@ function ScholarRedirect() {
   const remoteUserId = searchParams.get("remote");
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
 
-  const conversations = useQuery(
-    api.conversations.list,
+  const projects = useQuery(
+    api.projects.list,
     isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
   );
 
@@ -47,16 +47,16 @@ function ScholarRedirect() {
     }
   }, [user, isUserLoading, router, remoteUserId]);
 
-  // Once conversations load, redirect to the first one (or "new")
+  // Once projects load, redirect to the first one (or "new")
   useEffect(() => {
-    if (conversations === undefined) return; // still loading
+    if (projects === undefined) return; // still loading
     const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-    if (conversations.length > 0) {
-      router.replace(`/scholar/${conversations[0]._id}${remoteParam}`);
+    if (projects.length > 0) {
+      router.replace(`/scholar/${projects[0]._id}${remoteParam}`);
     } else {
       router.replace(`/scholar/new${remoteParam}`);
     }
-  }, [conversations, router, remoteUserId]);
+  }, [projects, router, remoteUserId]);
 
   return (
     <Flex minH="100vh" bg="gray.50" align="center" justify="center">

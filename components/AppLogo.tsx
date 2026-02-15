@@ -27,7 +27,7 @@ export function AppLogo({ variant = "dark", size = 40 }: AppLogoProps) {
       >
         Tradewinds
         <br />
-        Learning Platform
+        Learn
       </Text>
     </HStack>
   );

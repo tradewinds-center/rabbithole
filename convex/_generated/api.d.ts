@@ -14,9 +14,6 @@ import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
-import type * as chat from "../chat.js";
-import type * as chatHelpers from "../chatHelpers.js";
-import type * as conversations from "../conversations.js";
 import type * as focus from "../focus.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -27,9 +24,11 @@ import type * as personas from "../personas.js";
 import type * as perspectives from "../perspectives.js";
 import type * as processState from "../processState.js";
 import type * as processes from "../processes.js";
+import type * as projectHelpers from "../projectHelpers.js";
 import type * as projects from "../projects.js";
 import type * as scholars from "../scholars.js";
 import type * as seed from "../seed.js";
+import type * as units from "../units.js";
 import type * as users from "../users.js";
 
 import type {
@@ -45,9 +44,6 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   audioActions: typeof audioActions;
   auth: typeof auth;
-  chat: typeof chat;
-  chatHelpers: typeof chatHelpers;
-  conversations: typeof conversations;
   focus: typeof focus;
   http: typeof http;
   "lib/auth": typeof lib_auth;
@@ -58,9 +54,11 @@ declare const fullApi: ApiFromModules<{
   perspectives: typeof perspectives;
   processState: typeof processState;
   processes: typeof processes;
+  projectHelpers: typeof projectHelpers;
   projects: typeof projects;
   scholars: typeof scholars;
   seed: typeof seed;
+  units: typeof units;
   users: typeof users;
 }>;
 

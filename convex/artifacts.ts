@@ -3,16 +3,16 @@ import { authedQuery, authedMutation } from "./lib/customFunctions";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 /**
- * Get all artifacts for a conversation (reactive, used by ArtifactPanel).
+ * Get all artifacts for a project (reactive, used by ArtifactPanel).
  * Returns array sorted by creation time.
  */
-export const getByConversation = authedQuery({
-  args: { conversationId: v.id("conversations") },
+export const getByProject = authedQuery({
+  args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("artifacts")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .collect();
   },
@@ -44,12 +44,12 @@ export const scholarUpdate = authedMutation({
  */
 export const scholarCreate = authedMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("artifacts", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       title: args.title || "Untitled",
       content: "",
       lastEditedBy: "scholar",
@@ -72,18 +72,18 @@ export const deleteArtifact = authedMutation({
 // ── Internal mutations for AI tool use ────────────────────────────────
 
 /**
- * AI creates a new artifact for a conversation (no longer deletes existing).
+ * AI creates a new artifact for a project (no longer deletes existing).
  * Returns the new artifact _id.
  */
 export const aiCreate = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     title: v.string(),
     content: v.string(),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("artifacts", {
-      conversationId: args.conversationId,
+      projectId: args.projectId,
       title: args.title,
       content: args.content,
       lastEditedBy: "ai",
@@ -98,7 +98,7 @@ export const aiCreate = internalMutation({
  */
 export const aiStrReplace = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     oldStr: v.string(),
     newStr: v.string(),
     artifactId: v.optional(v.id("artifacts")),
@@ -110,8 +110,8 @@ export const aiStrReplace = internalMutation({
     } else {
       artifact = await ctx.db
         .query("artifacts")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", args.conversationId)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", args.projectId)
         )
         .first();
     }
@@ -138,7 +138,7 @@ export const aiStrReplace = internalMutation({
  */
 export const aiInsert = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     insertLine: v.number(),
     insertText: v.string(),
     artifactId: v.optional(v.id("artifacts")),
@@ -150,8 +150,8 @@ export const aiInsert = internalMutation({
     } else {
       artifact = await ctx.db
         .query("artifacts")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", args.conversationId)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", args.projectId)
         )
         .first();
     }
@@ -172,7 +172,7 @@ export const aiInsert = internalMutation({
  */
 export const aiRename = internalMutation({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     title: v.string(),
     artifactId: v.optional(v.id("artifacts")),
   },
@@ -183,8 +183,8 @@ export const aiRename = internalMutation({
     } else {
       artifact = await ctx.db
         .query("artifacts")
-        .withIndex("by_conversation", (q) =>
-          q.eq("conversationId", args.conversationId)
+        .withIndex("by_project", (q) =>
+          q.eq("projectId", args.projectId)
         )
         .first();
     }
@@ -199,18 +199,18 @@ export const aiRename = internalMutation({
  */
 export const aiGetContent = internalQuery({
   args: {
-    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
     artifactId: v.optional(v.id("artifacts")),
   },
   handler: async (ctx, args) => {
     if (args.artifactId) {
       return await ctx.db.get(args.artifactId);
     }
-    // Return all artifacts for the conversation
+    // Return all artifacts for the project
     return await ctx.db
       .query("artifacts")
-      .withIndex("by_conversation", (q) =>
-        q.eq("conversationId", args.conversationId)
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
       )
       .collect();
   },
