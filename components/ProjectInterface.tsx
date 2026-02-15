@@ -10,6 +10,8 @@ import {
   IconButton,
   Spinner,
   Splitter,
+  Tooltip,
+  Portal,
 } from "@chakra-ui/react";
 import { FiArrowUp, FiMic, FiMicOff } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
@@ -194,7 +196,7 @@ export function ProjectInterface({
 
   const sendMessageRef = useRef<(text: string) => void>(() => {});
 
-  const { state: dictationState, error: dictationError, toggleRecording } =
+  const { state: dictationState, error: dictationError, toggleRecording, startRecording, stopRecording } =
     useVoiceDictation((text) => {
       sendMessageRef.current(text);
     });
@@ -477,6 +479,8 @@ export function ProjectInterface({
               dictationState={dictationState}
               dictationError={dictationError}
               toggleRecording={toggleRecording}
+              startRecording={startRecording}
+              stopRecording={stopRecording}
             />
           </Splitter.Panel>
           <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
@@ -522,6 +526,8 @@ export function ProjectInterface({
             dictationState={dictationState}
             dictationError={dictationError}
             toggleRecording={toggleRecording}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
           />
         </Flex>
       )}
@@ -545,6 +551,8 @@ interface ChatColumnProps {
   dictationState: "idle" | "recording" | "transcribing";
   dictationError: string | null;
   toggleRecording: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
 }
 
 function ChatColumn({
@@ -562,9 +570,103 @@ function ChatColumn({
   dictationState,
   dictationError,
   toggleRecording,
+  startRecording,
+  stopRecording,
 }: ChatColumnProps) {
+  const micBtnRef = useRef<HTMLButtonElement>(null);
+  const tabHeldRef = useRef(false);
+  const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Walkie-talkie: Tab hold → record, Tab release → stop & send
+  // Quick tap (<200ms) is a no-op so normal Tab usage isn't hijacked
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      // Don't hijack Tab when user is in an input/textarea that isn't ours
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "SELECT") return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (!tabHeldRef.current && !isStreaming && dictationState === "idle") {
+        tabHeldRef.current = true;
+        tabTimerRef.current = setTimeout(() => {
+          tabTimerRef.current = null;
+          if (tabHeldRef.current) startRecording();
+        }, 200);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      e.preventDefault();
+      if (tabHeldRef.current) {
+        tabHeldRef.current = false;
+        // Released before 200ms threshold — cancel, don't record
+        if (tabTimerRef.current) {
+          clearTimeout(tabTimerRef.current);
+          tabTimerRef.current = null;
+        } else {
+          stopRecording();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
+    };
+  }, [isStreaming, dictationState, startRecording, stopRecording]);
+
+  // Compute ripple center from mic button position
+  const [rippleCenter, setRippleCenter] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (dictationState === "recording" && micBtnRef.current) {
+      const rect = micBtnRef.current.getBoundingClientRect();
+      setRippleCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      setRippleCenter(null);
+    }
+  }, [dictationState]);
+
   return (
     <Flex flex={1} flexDir="column" overflow="hidden" h="full">
+      {/* Recording ripple overlay — @property animates gradient stop positions */}
+      {dictationState === "recording" && rippleCenter && (
+        <>
+          <style>{`
+            @property --ripple-offset {
+              syntax: '<length>';
+              initial-value: 0px;
+              inherits: false;
+            }
+            @keyframes rippleFlow {
+              from { --ripple-offset: 0px; }
+              to { --ripple-offset: 160px; }
+            }
+            .ripple-overlay {
+              animation: rippleFlow 2s linear infinite;
+            }
+          `}</style>
+          <Box
+            position="fixed"
+            top={0}
+            left={0}
+            w="100vw"
+            h="100vh"
+            zIndex={9998}
+            pointerEvents="none"
+            userSelect="none"
+            className="ripple-overlay"
+            style={{
+              backgroundImage: `repeating-radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, transparent var(--ripple-offset), rgba(229,62,62,0.25) calc(20px + var(--ripple-offset)), transparent calc(40px + var(--ripple-offset)), transparent calc(160px + var(--ripple-offset)))`,
+              maskImage: `radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, black 0%, transparent 60%)`,
+              WebkitMaskImage: `radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, black 0%, transparent 60%)`,
+            }}
+          />
+        </>
+      )}
+
       {/* Messages */}
       <Box flex={1} overflowY="auto" px={6} py={4}>
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
@@ -633,6 +735,8 @@ function ChatColumn({
         borderColor="gray.200"
         bg="gray.50"
         shadow="0 -1px 3px rgba(0,0,0,0.06)"
+        position="relative"
+        zIndex={9999}
       >
         <Flex maxW="3xl" mx="auto" gap={3}>
           <Textarea
@@ -664,27 +768,47 @@ function ChatColumn({
             px={4}
             disabled={isStreaming}
           />
-          <IconButton
-            aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
-            bg={dictationState === "recording" ? "red.500" : "gray.200"}
-            color={dictationState === "recording" ? "white" : "charcoal.500"}
-            _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
-            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-            borderRadius="xl"
-            h="auto"
-            minW={12}
-            onClick={toggleRecording}
-            disabled={isStreaming || dictationState === "transcribing"}
-            className={dictationState === "recording" ? "recording-pulse" : undefined}
-          >
-            {dictationState === "transcribing" ? (
-              <Spinner size="sm" />
-            ) : dictationState === "recording" ? (
-              <FiMicOff />
-            ) : (
-              <FiMic />
-            )}
-          </IconButton>
+          <Tooltip.Root openDelay={600} closeDelay={0}>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                ref={micBtnRef}
+                aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
+                bg={dictationState === "recording" ? "red.500" : "gray.200"}
+                color={dictationState === "recording" ? "white" : "charcoal.500"}
+                _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                borderRadius="xl"
+                h="auto"
+                minW={12}
+                onClick={toggleRecording}
+                disabled={isStreaming || dictationState === "transcribing"}
+                className={dictationState === "recording" ? "recording-pulse" : undefined}
+              >
+                {dictationState === "transcribing" ? (
+                  <Spinner size="sm" />
+                ) : dictationState === "recording" ? (
+                  <FiMicOff />
+                ) : (
+                  <FiMic />
+                )}
+              </IconButton>
+            </Tooltip.Trigger>
+            <Portal>
+              <Tooltip.Positioner>
+                <Tooltip.Content
+                  fontFamily="heading"
+                  fontSize="xs"
+                  bg="navy.500"
+                  color="white"
+                  px={3}
+                  py={1.5}
+                  borderRadius="lg"
+                >
+                  Hold Tab to talk
+                </Tooltip.Content>
+              </Tooltip.Positioner>
+            </Portal>
+          </Tooltip.Root>
           <IconButton
             aria-label="Send message"
             bg="violet.500"

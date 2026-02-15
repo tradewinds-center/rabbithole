@@ -35,16 +35,9 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
 
   const transcribe = useAction(api.audioActions.transcribe);
 
-  const toggleRecording = useCallback(async () => {
-    if (state === "transcribing") return;
+  const startRecording = useCallback(async () => {
+    if (state !== "idle") return;
 
-    // Stop recording
-    if (state === "recording" && recorderRef.current) {
-      recorderRef.current.stop();
-      return;
-    }
-
-    // Start recording
     setError(null);
     const mimeType = getSupportedMimeType();
     if (!mimeType) {
@@ -94,5 +87,20 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     setState("recording");
   }, [state, onTranscript, transcribe]);
 
-  return { state, error, toggleRecording };
+  const stopRecording = useCallback(() => {
+    if (state === "recording" && recorderRef.current) {
+      recorderRef.current.stop();
+    }
+  }, [state]);
+
+  const toggleRecording = useCallback(async () => {
+    if (state === "transcribing") return;
+    if (state === "recording") {
+      stopRecording();
+    } else {
+      await startRecording();
+    }
+  }, [state, startRecording, stopRecording]);
+
+  return { state, error, toggleRecording, startRecording, stopRecording };
 }
