@@ -28,6 +28,9 @@ import {
   FiFileText,
   FiExternalLink,
   FiUser,
+  FiFolder,
+  FiEdit3,
+  FiCpu,
 } from "react-icons/fi";
 
 interface ScholarProfileProps {
@@ -70,10 +73,34 @@ const READING_LEVELS = [
   { value: "college", label: "College" },
 ];
 
+type TabKey = "dossier" | "documents" | "topics" | "observations" | "reading";
+
+const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
+  { key: "dossier", label: "Dossier", icon: FiUser },
+  { key: "documents", label: "Documents", icon: FiFolder },
+  { key: "topics", label: "Topics", icon: FiBookOpen },
+  { key: "observations", label: "Observations", icon: FiFileText },
+  { key: "reading", label: "Reading Level", icon: FiBookOpen },
+];
+
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
 export function ScholarProfile({ scholarId }: ScholarProfileProps) {
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
   const dossierContent = useQuery(api.dossier.getForTeacher, { scholarId: scholarId as Id<"users"> });
+  const artifacts = useQuery(api.artifacts.getByScholar, { scholarId: scholarId as Id<"users"> });
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const rateTopic = useMutation(api.scholars.rateTopic);
@@ -91,6 +118,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
 
   const isLoading = profile === undefined;
 
+  const [activeTab, setActiveTab] = useState<TabKey>("dossier");
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
   const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
@@ -258,11 +286,133 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
 
       </Flex>
 
-      {/* Two-column content */}
+      {/* Tab bar */}
+      <HStack px={5} gap={0} borderBottom="1px solid" borderColor="gray.200">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          const TabIcon = tab.icon;
+          return (
+            <Button
+              key={tab.key}
+              variant="ghost"
+              borderRadius={0}
+              borderBottom="2px solid"
+              borderColor={isActive ? "violet.500" : "transparent"}
+              color={isActive ? "violet.600" : "charcoal.400"}
+              fontFamily="heading"
+              fontWeight={isActive ? "600" : "500"}
+              fontSize="sm"
+              px={4}
+              py={3}
+              h="auto"
+              outline="none"
+              boxShadow="none"
+              _hover={{ color: "violet.500", bg: "violet.50" }}
+              _focus={{ outline: "none", boxShadow: "none" }}
+              _focusVisible={{ outline: "none", boxShadow: "none" }}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <TabIcon style={{ marginRight: "6px" }} />
+              {tab.label}
+            </Button>
+          );
+        })}
+      </HStack>
+
+      {/* Tab content */}
       <Box flex={1} overflow="auto" p={5}>
-        <Flex gap={5} align="start" direction={{ base: "column", md: "row" }}>
-          {/* Left column: Topics + Observations */}
-          <VStack flex={1} gap={5} align="stretch" minW={0}>
+        {activeTab === "dossier" && (
+          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
+            <HStack mb={2}>
+              <FiUser color="#AD60BF" />
+              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                Scholar Dossier
+              </Text>
+            </HStack>
+            <Textarea
+              size="sm"
+              placeholder="No dossier yet — the AI will build one during conversations."
+              value={dossierDraft ?? dossierContent ?? ""}
+              onChange={(e) => setDossierDraft(e.target.value)}
+              onBlur={async () => {
+                if (dossierDraft !== null && dossierDraft !== (dossierContent ?? "")) {
+                  await updateDossier({
+                    scholarId: scholarId as Id<"users">,
+                    content: dossierDraft,
+                  });
+                }
+                setDossierDraft(null);
+              }}
+              rows={12}
+              bg="gray.50"
+              fontFamily="body"
+              fontSize="sm"
+              lineHeight="1.5"
+            />
+            <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+              AI-maintained learning profile. You can also edit manually.
+            </Text>
+          </Box>
+        )}
+
+        {activeTab === "documents" && (
+          <VStack gap={3} align="stretch" maxW="700px">
+            {artifacts === undefined ? (
+              <Flex justify="center" py={8}>
+                <Spinner size="md" color="violet.500" />
+              </Flex>
+            ) : artifacts.length === 0 ? (
+              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={8}>
+                No documents yet. Documents are created during projects.
+              </Text>
+            ) : (
+              artifacts.map((artifact) => (
+                <Box
+                  key={artifact._id}
+                  bg="white"
+                  borderRadius="lg"
+                  p={4}
+                  shadow="xs"
+                  borderLeft="3px solid"
+                  borderColor={artifact.lastEditedBy === "scholar" ? "cyan.400" : "violet.400"}
+                >
+                  <HStack justify="space-between" align="start" mb={1}>
+                    <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+                      {artifact.title}
+                    </Text>
+                    <HStack gap={2}>
+                      <Badge
+                        bg={artifact.lastEditedBy === "scholar" ? "cyan.100" : "violet.100"}
+                        color={artifact.lastEditedBy === "scholar" ? "cyan.700" : "violet.700"}
+                        fontSize="xs"
+                      >
+                        {artifact.lastEditedBy === "scholar" ? <><FiEdit3 style={{ display: "inline", marginRight: "3px" }} />scholar</> : <><FiCpu style={{ display: "inline", marginRight: "3px" }} />ai</>}
+                      </Badge>
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                        {timeAgo(artifact._creationTime)}
+                      </Text>
+                    </HStack>
+                  </HStack>
+                  {artifact.content && (
+                    <Text fontSize="sm" color="charcoal.500" fontFamily="body" lineHeight="1.4" mb={2} lineClamp={2}>
+                      {artifact.content.slice(0, 150)}{artifact.content.length > 150 ? "..." : ""}
+                    </Text>
+                  )}
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                    from:{" "}
+                    <Text as="span" color="violet.500" cursor="pointer" _hover={{ textDecoration: "underline" }}>
+                      {artifact.projectTitle}
+                    </Text>
+                  </Text>
+                  {/* TODO: "independence %" — ratio of scholar vs ai edits */}
+                </Box>
+              ))
+            )}
+          </VStack>
+        )}
+
+        {activeTab === "topics" && (
+          <VStack gap={5} align="stretch" maxW="700px">
             {/* Topics of Interest */}
             <Box bg="white" borderRadius="lg" p={4} shadow="xs">
               <HStack mb={3}>
@@ -335,192 +485,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
               )}
             </Box>
 
-            {/* Teacher Observations */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={3}>
-                <FiFileText color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Observations
-                </Text>
-              </HStack>
-
-              {/* Add new observation */}
-              <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
-                <HStack gap={2} mb={2}>
-                  <select
-                    value={newObservation.type}
-                    onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
-                    style={{
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                      fontSize: "12px",
-                      fontFamily: "inherit",
-                      width: "140px",
-                    }}
-                  >
-                    <option value="praise">Praise</option>
-                    <option value="concern">Concern</option>
-                    <option value="suggestion">Suggestion</option>
-                    <option value="intervention">Intervention</option>
-                  </select>
-                  <Button
-                    size="sm"
-                    bg="violet.500"
-                    color="white"
-                    _hover={{ bg: "violet.600" }}
-                    fontFamily="heading"
-                    onClick={handleAddObservation}
-                    disabled={isAddingObservation || !newObservation.note.trim()}
-                    ml="auto"
-                  >
-                    <FiPlus style={{ marginRight: "4px" }} />
-                    Add
-                  </Button>
-                </HStack>
-                <Textarea
-                  size="sm"
-                  placeholder="Record an observation..."
-                  value={newObservation.note}
-                  onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
-                  rows={2}
-                  bg="white"
-                  fontFamily="body"
-                />
-              </Box>
-
-              {/* Existing observations */}
-              {observations.length > 0 ? (
-                <VStack gap={2} align="stretch">
-                  {observations.map((obs) => (
-                    <Box
-                      key={obs._id}
-                      p={3}
-                      bg="gray.50"
-                      borderRadius="md"
-                    >
-                      <HStack justify="space-between" align="start">
-                        <VStack gap={1} align="start" flex={1}>
-                          <HStack>
-                            <Badge
-                              bg={
-                                obs.type === "praise" ? "green.100" :
-                                obs.type === "concern" ? "red.100" :
-                                obs.type === "suggestion" ? "blue.100" :
-                                "orange.100"
-                              }
-                              color={
-                                obs.type === "praise" ? "green.700" :
-                                obs.type === "concern" ? "red.700" :
-                                obs.type === "suggestion" ? "blue.700" :
-                                "orange.700"
-                              }
-                              fontSize="xs"
-                            >
-                              {obs.type}
-                            </Badge>
-                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                              {new Date(obs._creationTime).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </Text>
-                          </HStack>
-                          <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
-                            {obs.note}
-                          </Text>
-                        </VStack>
-                        <IconButton
-                          aria-label="Delete"
-                          size="xs"
-                          variant="ghost"
-                          color="red.400"
-                          _hover={{ bg: "red.50", color: "red.600" }}
-                          onClick={() => handleDeleteObservation(obs._id)}
-                        >
-                          <FiTrash2 />
-                        </IconButton>
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
-                  No observations yet.
-                </Text>
-              )}
-            </Box>
-          </VStack>
-
-          {/* Right column: Dossier + Reading Level + Suggested Follow-ups */}
-          <VStack flex={1} gap={5} align="stretch" minW={0}>
-            {/* Scholar Dossier */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={2}>
-                <FiUser color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Scholar Dossier
-                </Text>
-              </HStack>
-              <Textarea
-                size="sm"
-                placeholder="No dossier yet — the AI will build one during conversations."
-                value={dossierDraft ?? dossierContent ?? ""}
-                onChange={(e) => setDossierDraft(e.target.value)}
-                onBlur={async () => {
-                  if (dossierDraft !== null && dossierDraft !== (dossierContent ?? "")) {
-                    await updateDossier({
-                      scholarId: scholarId as Id<"users">,
-                      content: dossierDraft,
-                    });
-                  }
-                  setDossierDraft(null);
-                }}
-                rows={6}
-                bg="gray.50"
-                fontFamily="body"
-                fontSize="sm"
-                lineHeight="1.5"
-              />
-              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                AI-maintained learning profile. You can also edit manually.
-              </Text>
-            </Box>
-
-            {/* Reading Level */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={2}>
-                <FiBookOpen color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Reading Level
-                </Text>
-                {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
-              </HStack>
-              <select
-                value={scholar?.readingLevel || ""}
-                onChange={(e) => handleReadingLevelChange(e.target.value)}
-                disabled={isSavingReadingLevel}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                  fontSize: "14px",
-                  fontFamily: "inherit",
-                  backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
-                }}
-              >
-                {READING_LEVELS.map((level) => (
-                  <option key={level.value} value={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
-              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                Adjusts vocabulary and complexity in conversations
-              </Text>
-            </Box>
-
+            {/* Suggested Follow-ups */}
             <Box bg="white" borderRadius="lg" p={4} shadow="xs">
               <HStack mb={3}>
                 <FiTarget color="#AD60BF" />
@@ -648,7 +613,159 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
               )}
             </Box>
           </VStack>
-        </Flex>
+        )}
+
+        {activeTab === "observations" && (
+          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
+            <HStack mb={3}>
+              <FiFileText color="#AD60BF" />
+              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                Observations
+              </Text>
+            </HStack>
+
+            {/* Add new observation */}
+            <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
+              <select
+                value={newObservation.type}
+                onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
+                style={{
+                  padding: "5px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "12px",
+                  fontFamily: "inherit",
+                  width: "140px",
+                  marginBottom: "8px",
+                }}
+              >
+                <option value="praise">Praise</option>
+                <option value="concern">Concern</option>
+                <option value="suggestion">Suggestion</option>
+                <option value="intervention">Intervention</option>
+              </select>
+              <Textarea
+                size="sm"
+                placeholder="Record an observation..."
+                value={newObservation.note}
+                onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
+                rows={2}
+                bg="white"
+                fontFamily="body"
+                mb={2}
+              />
+              <Flex justify="flex-end">
+                <Button
+                  size="sm"
+                  bg="violet.500"
+                  color="white"
+                  _hover={{ bg: "violet.600" }}
+                  fontFamily="heading"
+                  onClick={handleAddObservation}
+                  disabled={isAddingObservation || !newObservation.note.trim()}
+                >
+                  Save
+                </Button>
+              </Flex>
+            </Box>
+
+            {/* Existing observations */}
+            {observations.length > 0 ? (
+              <VStack gap={2} align="stretch">
+                {observations.map((obs) => (
+                  <Box
+                    key={obs._id}
+                    p={3}
+                    bg="gray.50"
+                    borderRadius="md"
+                  >
+                    <HStack justify="space-between" align="start">
+                      <VStack gap={1} align="start" flex={1}>
+                        <HStack>
+                          <Badge
+                            bg={
+                              obs.type === "praise" ? "green.100" :
+                              obs.type === "concern" ? "red.100" :
+                              obs.type === "suggestion" ? "blue.100" :
+                              "orange.100"
+                            }
+                            color={
+                              obs.type === "praise" ? "green.700" :
+                              obs.type === "concern" ? "red.700" :
+                              obs.type === "suggestion" ? "blue.700" :
+                              "orange.700"
+                            }
+                            fontSize="xs"
+                          >
+                            {obs.type}
+                          </Badge>
+                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                            {new Date(obs._creationTime).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Text>
+                        </HStack>
+                        <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
+                          {obs.note}
+                        </Text>
+                      </VStack>
+                      <IconButton
+                        aria-label="Delete"
+                        size="xs"
+                        variant="ghost"
+                        color="red.400"
+                        _hover={{ bg: "red.50", color: "red.600" }}
+                        onClick={() => handleDeleteObservation(obs._id)}
+                      >
+                        <FiTrash2 />
+                      </IconButton>
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            ) : (
+              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
+                No observations yet.
+              </Text>
+            )}
+          </Box>
+        )}
+
+        {activeTab === "reading" && (
+          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="400px">
+            <HStack mb={2}>
+              <FiBookOpen color="#AD60BF" />
+              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                Reading Level
+              </Text>
+              {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+            </HStack>
+            <select
+              value={scholar?.readingLevel || ""}
+              onChange={(e) => handleReadingLevelChange(e.target.value)}
+              disabled={isSavingReadingLevel}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                borderRadius: "6px",
+                border: "1px solid #e2e8f0",
+                fontSize: "14px",
+                fontFamily: "inherit",
+                backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
+              }}
+            >
+              {READING_LEVELS.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label}
+                </option>
+              ))}
+            </select>
+            <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+              Adjusts vocabulary and complexity in conversations
+            </Text>
+          </Box>
+        )}
       </Box>
     </Box>
   );

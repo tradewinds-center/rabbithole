@@ -441,7 +441,7 @@ export function DimensionEditModal({
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content maxW="80vw" maxH="85vh" overflow="auto" bg="yellow.100">
+          <Dialog.Content maxW="80vw" maxH="85vh" overflow="hidden" bg="yellow.100" display="flex" flexDirection="column">
             <Dialog.Header px={6} pt={6} pb={2}>
               <Dialog.Title fontFamily="heading" color="navy.500" fontWeight="600" fontSize="xl">
                 <HStack gap={2} align="center">
@@ -450,7 +450,7 @@ export function DimensionEditModal({
                 </HStack>
               </Dialog.Title>
             </Dialog.Header>
-            <Dialog.Body px={6} pb={6}>
+            <Dialog.Body px={6} pb={4} flex={1} overflow="auto">
               <VStack gap={4} align="stretch">
                 <HStack gap={4} align="start">
                   <Box pt="10px" flexShrink={0} w={LABEL_WIDTH}>
@@ -618,27 +618,29 @@ export function DimensionEditModal({
                   </FieldRow>
                 )}
 
-                <HStack gap={2} pt={4}>
-                  <Button
-                    flex={1}
-                    variant="outline"
-                    fontFamily="heading"
-                    onClick={onClose}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    flex={1}
-                    colorPalette="yellow"
-                    fontFamily="heading"
-                    onClick={handleSave}
-                    disabled={isSaving || !canSave}
-                  >
-                    {isSaving ? <Spinner size="sm" /> : "Save"}
-                  </Button>
-                </HStack>
               </VStack>
             </Dialog.Body>
+            <Dialog.Footer px={6} py={4} borderTop="1px solid" borderColor="yellow.200">
+              <HStack gap={2} width="100%">
+                <Button
+                  flex={1}
+                  variant="outline"
+                  fontFamily="heading"
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  flex={1}
+                  colorPalette="yellow"
+                  fontFamily="heading"
+                  onClick={handleSave}
+                  disabled={isSaving || !canSave}
+                >
+                  {isSaving ? <Spinner size="sm" /> : "Save"}
+                </Button>
+              </HStack>
+            </Dialog.Footer>
           </Dialog.Content>
         </Dialog.Positioner>
       </Portal>

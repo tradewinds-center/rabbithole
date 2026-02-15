@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, authedMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherQuery } from "./lib/customFunctions";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 /**
@@ -66,6 +66,53 @@ export const deleteArtifact = authedMutation({
     const artifact = await ctx.db.get(args.artifactId);
     if (!artifact) return;
     await ctx.db.delete(args.artifactId);
+  },
+});
+
+/**
+ * Get all artifacts across all projects for a scholar (teacher-only).
+ * Returns artifacts enriched with project title and ID, sorted newest first.
+ */
+export const getByScholar = teacherQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
+      .collect();
+
+    const allArtifacts: {
+      _id: string;
+      _creationTime: number;
+      title: string;
+      content: string;
+      lastEditedBy: "scholar" | "ai";
+      projectId: string;
+      projectTitle: string;
+    }[] = [];
+
+    for (const project of projects) {
+      const artifacts = await ctx.db
+        .query("artifacts")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .collect();
+
+      for (const artifact of artifacts) {
+        allArtifacts.push({
+          _id: artifact._id,
+          _creationTime: artifact._creationTime,
+          title: artifact.title,
+          content: artifact.content,
+          lastEditedBy: artifact.lastEditedBy,
+          projectId: project._id,
+          projectTitle: project.title,
+        });
+      }
+    }
+
+    // Sort newest first
+    allArtifacts.sort((a, b) => b._creationTime - a._creationTime);
+    return allArtifacts;
   },
 });
 

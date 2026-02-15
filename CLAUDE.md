@@ -6,11 +6,11 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 ## Roadmap
 
-- [ ] **Status Orbs** - Replace color-coded backgrounds on teacher dashboard with spherical "orbs" next to each student (green/blue/yellow/red/idle). Also show the orb somewhere peripherally visible in scholar view so status is always apparent to everyone.
+- [x] **Status Orbs** - Replace color-coded backgrounds on teacher dashboard with spherical "orbs" next to each student (green/blue/yellow/red/idle). Also show the orb somewhere peripherally visible in scholar view so status is always apparent to everyone.
 - [x] **Unified Dimension Picker** - Shared `DimensionPicker` component used in both scholar ProjectHeader and teacher FocusBar. All dimensions in a single labeled row.
-- [ ] **Scholar Layout Revamp** - Revamp scholar view layout so artifact and process panel can be visible at the same time (currently one or the other).
+- [x] **Scholar Layout Revamp** - Revamp scholar view layout so artifact and process panel can be visible at the same time (currently one or the other).
 - [x] **Rename "Conductor View" to "Conductor"**
-- [ ] **Scholar Home View** - Each scholar gets a home view with a list of their projects to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
+- [x] **Scholar Home View** - Each scholar gets a home view with a list of their projects to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
 - [x] **Categorize by Assignment** - Link projects to specific units
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
@@ -18,7 +18,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
 - [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
-- [ ] **Focus Mode** - Teacher can "lock" a particular unit so scholars must work in it
+- [x] **Focus Mode** - Teacher can "lock" a particular unit so scholars must work in it
 - [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
 - [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
@@ -26,6 +26,8 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [x] **Convex Migration** - Migrated from SQLite/Drizzle/NextAuth to Convex (Feb 2026)
 - [x] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId})
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
+- [ ] **Upload Image** - Scholars can upload images into chat
+- [ ] **Code Artifacts** - Support code blocks as interactive artifacts
 
 ---
 

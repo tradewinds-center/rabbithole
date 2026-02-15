@@ -17,7 +17,7 @@ const menuItemCss = {
   padding: "0.5rem 0.75rem",
   fontSize: "sm",
   "&[data-highlighted]": {
-    background: "var(--chakra-colors-violet-200)",
+    background: "var(--chakra-colors-gray-100)",
     color: "navy.500",
   },
 };
@@ -120,7 +120,7 @@ export function DimensionPicker({
         <Portal>
           <Menu.Positioner>
             <Menu.Content
-              css={{ padding: "0.5rem", minWidth: "200px", background: "var(--chakra-colors-violet-100)" }}
+              css={{ padding: "0.5rem", minWidth: "200px" }}
             >
               <Menu.Item
                 value="none"
