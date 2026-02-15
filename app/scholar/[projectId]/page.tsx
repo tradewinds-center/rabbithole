@@ -425,6 +425,7 @@ function ScholarProjectInner() {
             projectId={projectId}
             onProjectUpdate={() => {}}
             onOpenSidebar={() => setIsSidebarOpen(true)}
+            onSignOut={isRemoteMode ? undefined : () => signOut()}
             userName={displayName}
             userImage={displayImage}
             isTestMode={isTestMode}

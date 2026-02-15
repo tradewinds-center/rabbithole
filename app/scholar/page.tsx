@@ -11,18 +11,14 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Box,
   Flex,
-  VStack,
   HStack,
   Text,
-  Button,
-  IconButton,
   Spinner,
   SimpleGrid,
-  Badge,
 } from "@chakra-ui/react";
-import { Avatar } from "@/components/Avatar";
 import { AppLogo } from "@/components/AppLogo";
-import { FiPlus, FiLogOut, FiMessageSquare, FiClock } from "react-icons/fi";
+import { AccountMenu } from "@/components/AccountMenu";
+import { FiPlus, FiMessageSquare, FiClock } from "react-icons/fi";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -110,55 +106,6 @@ function ScholarHome() {
 
   const displayName = user?.name || "Scholar";
   const displayImage = user?.image || undefined;
-
-  // Empty state
-  if (projects.length === 0) {
-    return (
-      <Flex minH="100vh" bg="gray.50" flexDir="column">
-        <TopBar
-          displayName={displayName}
-          displayImage={displayImage}
-          isRemoteMode={isRemoteMode}
-          onSignOut={() => signOut()}
-        />
-        <Flex flex={1} align="center" justify="center" flexDir="column" gap={4} p={8}>
-          <Box
-            w={24}
-            h={24}
-            borderRadius="full"
-            bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text fontSize="4xl" fontWeight="bold" color="white" fontFamily="heading">
-              M
-            </Text>
-          </Box>
-          <VStack gap={2}>
-            <Text fontSize="2xl" fontWeight="600" fontFamily="heading" color="navy.500">
-              Welcome{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
-            </Text>
-            <Text color="charcoal.400" fontFamily="body" textAlign="center" maxW="md">
-              Your AI learning companion. Start a new project to explore ideas, ask questions, and dive deep into any topic.
-            </Text>
-            <Button
-              size="lg"
-              bg="violet.500"
-              color="white"
-              _hover={{ bg: "violet.700" }}
-              fontFamily="heading"
-              onClick={handleNewProject}
-              mt={2}
-            >
-              <FiPlus style={{ marginRight: "8px" }} />
-              Start a Project
-            </Button>
-          </VStack>
-        </Flex>
-      </Flex>
-    );
-  }
 
   return (
     <Flex minH="100vh" bg="gray.50" flexDir="column">
@@ -311,26 +258,13 @@ function TopBar({
       flexShrink={0}
     >
       <AppLogo variant="dark" />
-      <HStack gap={3}>
-        <HStack gap={2}>
-          <Avatar size="sm" name={displayName} src={displayImage} />
-          <Text fontSize="sm" fontFamily="heading" color="navy.500" display={{ base: "none", sm: "block" }}>
-            {displayName}
-          </Text>
-        </HStack>
-        {!isRemoteMode && (
-          <IconButton
-            aria-label="Sign out"
-            size="sm"
-            variant="ghost"
-            color="charcoal.500"
-            _hover={{ bg: "gray.100" }}
-            onClick={onSignOut}
-          >
-            <FiLogOut />
-          </IconButton>
-        )}
-      </HStack>
+      {!isRemoteMode && (
+        <AccountMenu
+          userName={displayName}
+          userImage={displayImage}
+          onSignOut={onSignOut}
+        />
+      )}
     </Flex>
   );
 }

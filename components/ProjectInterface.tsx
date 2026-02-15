@@ -46,6 +46,7 @@ interface ProjectInterfaceProps {
   projectId: string;
   onProjectUpdate?: () => void;
   onOpenSidebar?: () => void;
+  onSignOut?: () => void;
   userName?: string;
   userImage?: string;
   isTestMode?: boolean;
@@ -55,6 +56,7 @@ export function ProjectInterface({
   projectId,
   onProjectUpdate,
   onOpenSidebar,
+  onSignOut,
   userName,
   userImage,
   isTestMode,
@@ -446,6 +448,7 @@ export function ProjectInterface({
         userName={userName}
         userImage={userImage}
         isTestMode={isTestMode}
+        onSignOut={onSignOut}
         currentStepKey={processState?.currentStep ?? null}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}
         showRightPanel={showRightPanel}

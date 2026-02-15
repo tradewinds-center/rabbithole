@@ -13,8 +13,7 @@ import {
 } from "@chakra-ui/react";
 import { FiMenu } from "react-icons/fi";
 import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
-import { Avatar } from "./Avatar";
-import { StatusOrb } from "./StatusOrb";
+import { AccountMenu } from "./AccountMenu";
 import { DimensionPicker } from "./DimensionPicker";
 import type { DimensionOption } from "./DimensionPicker";
 import { DimensionEditModal } from "./DimensionEditModal";
@@ -61,6 +60,8 @@ interface ProjectHeaderProps {
   isTestMode?: boolean;
   // Current process step key (e.g. "C", "R", "A") for badge display
   currentStepKey?: string | null;
+  // Sign out
+  onSignOut?: () => void;
   // Project rename
   onProjectRename?: (title: string) => void;
   // Right panel toggle
@@ -95,6 +96,7 @@ export function ProjectHeader({
   userName,
   userImage,
   isTestMode,
+  onSignOut,
   currentStepKey,
   onProjectRename,
   showRightPanel,
@@ -246,23 +248,14 @@ export function ProjectHeader({
           </a>
         )}
 
-        {userName && (
-          <HStack gap={2} flexShrink={0}>
-            <StatusOrb
-              pulseScore={pulseScore ?? null}
-              lastMessageAt={lastMessageAt ?? null}
-              size="sm"
-            />
-            <Text
-              fontSize="xs"
-              color="charcoal.400"
-              fontFamily="heading"
-              display={{ base: "none", md: "block" }}
-            >
-              {userName}
-            </Text>
-            <Avatar size="xs" name={userName} src={userImage} />
-          </HStack>
+        {userName && onSignOut && (
+          <AccountMenu
+            userName={userName}
+            userImage={userImage}
+            pulseScore={pulseScore}
+            lastMessageAt={lastMessageAt}
+            onSignOut={onSignOut}
+          />
         )}
       </Flex>
 

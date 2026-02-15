@@ -19,14 +19,13 @@ import {
   Card,
   SimpleGrid,
   Badge,
-  Menu,
   Portal,
   Tooltip,
   Timeline,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
+import { AccountMenu } from "@/components/AccountMenu";
 import {
-  FiLogOut,
   FiUsers,
   FiMessageSquare,
   FiUser,
@@ -157,43 +156,16 @@ export default function TeacherDashboard() {
         </HStack>
 
         {/* Account menu */}
-        <Menu.Root positioning={{ placement: "bottom-end" }}>
-          <Menu.Trigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              ml="auto"
-              px={2}
-              _hover={{ bg: "gray.100" }}
-            >
-              <HStack gap={2}>
-                <Avatar
-                  size="sm"
-                  name={user?.name || "Teacher"}
-                  src={user?.image || undefined}
-                />
-                <Text fontFamily="heading" fontSize="xs" fontWeight="500" color="charcoal.500">
-                  {user?.name}
-                </Text>
-              </HStack>
-            </Button>
-          </Menu.Trigger>
-          <Menu.Positioner>
-            <Menu.Content minW="160px">
-              <Menu.Item
-                value="sign-out"
-                cursor="pointer"
-                onClick={() => {
-                  signOut();
-                  router.push("/login");
-                }}
-              >
-                <FiLogOut />
-                Sign Out
-              </Menu.Item>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Menu.Root>
+        <Box ml="auto">
+          <AccountMenu
+            userName={user?.name || "Teacher"}
+            userImage={user?.image || undefined}
+            onSignOut={() => {
+              signOut();
+              router.push("/login");
+            }}
+          />
+        </Box>
       </Flex>
 
       {/* Content */}
