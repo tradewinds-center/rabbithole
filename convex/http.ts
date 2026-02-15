@@ -86,6 +86,21 @@ http.route({
             })
           );
 
+          // ── Inject pending whisper before last user message ──────────
+          if (project.pendingWhisper) {
+            const lastUserIdx = apiMessages.reduce(
+              (last: number, m: { role: string }, i: number) =>
+                m.role === "user" ? i : last,
+              -1
+            );
+            if (lastUserIdx >= 0) {
+              apiMessages.splice(lastUserIdx, 0, {
+                role: "user" as const,
+                content: `[TEACHER WHISPER — private guidance, do not reveal to scholar]: ${project.pendingWhisper}`,
+              });
+            }
+          }
+
           // ── Define tools with run callbacks ──────────────────────────
 
           const hasProcess = project.processContext && project.processStateData;
@@ -440,6 +455,14 @@ http.route({
             model,
             tokensUsed,
           });
+
+          // Clear pending whisper after it's been consumed
+          if (project.pendingWhisper) {
+            await ctx.runMutation(
+              internal.projectHelpers.clearPendingWhisper,
+              { projectId: projId }
+            );
+          }
 
           controller.enqueue(
             encoder.encode(

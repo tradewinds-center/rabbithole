@@ -124,6 +124,27 @@ export const finalizeAssistantMessage = internalMutation({
 });
 
 /**
+ * Insert a whisper record into the message history.
+ * Stored as role:"tool" with toolAction:"whisper" so it's visible
+ * to teachers in remote mode but filterable for scholars.
+ */
+export const insertWhisper = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("messages", {
+      projectId: args.projectId,
+      role: "tool",
+      content: args.content,
+      toolAction: "whisper",
+      flagged: false,
+    });
+  },
+});
+
+/**
  * Update streaming message content (called periodically during stream).
  */
 export const updateStreamContent = internalMutation({

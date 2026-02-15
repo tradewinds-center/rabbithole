@@ -429,6 +429,7 @@ function ScholarProjectInner() {
             userName={displayName}
             userImage={displayImage}
             isTestMode={isTestMode}
+            isRemoteMode={isRemoteMode}
           />
         ) : (
           <Flex

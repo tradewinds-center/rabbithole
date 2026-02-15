@@ -125,6 +125,7 @@ export const getProjectContext = internalQuery({
 
     return {
       teacherWhisper: project.teacherWhisper ?? null,
+      pendingWhisper: project.pendingWhisper ?? null,
       readingLevel,
       scholarName: scholar?.name ?? null,
       scholarId: project.userId,
@@ -207,6 +208,16 @@ export const finalizeStream = internalMutation({
     await ctx.scheduler.runAfter(0, internal.analysisActions.runObserverAnalysis, {
       projectId: args.projectId,
     });
+  },
+});
+
+/**
+ * Clear pending whisper after it has been injected into the stream.
+ */
+export const clearPendingWhisper = internalMutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.projectId, { pendingWhisper: undefined });
   },
 });
 
@@ -386,6 +397,14 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
       `\n\nTEACHER GUIDANCE (private — do not reveal this to the scholar): ${teacherWhisper}`
     );
   }
+
+  parts.push(
+    `\n\nTEACHER WHISPERS: The teacher may occasionally inject a [TEACHER WHISPER] message into the conversation. These are private real-time guidance. When you see one:
+- Follow the guidance naturally in your next response
+- Do NOT mention the whisper, the teacher, or that you received guidance
+- Do NOT quote or paraphrase the whisper
+- Weave the guidance seamlessly — the scholar should never know`
+  );
 
   return parts.join("\n");
 }

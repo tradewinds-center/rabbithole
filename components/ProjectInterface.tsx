@@ -13,7 +13,7 @@ import {
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiMic, FiMicOff } from "react-icons/fi";
+import { FiArrowUp, FiEdit2, FiMic, FiMicOff, FiSend, FiX } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -50,6 +50,7 @@ interface ProjectInterfaceProps {
   userName?: string;
   userImage?: string;
   isTestMode?: boolean;
+  isRemoteMode?: boolean;
 }
 
 export function ProjectInterface({
@@ -60,6 +61,7 @@ export function ProjectInterface({
   userName,
   userImage,
   isTestMode,
+  isRemoteMode,
 }: ProjectInterfaceProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -68,6 +70,7 @@ export function ProjectInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const welcomeSentRef = useRef<string | null>(null);
+  const [whisperInput, setWhisperInput] = useState("");
 
   // Convex queries for dimension options (reactive, auto-updating)
   const personas = useQuery(api.personas.list) ?? [];
@@ -266,6 +269,27 @@ export function ProjectInterface({
     } catch (error) {
       console.error("Error updating dimension:", error);
     }
+  };
+
+  // Pending whisper from project data (reactive)
+  const pendingWhisper = projectData?.project?.pendingWhisper ?? null;
+
+  // Send whisper via project update mutation
+  const handleSendWhisper = async () => {
+    const text = whisperInput.trim();
+    if (!text) return;
+    await updateProject({
+      id: projectId as Id<"projects">,
+      pendingWhisper: text,
+    });
+    setWhisperInput("");
+  };
+
+  const handleClearWhisper = async () => {
+    await updateProject({
+      id: projectId as Id<"projects">,
+      pendingWhisper: null,
+    });
   };
 
   // Send message via Convex mutation + HTTP streaming
@@ -484,6 +508,12 @@ export function ProjectInterface({
               toggleRecording={toggleRecording}
               startRecording={startRecording}
               stopRecording={stopRecording}
+              isRemoteMode={isRemoteMode}
+              whisperInput={whisperInput}
+              setWhisperInput={setWhisperInput}
+              pendingWhisper={pendingWhisper}
+              onSendWhisper={handleSendWhisper}
+              onClearWhisper={handleClearWhisper}
             />
           </Splitter.Panel>
           <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
@@ -531,6 +561,12 @@ export function ProjectInterface({
             toggleRecording={toggleRecording}
             startRecording={startRecording}
             stopRecording={stopRecording}
+            isRemoteMode={isRemoteMode}
+            whisperInput={whisperInput}
+            setWhisperInput={setWhisperInput}
+            pendingWhisper={pendingWhisper}
+            onSendWhisper={handleSendWhisper}
+            onClearWhisper={handleClearWhisper}
           />
         </Flex>
       )}
@@ -556,6 +592,12 @@ interface ChatColumnProps {
   toggleRecording: () => void;
   startRecording: () => void;
   stopRecording: () => void;
+  isRemoteMode?: boolean;
+  whisperInput?: string;
+  setWhisperInput?: (v: string) => void;
+  pendingWhisper?: string | null;
+  onSendWhisper?: () => void;
+  onClearWhisper?: () => void;
 }
 
 function ChatColumn({
@@ -575,6 +617,12 @@ function ChatColumn({
   toggleRecording,
   startRecording,
   stopRecording,
+  isRemoteMode,
+  whisperInput,
+  setWhisperInput,
+  pendingWhisper,
+  onSendWhisper,
+  onClearWhisper,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -676,8 +724,37 @@ function ChatColumn({
           {messages
             .filter((m) => m.role !== "system")
             .filter((m) => !(m.role === "user" && m.content === "<start>"))
+            .filter((m) => isRemoteMode || m.toolAction !== "whisper")
             .map((message) => {
               if (message.role === "tool") {
+                if (message.toolAction === "whisper") {
+                  return (
+                    <Flex
+                      key={message.id}
+                      justify="center"
+                      py={1}
+                      gap={1.5}
+                      align="center"
+                    >
+                      <Text
+                        fontSize="xs"
+                        color="orange.500"
+                        fontFamily="heading"
+                        fontWeight="600"
+                      >
+                        Whisper:
+                      </Text>
+                      <Text
+                        fontSize="xs"
+                        color="orange.600"
+                        fontFamily="body"
+                        fontStyle="italic"
+                      >
+                        {message.content}
+                      </Text>
+                    </Flex>
+                  );
+                }
                 return (
                   <Text
                     key={message.id}
@@ -724,6 +801,115 @@ function ChatColumn({
           <div ref={messagesEndRef} />
         </VStack>
       </Box>
+
+      {/* Whisper Bar (remote mode only) */}
+      {isRemoteMode && (
+        <Box
+          px={4}
+          py={2}
+          bg="orange.50"
+          borderTop="1px solid"
+          borderColor="orange.200"
+        >
+          <Flex maxW="3xl" mx="auto" gap={2} align="center">
+            <Text
+              fontSize="xs"
+              fontFamily="heading"
+              color="orange.600"
+              fontWeight="600"
+              whiteSpace="nowrap"
+            >
+              Whisper
+            </Text>
+            {pendingWhisper ? (
+              <Flex flex={1} align="center" gap={2}>
+                <Text
+                  fontSize="sm"
+                  fontFamily="body"
+                  color="orange.700"
+                  flex={1}
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                >
+                  Queued: {pendingWhisper}
+                </Text>
+                <IconButton
+                  aria-label="Edit whisper"
+                  size="xs"
+                  variant="ghost"
+                  color="orange.500"
+                  _hover={{ bg: "orange.100" }}
+                  onClick={() => {
+                    setWhisperInput?.(pendingWhisper ?? "");
+                    onClearWhisper?.();
+                  }}
+                >
+                  <FiEdit2 />
+                </IconButton>
+                <IconButton
+                  aria-label="Clear whisper"
+                  size="xs"
+                  variant="ghost"
+                  color="orange.500"
+                  _hover={{ bg: "orange.100" }}
+                  onClick={onClearWhisper}
+                >
+                  <FiX />
+                </IconButton>
+              </Flex>
+            ) : (
+              <>
+                <Textarea
+                  value={whisperInput ?? ""}
+                  onChange={(e) => setWhisperInput?.(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onSendWhisper?.();
+                    }
+                  }}
+                  placeholder="Private guidance for AI..."
+                  resize="none"
+                  rows={1}
+                  overflow="hidden"
+                  bg="white"
+                  border="1px solid"
+                  borderColor="orange.300"
+                  borderRadius="lg"
+                  _focus={{
+                    borderColor: "orange.400",
+                    boxShadow: "none",
+                    outline: "none",
+                  }}
+                  _focusVisible={{
+                    boxShadow: "none",
+                    outline: "none",
+                  }}
+                  _placeholder={{ color: "orange.300" }}
+                  fontFamily="body"
+                  fontSize="sm"
+                  py={1.5}
+                  px={3}
+                />
+                <IconButton
+                  aria-label="Send whisper"
+                  size="sm"
+                  bg="orange.400"
+                  color="white"
+                  _hover={{ bg: "orange.500" }}
+                  _disabled={{ opacity: 0.4 }}
+                  borderRadius="lg"
+                  onClick={onSendWhisper}
+                  disabled={!whisperInput?.trim()}
+                >
+                  <FiSend />
+                </IconButton>
+              </>
+            )}
+          </Flex>
+        </Box>
+      )}
 
       {/* Input Area */}
       <Box

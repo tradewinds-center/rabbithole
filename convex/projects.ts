@@ -161,6 +161,7 @@ export const update = authedMutation({
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
     processId: v.optional(v.union(v.id("processes"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
+    pendingWhisper: v.optional(v.union(v.string(), v.null())),
     readingLevelOverride: v.optional(v.union(v.string(), v.null())),
     analysisSummary: v.optional(v.union(v.string(), v.null())),
   },
@@ -193,6 +194,8 @@ export const update = authedMutation({
     if (isTeacher) {
       if (args.teacherWhisper !== undefined)
         updates.teacherWhisper = args.teacherWhisper ?? undefined;
+      if (args.pendingWhisper !== undefined)
+        updates.pendingWhisper = args.pendingWhisper ?? undefined;
       if (args.readingLevelOverride !== undefined)
         updates.readingLevelOverride = args.readingLevelOverride ?? undefined;
       if (args.analysisSummary !== undefined)
@@ -287,6 +290,17 @@ export const sendMessage = authedMutation({
       processId,
       flagged: false,
     });
+
+    // If there's a pending whisper, record it between user msg and assistant placeholder
+    if (project.pendingWhisper) {
+      await ctx.db.insert("messages", {
+        projectId: args.projectId,
+        role: "tool",
+        content: project.pendingWhisper,
+        toolAction: "whisper",
+        flagged: false,
+      });
+    }
 
     // Create stream ID
     const streamId = crypto.randomUUID();

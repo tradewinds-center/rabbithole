@@ -41,6 +41,7 @@ export default defineSchema({
     analysisSummary: v.optional(v.string()),
     pulseScore: v.optional(v.number()),
     teacherWhisper: v.optional(v.string()),
+    pendingWhisper: v.optional(v.string()),
     readingLevelOverride: v.optional(v.string()),
     isArchived: v.boolean(),
     // DEPRECATED — kept optional for migration, remove after running migrations:removeStatusField
