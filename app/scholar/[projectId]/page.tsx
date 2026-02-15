@@ -131,18 +131,22 @@ function ScholarProjectInner() {
       router.replace("/login");
       return;
     }
-    // Let teachers through if they have dimension params (preview/demo) or remote mode
-    if ((user.role === "teacher" || user.role === "admin") && !remoteUserId && !hasDimensionParams) {
+    // Let teachers through if they have dimension params (preview/demo), remote mode, or demo flag
+    const isDemoMode = searchParams.get("demo") === "1";
+    if ((user.role === "teacher" || user.role === "admin") && !remoteUserId && !hasDimensionParams && !isDemoMode) {
       router.replace("/teacher");
       return;
     }
-  }, [user, isUserLoading, router, remoteUserId, hasDimensionParams]);
+  }, [user, isUserLoading, router, remoteUserId, hasDimensionParams, searchParams]);
 
   // Auto-create project when projectId is "new"
   useEffect(() => {
     if (!isNewProject || newProjectCreatedRef.current) return;
     // Wait for dimension lists to load if we have dimension params
-    if (hasDimensionParams && (personas.length === 0 && units.length === 0 && perspectives.length === 0 && processes.length === 0)) return;
+    if (urlPersona && personas.length === 0) return;
+    if (urlUnit && units.length === 0) return;
+    if (urlPerspective && perspectives.length === 0) return;
+    if (urlProcess && processes.length === 0) return;
 
     newProjectCreatedRef.current = true;
 
@@ -158,8 +162,11 @@ function ScholarProjectInner() {
     createProject(createArgs as Parameters<typeof createProject>[0])
       .then((result) => {
         if (result) {
-          const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-          router.replace(`/scholar/${result.id}${remoteParam}`);
+          const queryParts: string[] = [];
+          if (remoteUserId) queryParts.push(`remote=${remoteUserId}`);
+          if (hasDimensionParams) queryParts.push("demo=1");
+          const query = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+          router.replace(`/scholar/${result.id}${query}`);
         }
       })
       .catch((error) => {
