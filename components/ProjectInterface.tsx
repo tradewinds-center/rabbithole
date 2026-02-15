@@ -631,39 +631,33 @@ function ChatColumn({
 
   return (
     <Flex flex={1} flexDir="column" overflow="hidden" h="full">
-      {/* Recording ripple overlay — @property animates gradient stop positions */}
+      {/* Recording ripple — 3 divs with GPU-accelerated transform+opacity only */}
       {dictationState === "recording" && rippleCenter && (
         <>
           <style>{`
-            @property --ripple-offset {
-              syntax: '<length>';
-              initial-value: 0px;
-              inherits: false;
-            }
-            @keyframes rippleFlow {
-              from { --ripple-offset: 0px; }
-              to { --ripple-offset: 160px; }
-            }
-            .ripple-overlay {
-              animation: rippleFlow 2s linear infinite;
+            @keyframes rippleGrow {
+              0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+              100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
             }
           `}</style>
-          <Box
-            position="fixed"
-            top={0}
-            left={0}
-            w="100vw"
-            h="100vh"
-            zIndex={9998}
-            pointerEvents="none"
-            userSelect="none"
-            className="ripple-overlay"
-            style={{
-              backgroundImage: `repeating-radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, transparent var(--ripple-offset), rgba(229,62,62,0.25) calc(20px + var(--ripple-offset)), transparent calc(40px + var(--ripple-offset)), transparent calc(160px + var(--ripple-offset)))`,
-              maskImage: `radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, black 0%, transparent 60%)`,
-              WebkitMaskImage: `radial-gradient(circle at ${rippleCenter.x}px ${rippleCenter.y}px, black 0%, transparent 60%)`,
-            }}
-          />
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                position: "fixed",
+                left: rippleCenter.x,
+                top: rippleCenter.y,
+                width: "250vmax",
+                height: "250vmax",
+                borderRadius: "50%",
+                border: "4px solid rgba(229, 62, 62, 0.9)",
+                pointerEvents: "none",
+                zIndex: 9998,
+                willChange: "transform, opacity",
+                animation: `rippleGrow 15s linear infinite ${-i * 5}s`,
+              }}
+            />
+          ))}
         </>
       )}
 
@@ -768,7 +762,7 @@ function ChatColumn({
             px={4}
             disabled={isStreaming}
           />
-          <Tooltip.Root openDelay={600} closeDelay={0}>
+          <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }}>
             <Tooltip.Trigger asChild>
               <IconButton
                 ref={micBtnRef}
@@ -794,11 +788,11 @@ function ChatColumn({
               </IconButton>
             </Tooltip.Trigger>
             <Portal>
-              <Tooltip.Positioner>
+              <Tooltip.Positioner style={{ zIndex: 10000 }}>
                 <Tooltip.Content
                   fontFamily="heading"
                   fontSize="xs"
-                  bg="navy.500"
+                  bg="red.600"
                   color="white"
                   px={3}
                   py={1.5}
