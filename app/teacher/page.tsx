@@ -58,6 +58,20 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React
   { key: "processes", label: "Processes", icon: FiLayers },
 ];
 
+function timeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
 interface Scholar {
   id: string;
   email?: string;
@@ -70,6 +84,7 @@ interface Scholar {
   pulseScore: number | null;
   lastMessage: string | null;
   lastMessageAt: number | null;
+  lastProjectTitle: string | null;
   processStep: string | null;
   processTitle: string | null;
 }
@@ -505,26 +520,30 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
               )}
           </HStack>
 
-          <HStack
-            gap={4}
-            fontSize="sm"
-            color="charcoal.400"
-            fontFamily="heading"
-          >
-            <HStack gap={1}>
-              <FiMessageSquare />
-              <Text>{scholar.projectCount} projects</Text>
-            </HStack>
-            <Text>{scholar.messageCount} messages</Text>
-          </HStack>
-
           {scholar.lastMessage ? (
-            <VStack align="stretch" gap={1}>
+            <VStack align="stretch" gap={1.5}>
+              {scholar.lastProjectTitle && (
+                <HStack gap={1.5}>
+                  <FiMessageSquare size={12} color="var(--chakra-colors-charcoal-300)" />
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                    {scholar.lastProjectTitle}
+                    {scholar.lastMessageAt && (
+                      <Text as="span" color="charcoal.300"> · {timeAgo(scholar.lastMessageAt)}</Text>
+                    )}
+                  </Text>
+                </HStack>
+              )}
               <Text
                 fontSize="sm"
                 color="charcoal.600"
-                fontFamily="heading"
+                fontFamily="body"
                 lineHeight="1.4"
+                overflow="hidden"
+                css={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }}
               >
                 {scholar.lastMessage}
               </Text>

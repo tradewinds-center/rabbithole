@@ -137,6 +137,7 @@ export const listScholars = teacherQuery({
           pulseScore,
           lastMessage,
           lastMessageAt,
+          lastProjectTitle: mostRecent?.title ?? null,
           processStep,
           processTitle,
         };
