@@ -18,6 +18,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
 - [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
+- [x] **Teacher Whispers** - Ephemeral private guidance injected into AI responses via remote view
 - [x] **Focus Mode** - Teacher can "lock" a particular unit so scholars must work in it
 - [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
 - [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
@@ -28,6 +29,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
 - [ ] **Upload Image** - Scholars can upload images into chat
 - [ ] **Code Artifacts** - Support code blocks as interactive artifacts
+- [ ] **Generate Images & Videos** - AI-powered image and video generation within projects (Gemini/DALL-E)
 
 ---
 
