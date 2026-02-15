@@ -369,7 +369,7 @@ function ArtifactEditor({
           flexShrink={0}
         >
           <Text fontSize="xs" fontFamily="heading" color="violet.700">
-            Makawulu updated the document
+            AI updated the document
           </Text>
           <Button
             size="xs"

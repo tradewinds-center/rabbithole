@@ -325,7 +325,7 @@ export function ProjectViewer({
                     color="charcoal.400"
                     mb={1}
                   >
-                    {message.role === "user" ? "Scholar" : "Makawulu"}
+                    {message.role === "user" ? "Scholar" : "AI"}
                   </Text>
                   <Box className="chat-markdown" fontFamily="body" fontSize="sm">
                     <ReactMarkdown>{message.content}</ReactMarkdown>

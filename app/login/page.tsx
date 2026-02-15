@@ -109,7 +109,7 @@ export default function LoginPage() {
               color="navy.500"
               letterSpacing="tight"
             >
-              Makawulu
+              AI Learning Companion
             </Heading>
           </VStack>
 

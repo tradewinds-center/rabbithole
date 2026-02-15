@@ -352,19 +352,18 @@ export function ProjectInterface({
   // Keep ref in sync so dictation callback can call latest handleSend
   sendMessageRef.current = handleSend;
 
-  // Auto-send <start> when a new project has a unit but no messages yet
+  // Auto-send <start> to get AI greeting for every new project
   useEffect(() => {
     if (
       projectData &&
       messages.length === 0 &&
-      activeProject.unitId &&
       !isStreaming &&
       welcomeSentRef.current !== projectId
     ) {
       welcomeSentRef.current = projectId;
       handleSend("<start>");
     }
-  }, [projectData, activeProject.unitId, isStreaming, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectData, isStreaming, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle keyboard
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -565,26 +564,9 @@ function ChatColumn({
       <Box flex={1} overflowY="auto" px={6} py={4}>
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
           {messages.length === 0 && !streamingContent && (
-            <VStack py={12} gap={4}>
-              <Text
-                fontSize="xl"
-                fontWeight="600"
-                fontFamily="heading"
-                color="navy.500"
-              >
-                What would you like to explore?
-              </Text>
-              <Text
-                color="charcoal.400"
-                fontFamily="body"
-                textAlign="center"
-                maxW="md"
-              >
-                I&apos;m Makawulu, your AI learning companion. Ask me anything -
-                from science and math to history and creative writing. Let&apos;s
-                discover something together.
-              </Text>
-            </VStack>
+            <Flex py={12} justify="center">
+              <Spinner size="lg" color="violet.500" />
+            </Flex>
           )}
 
           {messages
@@ -764,7 +746,7 @@ function MessageBubble({
 
   const assistantLabel = messagePersona
     ? `${messagePersona.emoji} ${messagePersona.title}`
-    : "Makawulu";
+    : "AI";
 
   if (isUser) {
     return (

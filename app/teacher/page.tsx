@@ -45,6 +45,7 @@ import { DimensionPicker } from "@/components/DimensionPicker";
 import { DimensionEditModal } from "@/components/DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "@/components/DimensionEditModal";
 import { AppLogo } from "@/components/AppLogo";
+import { buildDimensionParams } from "@/lib/dimensions";
 
 type Tab = "scholars" | "live" | "units" | "personas" | "perspectives" | "processes";
 
@@ -644,24 +645,11 @@ function FocusBar({ currentFocus, personas, units, perspectives, processes, onSe
   const [linkCopied, setLinkCopied] = useState(false);
 
   const handleCopyLink = () => {
-    const params: string[] = [];
-    if (focusPersonaId) {
-      const p = personas.find((e) => e._id === focusPersonaId);
-      if (p?.slug) params.push(`persona=${p.slug}`);
-    }
-    if (focusUnitId) {
-      const u = units.find((e) => e._id === focusUnitId);
-      if (u?.slug) params.push(`unit=${u.slug}`);
-    }
-    if (focusPerspectiveId) {
-      const p = perspectives.find((e) => e._id === focusPerspectiveId);
-      if (p?.slug) params.push(`perspective=${p.slug}`);
-    }
-    if (focusProcessId) {
-      const p = processes.find((e) => e._id === focusProcessId);
-      if (p?.slug) params.push(`process=${p.slug}`);
-    }
-    const url = `${window.location.origin}/scholar/new${params.length ? `?${params.join("&")}` : ""}`;
+    const dimParams = buildDimensionParams(
+      { personaId: focusPersonaId, unitId: focusUnitId, perspectiveId: focusPerspectiveId, processId: focusProcessId },
+      { personas, units, perspectives, processes }
+    );
+    const url = `${window.location.origin}/scholar/new${dimParams ? `?${dimParams}` : ""}`;
     navigator.clipboard.writeText(url);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);

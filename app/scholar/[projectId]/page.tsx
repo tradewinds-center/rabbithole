@@ -30,6 +30,7 @@ import {
 } from "react-icons/fi";
 import { ProjectInterface } from "@/components/ProjectInterface";
 import { AppLogo } from "@/components/AppLogo";
+import { buildDimensionParams } from "@/lib/dimensions";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -124,6 +125,8 @@ function ScholarProjectInner() {
     return result;
   })();
 
+  const isDemoMode = searchParams.get("demo") === "1";
+
   // Redirect logic
   useEffect(() => {
     if (isUserLoading) return;
@@ -132,12 +135,11 @@ function ScholarProjectInner() {
       return;
     }
     // Let teachers through if they have dimension params (preview/demo), remote mode, or demo flag
-    const isDemoMode = searchParams.get("demo") === "1";
     if ((user.role === "teacher" || user.role === "admin") && !remoteUserId && !hasDimensionParams && !isDemoMode) {
       router.replace("/teacher");
       return;
     }
-  }, [user, isUserLoading, router, remoteUserId, hasDimensionParams, searchParams]);
+  }, [user, isUserLoading, router, remoteUserId, hasDimensionParams, isDemoMode]);
 
   // Auto-create project when projectId is "new"
   useEffect(() => {
@@ -175,12 +177,21 @@ function ScholarProjectInner() {
       });
   }, [isNewProject, hasDimensionParams, personas, units, perspectives, processes, resolvedDimensions, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Navigate to /scholar/new (optionally with remote param)
+  // Navigate to /scholar/new, carrying forward current dimensions
   const handleNewProject = useCallback(() => {
-    const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+    const currentProject = projects.find((p) => p._id === projectId);
+    const queryParts: string[] = [];
+    if (remoteUserId) queryParts.push(`remote=${remoteUserId}`);
+    const dimParams = buildDimensionParams(
+      currentProject ?? {},
+      { personas, units, perspectives, processes }
+    );
+    if (dimParams) queryParts.push(dimParams);
+    if (isDemoMode || dimParams) queryParts.push("demo=1");
+    const query = queryParts.length ? `?${queryParts.join("&")}` : "";
     newProjectCreatedRef.current = false;
-    router.push(`/scholar/new${remoteParam}`);
-  }, [router, remoteUserId]);
+    router.push(`/scholar/new${query}`);
+  }, [router, remoteUserId, projectId, projects, personas, units, perspectives, processes, isDemoMode]);
 
   // Archive project
   const handleArchiveProject = async (id: string) => {
@@ -435,7 +446,7 @@ function ScholarProjectInner() {
                 fontFamily="heading"
                 color="navy.500"
               >
-                {isNewProject ? "Creating project..." : "Welcome to Makawulu"}
+                {isNewProject ? "Creating project..." : "Welcome"}
               </Text>
               {isNewProject ? (
                 <Spinner size="lg" color="violet.500" mt={4} />
