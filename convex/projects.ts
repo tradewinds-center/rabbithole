@@ -24,7 +24,7 @@ export const list = authedQuery({
       .order("desc")
       .collect();
 
-    // Enrich with persona emoji for sidebar display
+    // Enrich with persona emoji, unit info, and message count
     return Promise.all(
       projects.map(async (project) => {
         let personaEmoji: string | null = null;
@@ -32,11 +32,29 @@ export const list = authedQuery({
           const persona = await ctx.db.get(project.personaId);
           personaEmoji = persona?.emoji ?? null;
         }
+        let unitTitle: string | null = null;
+        let unitEmoji: string | null = null;
+        if (project.unitId) {
+          const unit = await ctx.db.get(project.unitId);
+          unitTitle = unit?.title ?? null;
+          unitEmoji = unit?.emoji ?? null;
+        }
+        const messages = await ctx.db
+          .query("messages")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
+        const messageCount = messages.filter(
+          (m) => m.role === "user" || m.role === "assistant"
+        ).length;
+
         return {
           ...project,
           id: project._id,
           updatedAt: project._creationTime,
           personaEmoji,
+          unitTitle,
+          unitEmoji,
+          messageCount,
         };
       })
     );

@@ -52,7 +52,7 @@ http.route({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Build system prompt (now includes artifact data)
+    // Build system prompt (now includes artifact data + dossier)
     const systemPrompt = buildSystemPrompt(
       project.teacherWhisper,
       project.readingLevel,
@@ -62,7 +62,8 @@ http.route({
       project.perspectiveContext,
       project.processContext,
       project.processStateData,
-      project.artifactData
+      project.artifactData,
+      project.dossierContent
     );
 
     const encoder = new TextEncoder();
@@ -318,8 +319,31 @@ http.route({
             },
           });
 
+          const updateDossierTool = betaTool({
+            name: "update_dossier",
+            description: "Update the persistent scholar profile with learning patterns, interests, strengths, and growth areas you've observed. Only call this when you have a genuine new insight — not on every message.",
+            inputSchema: {
+              type: "object" as const,
+              properties: {
+                content: {
+                  type: "string" as const,
+                  description: "The full updated dossier content. Use terse bullet points grouped by category (e.g., Learning Style, Interests, Strengths, Growth Areas, Behavioral Patterns). Under 500 words.",
+                },
+              },
+              required: ["content"] as const,
+            },
+            run: async (input) => {
+              await ctx.runMutation(internal.dossier.aiUpdate, {
+                scholarId: project.scholarId,
+                content: input.content,
+              });
+              return "Dossier updated successfully.";
+            },
+          });
+
           // Build tools array based on active features
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
+          tools.push(updateDossierTool); // Always enabled
           if (hasProcess) tools.push(processStepTool);
           if (project.unitContext || (project.artifactData && project.artifactData.length > 0)) tools.push(editDocumentTool);
 

@@ -101,6 +101,12 @@ export const getProjectContext = internalQuery({
       }
     }
 
+    // Get scholar dossier
+    const dossier = await ctx.db
+      .query("scholarDossiers")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
+      .first();
+
     // Get artifact data (multi-document)
     const allArtifacts = await ctx.db
       .query("artifacts")
@@ -121,6 +127,8 @@ export const getProjectContext = internalQuery({
       teacherWhisper: project.teacherWhisper ?? null,
       readingLevel,
       scholarName: scholar?.name ?? null,
+      scholarId: project.userId,
+      dossierContent: dossier?.content ?? null,
       unitContext,
       personaContext,
       perspectiveContext,
@@ -242,7 +250,8 @@ export function buildSystemPrompt(
     title: string;
     content: string;
     lastEditedBy: string;
-  }[] | null = null
+  }[] | null = null,
+  dossierContent: string | null = null
 ): string {
   const parts: string[] = [];
 
@@ -266,6 +275,22 @@ Guidelines:
 
   if (scholarName) {
     parts.push(`\nSCHOLAR NAME: ${scholarName}`);
+  }
+
+  // Scholar dossier (persistent profile)
+  if (dossierContent) {
+    parts.push(`\nSCHOLAR PROFILE (persistent notes you maintain about this scholar's learning patterns — private, do not mention to scholar):
+${dossierContent}
+
+You have a tool called "update_dossier" to update this profile. Use it when you notice:
+- A new learning style preference (visual/kinesthetic/verbal, etc.)
+- A recurring interest or passion
+- A strength or growth area
+- A behavioral pattern (e.g., rushes through, asks deep questions, gets frustrated with X)
+Keep the profile terse — bullet points grouped by category. Under 500 words.
+Do NOT update the dossier on every message — only when you have a genuine new insight.`);
+  } else {
+    parts.push(`\nYou have a tool called "update_dossier" to build a persistent scholar profile. Start building it when you notice learning patterns, interests, strengths, or growth areas. Use terse bullet points grouped by category. Under 500 words. Do NOT update on every message — only when you have a genuine new insight.`);
   }
 
   // Reading level adjustment

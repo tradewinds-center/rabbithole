@@ -27,6 +27,7 @@ import {
   FiMessageSquare,
   FiTrash2,
   FiX,
+  FiHome,
 } from "react-icons/fi";
 import { ProjectInterface } from "@/components/ProjectInterface";
 import { AppLogo } from "@/components/AppLogo";
@@ -253,7 +254,23 @@ function ScholarProjectInner() {
                 justify="space-between"
                 align="center"
               >
-                <AppLogo variant="dark" />
+                <HStack gap={2}>
+                  <AppLogo variant="dark" />
+                  <IconButton
+                    aria-label="Home"
+                    size="sm"
+                    variant="ghost"
+                    color="charcoal.500"
+                    _hover={{ bg: "gray.100" }}
+                    onClick={() => {
+                      const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+                      router.push(`/scholar${remoteParam}`);
+                      setIsSidebarOpen(false);
+                    }}
+                  >
+                    <FiHome />
+                  </IconButton>
+                </HStack>
                 <Drawer.CloseTrigger asChild>
                   <IconButton
                     aria-label="Close sidebar"

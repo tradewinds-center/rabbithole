@@ -2,6 +2,14 @@ import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 
+// Test user profiles (Password provider doesn't forward name/image to profile)
+const TEST_USER_PROFILES: Record<string, { name: string; image: string }> = {
+  "test-teacher-001@test.makawulu.dev": { name: "Test Teacher", image: "/avatars/teacher.png" },
+  "test-scholar-001@test.makawulu.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png" },
+  "test-scholar-002@test.makawulu.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png" },
+  "test-scholar-003@test.makawulu.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png" },
+};
+
 function roleFromEmail(email: string | undefined): "scholar" | "teacher" | "admin" {
   if (!email) return "scholar";
   const adminEmails = ["andy@tradewinds.school", "carl@tradewinds.school"];
@@ -24,9 +32,14 @@ export const { auth, signIn, signOut, store } = convexAuth({
     async createOrUpdateUser(ctx, args) {
       if (args.existingUserId) {
         // Update existing user with latest profile info
+        const existingUser = await ctx.db.get(args.existingUserId);
+        const email = (args.profile.email as string | undefined) ?? existingUser?.email;
+        const testProfile = TEST_USER_PROFILES[email ?? ""];
         const updates: Record<string, unknown> = {};
-        if (args.profile.name) updates.name = args.profile.name;
-        if (args.profile.image) updates.image = args.profile.image;
+        const profileName = (args.profile.name as string) || testProfile?.name;
+        if (profileName) updates.name = profileName;
+        const profileImage = (args.profile.image as string) || testProfile?.image;
+        if (profileImage) updates.image = profileImage;
         if (Object.keys(updates).length > 0) {
           await ctx.db.patch(args.existingUserId, updates);
         }
@@ -35,11 +48,13 @@ export const { auth, signIn, signOut, store } = convexAuth({
       // Create new user with role based on email
       const email = args.profile.email as string | undefined;
       const role = roleFromEmail(email);
-      const name = (args.profile.name as string) || email?.split("@")[0] || "User";
+      const testProfile = TEST_USER_PROFILES[email ?? ""];
+      const name = (args.profile.name as string) || testProfile?.name || email?.split("@")[0] || "User";
+      const image = (args.profile.image as string | undefined) || testProfile?.image;
       return await ctx.db.insert("users", {
         email,
         name,
-        image: args.profile.image as string | undefined,
+        image,
         role,
       });
     },

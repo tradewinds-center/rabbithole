@@ -14,6 +14,7 @@ import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
+import type * as dossier from "../dossier.js";
 import type * as focus from "../focus.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   audioActions: typeof audioActions;
   auth: typeof auth;
+  dossier: typeof dossier;
   focus: typeof focus;
   http: typeof http;
   "lib/auth": typeof lib_auth;

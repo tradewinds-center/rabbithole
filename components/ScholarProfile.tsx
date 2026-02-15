@@ -27,6 +27,7 @@ import {
   FiTarget,
   FiFileText,
   FiExternalLink,
+  FiUser,
 } from "react-icons/fi";
 
 interface ScholarProfileProps {
@@ -72,6 +73,8 @@ const READING_LEVELS = [
 export function ScholarProfile({ scholarId }: ScholarProfileProps) {
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
+  const dossierContent = useQuery(api.dossier.getForTeacher, { scholarId: scholarId as Id<"users"> });
+  const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const rateTopic = useMutation(api.scholars.rateTopic);
   const addSuggestion = useMutation(api.scholars.addSuggestion);
@@ -88,6 +91,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
 
   const isLoading = profile === undefined;
 
+  const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
   const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
@@ -448,8 +452,41 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
             </Box>
           </VStack>
 
-          {/* Right column: Reading Level + Suggested Follow-ups */}
+          {/* Right column: Dossier + Reading Level + Suggested Follow-ups */}
           <VStack flex={1} gap={5} align="stretch" minW={0}>
+            {/* Scholar Dossier */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={2}>
+                <FiUser color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Scholar Dossier
+                </Text>
+              </HStack>
+              <Textarea
+                size="sm"
+                placeholder="No dossier yet — the AI will build one during conversations."
+                value={dossierDraft ?? dossierContent ?? ""}
+                onChange={(e) => setDossierDraft(e.target.value)}
+                onBlur={async () => {
+                  if (dossierDraft !== null && dossierDraft !== (dossierContent ?? "")) {
+                    await updateDossier({
+                      scholarId: scholarId as Id<"users">,
+                      content: dossierDraft,
+                    });
+                  }
+                  setDossierDraft(null);
+                }}
+                rows={6}
+                bg="gray.50"
+                fontFamily="body"
+                fontSize="sm"
+                lineHeight="1.5"
+              />
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+                AI-maintained learning profile. You can also edit manually.
+              </Text>
+            </Box>
+
             {/* Reading Level */}
             <Box bg="white" borderRadius="lg" p={4} shadow="xs">
               <HStack mb={2}>

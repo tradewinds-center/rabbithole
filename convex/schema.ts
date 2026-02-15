@@ -230,6 +230,11 @@ export default defineSchema({
     lastEditedBy: v.union(v.literal("scholar"), v.literal("ai")),
   }).index("by_project", ["projectId"]),
 
+  scholarDossiers: defineTable({
+    scholarId: v.id("users"),
+    content: v.string(),
+  }).index("by_scholar", ["scholarId"]),
+
   processState: defineTable({
     projectId: v.id("projects"),
     processId: v.id("processes"),

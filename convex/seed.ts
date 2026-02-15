@@ -1004,6 +1004,35 @@ export const patchSlugs = internalMutation({
 });
 
 /**
+ * Patch auth-created test users with proper names, avatars, and roles.
+ * These users were created by the Password provider with email like test-scholar-001@test.makawulu.dev
+ * Run: npx convex run seed:patchTestUsers
+ */
+export const patchTestUsers = internalMutation({
+  handler: async (ctx) => {
+    const testUserMap: Record<string, { name: string; image: string; role: "teacher" | "scholar"; readingLevel?: string }> = {
+      "test-teacher-001@test.makawulu.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: "teacher" },
+      "test-scholar-001@test.makawulu.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3" },
+      "test-scholar-002@test.makawulu.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2" },
+      "test-scholar-003@test.makawulu.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5" },
+    };
+
+    let patched = 0;
+    for (const [email, data] of Object.entries(testUserMap)) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+      if (user) {
+        await ctx.db.patch(user._id, data);
+        patched++;
+      }
+    }
+    console.log(`Patched ${patched} auth-created test users`);
+  },
+});
+
+/**
  * Patch existing test users with avatar images and reading levels.
  * Run once: npx convex run seed:patchAvatars
  */
