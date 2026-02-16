@@ -242,6 +242,27 @@ export const getGuestToken = teacherQuery({
 });
 
 /**
+ * Self-serve guest registration (public — no auth required).
+ * Visitor enters their name, gets a scholar account + guest token.
+ */
+export const createSelfServeGuest = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const trimmed = args.name.trim();
+    if (!trimmed || trimmed.length < 1) {
+      throw new Error("Name is required");
+    }
+    const token = crypto.randomUUID();
+    await ctx.db.insert("users", {
+      name: trimmed,
+      role: "scholar",
+      guestToken: token,
+    });
+    return { guestToken: token };
+  },
+});
+
+/**
  * Create a new scholar user (teacher only).
  * Automatically generates a guest token.
  */

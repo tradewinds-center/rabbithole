@@ -1,37 +1,32 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery } from "convex/react";
-import { useSearchParams } from "next/navigation";
-import { Box, Container, Heading, Text, VStack, Spinner } from "@chakra-ui/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Box, Container, Heading, Text, VStack, Spinner, Input, Button } from "@chakra-ui/react";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { api } from "@/convex/_generated/api";
 
-function GuestLoginInner() {
+/**
+ * Inner component for token-based guest login (existing flow).
+ */
+function GuestLoginWithToken({ token }: { token: string }) {
   const { signIn, signOut } = useAuthActions();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
 
   const scholar = useQuery(
     api.users.resolveGuestToken,
-    token ? { token } : "skip"
+    { token }
   );
 
   const [status, setStatus] = useState<"loading" | "signing-in" | "redirecting" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const attemptedRef = useRef(false);
 
-  // Step 1: Sign out any existing session first, then sign in as guest
   useEffect(() => {
     if (attemptedRef.current) return;
-    if (isAuthLoading) return; // wait for auth state to resolve
-    if (!token) {
-      setStatus("error");
-      setErrorMsg("No access token provided.");
-      return;
-    }
-    if (scholar === undefined) return; // still loading
+    if (isAuthLoading) return;
+    if (scholar === undefined) return;
     if (scholar === null) {
       setStatus("error");
       setErrorMsg("This link is invalid or has been revoked.");
@@ -41,7 +36,6 @@ function GuestLoginInner() {
     attemptedRef.current = true;
 
     const doGuestSignIn = async () => {
-      // Sign out any existing session (e.g. teacher logged in on another tab)
       if (isAuthenticated) {
         await signOut().catch(() => {});
       }
@@ -51,7 +45,6 @@ function GuestLoginInner() {
       const password = token;
 
       try {
-        // Try signUp first (first visit), fall back to signIn (repeat visits)
         await signIn("password", { email, password, flow: "signUp" })
           .catch(() => signIn("password", { email, password, flow: "signIn" }));
         setStatus("redirecting");
@@ -65,6 +58,154 @@ function GuestLoginInner() {
 
     doGuestSignIn();
   }, [token, scholar, isAuthenticated, isAuthLoading, signIn, signOut]);
+
+  return (
+    <>
+      {status === "error" ? (
+        <>
+          <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
+            Oops
+          </Heading>
+          <Text color="charcoal.500" fontFamily="body">
+            {errorMsg}
+          </Text>
+        </>
+      ) : (
+        <>
+          <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
+            {scholar ? `Welcome back, ${scholar.name}!` : "Loading..."}
+          </Heading>
+          <Spinner size="lg" color="violet.500" />
+          <Text color="charcoal.400" fontFamily="body" fontSize="sm">
+            {status === "redirecting" ? "Taking you to your projects..." : "Signing you in..."}
+          </Text>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Self-serve registration form: visitor enters name, gets a unique link.
+ */
+function SelfServeGuestForm() {
+  const [name, setName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const createGuest = useMutation(api.users.createSelfServeGuest);
+  const router = useRouter();
+
+  const handleCreate = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setIsCreating(true);
+    setError("");
+    try {
+      const result = await createGuest({ name: trimmed });
+      setGuestToken(result.guestToken);
+      // Auto-redirect after a short delay so they can see/bookmark the link
+      setTimeout(() => {
+        router.push(`/guest?token=${result.guestToken}`);
+      }, 3000);
+    } catch (err) {
+      console.error("Guest creation error:", err);
+      setError("Something went wrong. Please try again.");
+      setIsCreating(false);
+    }
+  };
+
+  if (guestToken) {
+    const guestUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/guest?token=${guestToken}`;
+    return (
+      <>
+        <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
+          You're all set!
+        </Heading>
+        <Text color="charcoal.500" fontFamily="body" textAlign="center">
+          Bookmark this link to come back anytime:
+        </Text>
+        <Box
+          bg="gray.100"
+          px={4}
+          py={3}
+          borderRadius="lg"
+          w="full"
+          textAlign="center"
+          cursor="pointer"
+          _hover={{ bg: "gray.200" }}
+          onClick={() => {
+            navigator.clipboard?.writeText(guestUrl);
+          }}
+        >
+          <Text fontSize="sm" fontFamily="body" color="violet.600" wordBreak="break-all">
+            {guestUrl}
+          </Text>
+          <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mt={1}>
+            Click to copy
+          </Text>
+        </Box>
+        <Spinner size="sm" color="violet.500" />
+        <Text color="charcoal.400" fontFamily="body" fontSize="sm">
+          Redirecting you in a moment...
+        </Text>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
+        Try Makawulu
+      </Heading>
+      <Text color="charcoal.500" fontFamily="body" textAlign="center">
+        Enter your name to get started with your own AI learning companion.
+      </Text>
+      <VStack gap={3} w="full">
+        <Input
+          placeholder="Your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+          bg="gray.50"
+          border="1px solid"
+          borderColor="gray.300"
+          borderRadius="lg"
+          fontFamily="body"
+          fontSize="lg"
+          h={14}
+          textAlign="center"
+          _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+          _focusVisible={{ boxShadow: "none", outline: "none" }}
+          autoFocus
+        />
+        <Button
+          size="lg"
+          w="full"
+          bg="violet.500"
+          color="white"
+          _hover={{ bg: "violet.600" }}
+          fontFamily="heading"
+          fontWeight="500"
+          h={14}
+          disabled={!name.trim() || isCreating}
+          onClick={handleCreate}
+        >
+          {isCreating ? <Spinner size="sm" /> : "Start Learning"}
+        </Button>
+        {error && (
+          <Text fontSize="sm" color="red.500" fontFamily="body">
+            {error}
+          </Text>
+        )}
+      </VStack>
+    </>
+  );
+}
+
+function GuestLoginInner() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
 
   return (
     <Box
@@ -99,25 +240,10 @@ function GuestLoginInner() {
             </Text>
           </Box>
 
-          {status === "error" ? (
-            <>
-              <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
-                Oops
-              </Heading>
-              <Text color="charcoal.500" fontFamily="body">
-                {errorMsg}
-              </Text>
-            </>
+          {token ? (
+            <GuestLoginWithToken token={token} />
           ) : (
-            <>
-              <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
-                {scholar ? `Welcome, ${scholar.name}!` : "Loading..."}
-              </Heading>
-              <Spinner size="lg" color="violet.500" />
-              <Text color="charcoal.400" fontFamily="body" fontSize="sm">
-                {status === "redirecting" ? "Taking you to your projects..." : "Signing you in..."}
-              </Text>
-            </>
+            <SelfServeGuestForm />
           )}
         </VStack>
       </Container>
