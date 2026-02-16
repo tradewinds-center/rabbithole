@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
-import { authedQuery, teacherQuery, adminMutation } from "./lib/customFunctions";
+import { authedQuery, teacherQuery, teacherMutation, adminMutation } from "./lib/customFunctions";
 import { roleFromEmail, getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -174,5 +174,82 @@ export const updateRole = adminMutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, { role: args.role });
+  },
+});
+
+// ── Guest Access ─────────────────────────────────────────────────────
+
+/**
+ * Generate a guest access token for a scholar (teacher only).
+ * If the scholar already has a token, returns the existing one.
+ */
+export const generateGuestToken = teacherMutation({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    if (!scholar || scholar.role !== "scholar") {
+      throw new Error("Scholar not found");
+    }
+    if (scholar.guestToken) {
+      return scholar.guestToken;
+    }
+    const token = crypto.randomUUID();
+    await ctx.db.patch(args.scholarId, { guestToken: token });
+    return token;
+  },
+});
+
+/**
+ * Revoke a scholar's guest access token (teacher only).
+ */
+export const revokeGuestToken = teacherMutation({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.scholarId, { guestToken: undefined });
+  },
+});
+
+/**
+ * Validate a guest token and return scholar info (public query — no auth required).
+ */
+export const resolveGuestToken = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db
+      .query("users")
+      .withIndex("by_guestToken", (q) => q.eq("guestToken", args.token))
+      .unique();
+    if (!scholar) return null;
+    return { name: scholar.name ?? "Scholar", image: scholar.image ?? null };
+  },
+});
+
+/**
+ * Get existing guest token for a scholar (teacher only).
+ */
+export const getGuestToken = teacherQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    return scholar?.guestToken ?? null;
+  },
+});
+
+/**
+ * Create a new scholar user (teacher only).
+ * Automatically generates a guest token.
+ */
+export const createScholar = teacherMutation({
+  args: {
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const token = crypto.randomUUID();
+    const userId = await ctx.db.insert("users", {
+      name: args.name.trim(),
+      role: "scholar",
+      guestToken: token,
+    });
+    return { userId, guestToken: token };
   },
 });

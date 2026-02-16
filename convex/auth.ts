@@ -30,11 +30,27 @@ export const { auth, signIn, signOut, store } = convexAuth({
   ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
+      // Guest login: email is "guest-<token>@makawulu.guest"
+      // Link auth account to existing scholar user instead of creating a new one
+      const email = args.profile.email as string | undefined;
+      if (email?.endsWith("@makawulu.guest")) {
+        const token = email.replace("@makawulu.guest", "").replace("guest-", "");
+        const scholar = await ctx.db
+          .query("users")
+          .filter((q) => q.eq(q.field("guestToken"), token))
+          .unique();
+        if (scholar) {
+          return scholar._id;
+        }
+        // Token invalid — fall through to create a new (orphan) user
+        // The guest page validates tokens first, so this shouldn't happen
+      }
+
       if (args.existingUserId) {
         // Update existing user with latest profile info
         const existingUser = await ctx.db.get(args.existingUserId);
-        const email = (args.profile.email as string | undefined) ?? existingUser?.email;
-        const testProfile = TEST_USER_PROFILES[email ?? ""];
+        const existingEmail = email ?? existingUser?.email;
+        const testProfile = TEST_USER_PROFILES[existingEmail ?? ""];
         const updates: Record<string, unknown> = {};
         const profileName = (args.profile.name as string) || testProfile?.name;
         if (profileName) updates.name = profileName;
@@ -46,7 +62,6 @@ export const { auth, signIn, signOut, store } = convexAuth({
         return args.existingUserId;
       }
       // Create new user with role based on email
-      const email = args.profile.email as string | undefined;
       const role = roleFromEmail(email);
       const testProfile = TEST_USER_PROFILES[email ?? ""];
       const name = (args.profile.name as string) || testProfile?.name || email?.split("@")[0] || "User";

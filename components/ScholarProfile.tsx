@@ -31,6 +31,8 @@ import {
   FiFolder,
   FiEdit3,
   FiCpu,
+  FiLink,
+  FiCheck,
 } from "react-icons/fi";
 
 interface ScholarProfileProps {
@@ -108,6 +110,9 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
   const removeSuggestion = useMutation(api.scholars.removeSuggestion);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
+  const generateGuestToken = useMutation(api.users.generateGuestToken);
+
+  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
 
   const { scholar, topics, suggestions, stats } = profile ?? {
     scholar: null,
@@ -270,19 +275,46 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
           ))}
         </HStack>
 
-        <Button
-          size="sm"
-          variant="ghost"
-          color="violet.500"
-          fontFamily="heading"
-          fontSize="xs"
-          ml="auto"
-          _hover={{ bg: "violet.50" }}
-          onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
-        >
-          <FiExternalLink style={{ marginRight: "4px" }} />
-          Remote View
-        </Button>
+        <HStack ml="auto" gap={1}>
+          <Button
+            size="sm"
+            variant="ghost"
+            color="violet.500"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "violet.50" }}
+            onClick={async () => {
+              try {
+                const token = scholar?.guestToken
+                  ?? await generateGuestToken({ scholarId: scholarId as Id<"users"> });
+                const url = `${window.location.origin}/guest?token=${token}`;
+                await navigator.clipboard.writeText(url);
+                setGuestLinkCopied(true);
+                setTimeout(() => setGuestLinkCopied(false), 2000);
+              } catch (err) {
+                console.error("Error generating guest link:", err);
+              }
+            }}
+          >
+            {guestLinkCopied ? (
+              <><FiCheck style={{ marginRight: "4px" }} />Copied!</>
+            ) : (
+              <><FiLink style={{ marginRight: "4px" }} />Copy Guest Link</>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            color="violet.500"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "violet.50" }}
+            onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
+          >
+            <FiExternalLink style={{ marginRight: "4px" }} />
+            Remote View
+          </Button>
+        </HStack>
 
       </Flex>
 

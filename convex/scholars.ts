@@ -65,6 +65,7 @@ export const getProfile = teacherQuery({
         name: scholar.name,
         image: scholar.image,
         readingLevel: scholar.readingLevel ?? null,
+        guestToken: scholar.guestToken ?? null,
         createdAt: scholar._creationTime,
       },
       topics: topics.map((t) => ({

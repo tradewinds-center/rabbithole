@@ -254,23 +254,7 @@ function ScholarProjectInner() {
                 justify="space-between"
                 align="center"
               >
-                <HStack gap={2}>
-                  <AppLogo variant="dark" />
-                  <IconButton
-                    aria-label="Home"
-                    size="sm"
-                    variant="ghost"
-                    color="charcoal.500"
-                    _hover={{ bg: "gray.100" }}
-                    onClick={() => {
-                      const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-                      router.push(`/scholar${remoteParam}`);
-                      setIsSidebarOpen(false);
-                    }}
-                  >
-                    <FiHome />
-                  </IconButton>
-                </HStack>
+                <AppLogo variant="dark" />
                 <Drawer.CloseTrigger asChild>
                   <IconButton
                     aria-label="Close sidebar"
@@ -284,24 +268,48 @@ function ScholarProjectInner() {
                 </Drawer.CloseTrigger>
               </Flex>
 
-              {/* New Project Button */}
-              <Box p={3}>
+              {/* Home */}
+              <Box px={3} pt={3}>
                 <Button
                   w="full"
                   size="md"
-                  bg="violet.500"
-                  color="white"
-                  _hover={{ bg: "violet.700" }}
+                  variant="ghost"
+                  color="navy.500"
                   fontFamily="heading"
+                  justifyContent="flex-start"
+                  _hover={{ bg: "gray.100" }}
+                  onClick={() => {
+                    const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+                    router.push(`/scholar${remoteParam}`);
+                    setIsSidebarOpen(false);
+                  }}
+                >
+                  <FiHome style={{ marginRight: "8px" }} />
+                  Home
+                </Button>
+              </Box>
+
+              {/* Projects header + New Project */}
+              <HStack px={4} pt={4} pb={1} justify="space-between" align="center">
+                <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="charcoal.400" textTransform="uppercase" letterSpacing="wider">
+                  Projects
+                </Text>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  color="violet.500"
+                  borderColor="violet.300"
+                  fontFamily="heading"
+                  _hover={{ bg: "violet.50" }}
                   onClick={() => {
                     handleNewProject();
                     setIsSidebarOpen(false);
                   }}
                 >
-                  <FiPlus style={{ marginRight: "8px" }} />
+                  <FiPlus style={{ marginRight: "4px" }} />
                   New Project
                 </Button>
-              </Box>
+              </HStack>
 
               {/* Projects List */}
               <VStack

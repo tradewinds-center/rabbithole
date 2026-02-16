@@ -22,6 +22,7 @@ import {
   Portal,
   Tooltip,
   Timeline,
+  Input,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -36,6 +37,7 @@ import {
   FiX,
   FiCheck,
   FiLink,
+  FiPlus,
 } from "react-icons/fi";
 import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
@@ -98,6 +100,9 @@ export default function TeacherDashboard() {
   const [selectedScholarId, setSelectedScholarId] = useState<string | null>(
     null
   );
+  const [isAddingScholar, setIsAddingScholar] = useState(false);
+  const [newScholarName, setNewScholarName] = useState("");
+  const createScholar = useMutation(api.users.createScholar);
 
   // Focus mode data
   const personas = useQuery(api.personas.list) ?? [];
@@ -197,6 +202,80 @@ export default function TeacherDashboard() {
               overflow="auto"
             >
               <VStack gap={0} align="stretch">
+                {/* Add Scholar */}
+                <HStack px={4} py={2} borderBottom="1px solid" borderColor="gray.100">
+                  {isAddingScholar ? (
+                    <HStack flex={1} gap={1}>
+                      <Input
+                        size="sm"
+                        placeholder="Scholar name"
+                        value={newScholarName}
+                        onChange={(e) => setNewScholarName(e.target.value)}
+                        fontFamily="heading"
+                        fontSize="sm"
+                        autoFocus
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter" && newScholarName.trim()) {
+                            const result = await createScholar({ name: newScholarName.trim() });
+                            setNewScholarName("");
+                            setIsAddingScholar(false);
+                            setSelectedScholarId(result.userId);
+                          }
+                          if (e.key === "Escape") {
+                            setNewScholarName("");
+                            setIsAddingScholar(false);
+                          }
+                        }}
+                      />
+                      <IconButton
+                        aria-label="Create scholar"
+                        size="xs"
+                        variant="ghost"
+                        color="violet.500"
+                        _hover={{ bg: "violet.50" }}
+                        disabled={!newScholarName.trim()}
+                        onClick={async () => {
+                          if (!newScholarName.trim()) return;
+                          const result = await createScholar({ name: newScholarName.trim() });
+                          setNewScholarName("");
+                          setIsAddingScholar(false);
+                          setSelectedScholarId(result.userId);
+                        }}
+                      >
+                        <FiCheck />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        color="charcoal.400"
+                        _hover={{ bg: "gray.100" }}
+                        onClick={() => {
+                          setNewScholarName("");
+                          setIsAddingScholar(false);
+                        }}
+                      >
+                        <FiX />
+                      </IconButton>
+                    </HStack>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      color="violet.500"
+                      fontFamily="heading"
+                      fontSize="xs"
+                      _hover={{ bg: "violet.50" }}
+                      onClick={() => setIsAddingScholar(true)}
+                      w="full"
+                      justifyContent="flex-start"
+                    >
+                      <FiPlus style={{ marginRight: "6px" }} />
+                      New Scholar
+                    </Button>
+                  )}
+                </HStack>
+
                 {scholars.map((scholar) => {
                   const isSelected = selectedScholarId === scholar.id;
                   return (

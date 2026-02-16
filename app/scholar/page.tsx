@@ -107,6 +107,12 @@ function ScholarHome() {
   const displayName = user?.name || "Scholar";
   const displayImage = user?.image || undefined;
 
+  // Derive scholar-level pulse from most recent project
+  const mostRecent = projects?.[0];
+  const pulseScore = mostRecent?.pulseScore ?? null;
+  // Get last user message time from the most recent project
+  const lastMessageAt = mostRecent?._creationTime ?? null;
+
   return (
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       <TopBar
@@ -114,6 +120,8 @@ function ScholarHome() {
         displayImage={displayImage}
         isRemoteMode={isRemoteMode}
         onSignOut={() => signOut()}
+        pulseScore={pulseScore}
+        lastMessageAt={lastMessageAt}
       />
       <Box flex={1} overflow="auto" p={{ base: 4, md: 6 }} maxW="1000px" mx="auto" w="full">
         <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={4}>
@@ -240,11 +248,15 @@ function TopBar({
   displayImage,
   isRemoteMode,
   onSignOut,
+  pulseScore,
+  lastMessageAt,
 }: {
   displayName: string;
   displayImage?: string;
   isRemoteMode: boolean;
   onSignOut: () => void;
+  pulseScore?: number | null;
+  lastMessageAt?: number | null;
 }) {
   return (
     <Flex
@@ -263,6 +275,8 @@ function TopBar({
           userName={displayName}
           userImage={displayImage}
           onSignOut={onSignOut}
+          pulseScore={pulseScore}
+          lastMessageAt={lastMessageAt}
         />
       )}
     </Flex>

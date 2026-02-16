@@ -26,10 +26,12 @@ export default defineSchema({
       )
     ),
     readingLevel: v.optional(v.string()),
+    guestToken: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_externalId", ["externalId"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_guestToken", ["guestToken"]),
 
   projects: defineTable({
     userId: v.id("users"),
