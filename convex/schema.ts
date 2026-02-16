@@ -46,6 +46,9 @@ export default defineSchema({
     teacherWhisper: v.optional(v.string()),
     pendingWhisper: v.optional(v.string()),
     readingLevelOverride: v.optional(v.string()),
+    // Time limit mode (parent-set)
+    sessionTimeLimit: v.optional(v.number()), // minutes
+    sessionStartTime: v.optional(v.number()), // timestamp ms
     isArchived: v.boolean(),
     // DEPRECATED — kept optional for migration, remove after running migrations:removeStatusField
     status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))),

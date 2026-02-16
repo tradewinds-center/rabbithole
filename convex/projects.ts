@@ -3,6 +3,9 @@ import { authedQuery, authedMutation, teacherMutation } from "./lib/customFuncti
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
+/** Hardcoded parent password for time limit mode. */
+const PARENT_PASSWORD = "makawulu2026";
+
 /**
  * List projects for a user (non-archived, most recent first).
  * Teachers can pass userId to view a scholar's projects (remote mode).
@@ -257,6 +260,18 @@ export const sendMessage = authedMutation({
       throw new Error("Forbidden");
     }
 
+    // Time limit enforcement: reject messages after timer expires
+    if (
+      !isTeacher &&
+      project.sessionTimeLimit &&
+      project.sessionStartTime
+    ) {
+      const elapsed = Date.now() - project.sessionStartTime;
+      if (elapsed >= project.sessionTimeLimit * 60 * 1000) {
+        throw new Error("Session time limit has expired");
+      }
+    }
+
     // Dimension snapshot (as strings, not IDs, for historical reference)
     // Resolve building blocks from the unit
     const unit = project.unitId ? await ctx.db.get(project.unitId) : null;
@@ -311,5 +326,79 @@ export const sendMessage = authedMutation({
       projectId: args.projectId,
       imageId: args.imageId ?? null,
     };
+  },
+});
+
+// ── Time Limit Mode ─────────────────────────────────────────────────
+
+/**
+ * Set a session time limit (parent password required).
+ * Starts the timer immediately.
+ */
+export const setTimeLimit = authedMutation({
+  args: {
+    projectId: v.id("projects"),
+    minutes: v.number(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.password !== PARENT_PASSWORD) {
+      throw new Error("Incorrect parent password");
+    }
+    if (args.minutes < 1 || args.minutes > 480) {
+      throw new Error("Time limit must be between 1 and 480 minutes");
+    }
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    await ctx.db.patch(args.projectId, {
+      sessionTimeLimit: args.minutes,
+      sessionStartTime: Date.now(),
+    });
+  },
+});
+
+/**
+ * Clear the session time limit (parent password required).
+ */
+export const clearTimeLimit = authedMutation({
+  args: {
+    projectId: v.id("projects"),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.password !== PARENT_PASSWORD) {
+      throw new Error("Incorrect parent password");
+    }
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    await ctx.db.patch(args.projectId, {
+      sessionTimeLimit: undefined,
+      sessionStartTime: undefined,
+      pendingWhisper: undefined,
+    });
+  },
+});
+
+/**
+ * Inject a time-limit whisper (called by frontend when timer is near expiry).
+ */
+export const injectTimeLimitWhisper = authedMutation({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    // Only inject if time limit is active and whisper not already set
+    if (!project.sessionTimeLimit || !project.sessionStartTime) return;
+    if (project.pendingWhisper) return;
+
+    await ctx.db.patch(args.projectId, {
+      pendingWhisper:
+        "The session time is almost up. Please wrap up the current topic naturally within the next minute. Offer a brief summary of what was discussed and suggest what the scholar could explore next time.",
+    });
   },
 });

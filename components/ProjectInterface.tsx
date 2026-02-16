@@ -13,8 +13,10 @@ import {
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiVolume2, FiX } from "react-icons/fi";
+import { FiArrowUp, FiClock, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiVolume2, FiX } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
+import { useTimeLimit } from "@/hooks/useTimeLimit";
+import { TimeLimitModal } from "./TimeLimitModal";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -190,6 +192,14 @@ export function ProjectInterface({
     useVoiceDictation((text) => {
       sendMessageRef.current(text);
     });
+
+  // Time limit mode
+  const timeLimit = useTimeLimit(
+    projectId,
+    projectData?.project?.sessionTimeLimit,
+    projectData?.project?.sessionStartTime,
+  );
+  const [isTimeLimitModalOpen, setIsTimeLimitModalOpen] = useState(false);
 
   // Loading state: projectData is undefined while the query is loading
   const isLoading = projectData === undefined;
@@ -493,6 +503,9 @@ export function ProjectInterface({
           onClearWhisper: handleClearWhisper,
           observations: projectObservations,
           isTooLoud,
+          timeLimit,
+          isTimeLimitModalOpen,
+          onToggleTimeLimitModal: () => setIsTimeLimitModalOpen((v) => !v),
           pendingImage,
           onSelectImage: () => fileInputRef.current?.click(),
           onClearImage: () => setPendingImage(null),
@@ -582,6 +595,17 @@ interface ChatColumnProps {
   onClearWhisper?: () => void;
   observations?: ObservationData[];
   isTooLoud?: boolean;
+  timeLimit?: {
+    isActive: boolean;
+    secondsRemaining: number;
+    totalSeconds: number;
+    isExpired: boolean;
+    display: string;
+    setLimit: (minutes: number, password: string) => Promise<void>;
+    clearLimit: (password: string) => Promise<void>;
+  };
+  isTimeLimitModalOpen?: boolean;
+  onToggleTimeLimitModal?: () => void;
   pendingImage?: { file: File; preview: string } | null;
   onSelectImage?: () => void;
   onClearImage?: () => void;
@@ -614,6 +638,9 @@ function ChatColumn({
   onClearWhisper,
   observations = [],
   isTooLoud = false,
+  timeLimit,
+  isTimeLimitModalOpen = false,
+  onToggleTimeLimitModal,
   pendingImage,
   onSelectImage,
   onClearImage,
@@ -1003,12 +1030,24 @@ function ChatColumn({
         onChange={onFileChange}
       />
 
+      {/* Time Limit Modal */}
+      {timeLimit && (
+        <TimeLimitModal
+          isOpen={isTimeLimitModalOpen}
+          onClose={() => onToggleTimeLimitModal?.()}
+          isActive={timeLimit.isActive}
+          display={timeLimit.display}
+          onSetLimit={timeLimit.setLimit}
+          onClearLimit={timeLimit.clearLimit}
+        />
+      )}
+
       {/* Input Area */}
       <Box
         p={4}
         borderTop="0.5px solid"
         borderColor="gray.200"
-        bg="gray.50"
+        bg={timeLimit?.isExpired ? "red.50" : "gray.50"}
         shadow="0 -1px 3px rgba(0,0,0,0.06)"
         position="relative"
         zIndex={9999}
@@ -1047,22 +1086,55 @@ function ChatColumn({
             </Box>
           </Flex>
         )}
+        {/* Timer countdown bar */}
+        {timeLimit?.isActive && !timeLimit.isExpired && (
+          <Flex maxW="3xl" mx="auto" mb={2} align="center" gap={2}>
+            <FiClock size={14} color={timeLimit.secondsRemaining <= 60 ? "#E53E3E" : "#DD6B20"} />
+            <Text
+              fontSize="sm"
+              fontFamily="heading"
+              fontWeight="600"
+              color={timeLimit.secondsRemaining <= 60 ? "red.500" : "orange.500"}
+            >
+              {timeLimit.display}
+            </Text>
+            <Box flex={1} h="3px" bg="gray.200" borderRadius="full" overflow="hidden">
+              <Box
+                h="full"
+                bg={timeLimit.secondsRemaining <= 60 ? "red.400" : "orange.400"}
+                borderRadius="full"
+                transition="width 1s linear"
+                style={{
+                  width: `${Math.max(0, (timeLimit.secondsRemaining / (timeLimit.totalSeconds || 1)) * 100)}%`,
+                }}
+              />
+            </Box>
+          </Flex>
+        )}
+        {/* Time's up message */}
+        {timeLimit?.isExpired && (
+          <Flex maxW="3xl" mx="auto" mb={2} justify="center">
+            <Text fontSize="lg" fontFamily="heading" fontWeight="700" color="red.500">
+              Time's up!
+            </Text>
+          </Flex>
+        )}
         <Flex maxW="3xl" mx="auto" gap={3}>
           <Textarea
             ref={textareaRef}
-            value={input}
+            value={timeLimit?.isExpired ? "" : input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
+            placeholder={timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
             resize="none"
             rows={1}
             overflow="hidden"
             bg="white"
             border="0.5px solid"
-            borderColor="gray.400"
+            borderColor={timeLimit?.isExpired ? "red.300" : "gray.400"}
             borderRadius="xl"
             _focus={{
-              borderColor: "violet.400",
+              borderColor: timeLimit?.isExpired ? "red.300" : "violet.400",
               boxShadow: "none",
               outline: "none",
             }}
@@ -1070,13 +1142,26 @@ function ChatColumn({
               boxShadow: "none",
               outline: "none",
             }}
-            _placeholder={{ color: "gray.400" }}
+            _placeholder={{ color: timeLimit?.isExpired ? "red.300" : "gray.400" }}
             fontFamily="body"
             fontSize="md"
             py={3}
             px={4}
-            disabled={isStreaming}
+            disabled={isStreaming || timeLimit?.isExpired}
           />
+          {/* Time limit clock button */}
+          <IconButton
+            aria-label="Set time limit"
+            bg={timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.100" : "orange.100") : "gray.200"}
+            color={timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.500" : "orange.500") : "charcoal.500"}
+            _hover={{ bg: timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.200" : "orange.200") : "gray.300" }}
+            borderRadius="xl"
+            h="auto"
+            minW={12}
+            onClick={onToggleTimeLimitModal}
+          >
+            <FiClock />
+          </IconButton>
           <IconButton
             aria-label="Upload image"
             bg="gray.200"
@@ -1087,7 +1172,7 @@ function ChatColumn({
             h="auto"
             minW={12}
             onClick={onSelectImage}
-            disabled={isStreaming}
+            disabled={isStreaming || timeLimit?.isExpired}
           >
             <FiImage />
           </IconButton>
@@ -1104,7 +1189,7 @@ function ChatColumn({
                 h="auto"
                 minW={12}
                 onClick={toggleRecording}
-                disabled={isStreaming || dictationState === "transcribing"}
+                disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired}
                 className={dictationState === "recording" ? "recording-pulse" : undefined}
               >
                 {dictationState === "transcribing" ? (
@@ -1142,7 +1227,7 @@ function ChatColumn({
             h="auto"
             minW={12}
             onClick={() => handleSend()}
-            disabled={(!input.trim() && !pendingImage) || isStreaming}
+            disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired}
           >
             <FiArrowUp />
           </IconButton>
