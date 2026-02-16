@@ -43,7 +43,6 @@ export const getProjectContext = internalQuery({
         description: unit.description ?? null,
         systemPrompt: unit.systemPrompt ?? null,
         rubric: unit.rubric ?? null,
-        targetBloomLevel: unit.targetBloomLevel ?? null,
       };
     }
 
@@ -265,7 +264,6 @@ export function buildSystemPrompt(
     description: string | null;
     systemPrompt: string | null;
     rubric: string | null;
-    targetBloomLevel: string | null;
   } | null,
   personaContext: {
     title: string;
@@ -377,11 +375,6 @@ Do NOT update the dossier on every message — only when you have a genuine new 
     }
     if (unitContext.rubric) {
       parts.push(`Rubric: ${unitContext.rubric}`);
-    }
-    if (unitContext.targetBloomLevel) {
-      parts.push(
-        `Target cognitive level (Bloom's): ${unitContext.targetBloomLevel}. Guide the scholar toward this level of thinking.`
-      );
     }
   }
 

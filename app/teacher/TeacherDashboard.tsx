@@ -475,7 +475,6 @@ export default function TeacherDashboardInner() {
                       px={4}
                       py={2}
                       color="charcoal.400"
-                      _selected={{ color: "violet.600", fontWeight: "600" }}
                     >
                       <SubIcon style={{ marginRight: "5px" }} size={14} />
                       {sub.label}
@@ -804,7 +803,6 @@ interface FocusEntity {
   description?: string;
   systemPrompt?: string;
   rubric?: string;
-  targetBloomLevel?: string;
   steps?: { key: string; title: string; description?: string }[];
   // Building block display info from units.list
   personaTitle?: string | null;
@@ -872,7 +870,6 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
       systemPrompt: item.systemPrompt,
       emoji: item.emoji,
       rubric: item.rubric,
-      targetBloomLevel: item.targetBloomLevel,
       personaId: item.personaId ? String(item.personaId) : undefined,
       perspectiveId: item.perspectiveId ? String(item.perspectiveId) : undefined,
       processId: item.processId ? String(item.processId) : undefined,

@@ -427,7 +427,7 @@ export function ProjectInterface({
         unitPerspectiveTitle={activeUnit?.perspectiveTitle}
         unitProcessEmoji={activeUnit?.processEmoji}
         unitProcessTitle={activeUnit?.processTitle}
-        unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, targetBloomLevel: u.targetBloomLevel, personaId: u.personaId ? String(u.personaId) : undefined, perspectiveId: u.perspectiveId ? String(u.perspectiveId) : undefined, processId: u.processId ? String(u.processId) : undefined })) : undefined}
+        unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, personaId: u.personaId ? String(u.personaId) : undefined, perspectiveId: u.perspectiveId ? String(u.perspectiveId) : undefined, processId: u.processId ? String(u.processId) : undefined })) : undefined}
         onUnitChange={handleUnitChange}
         focusLock={focusLock}
         onMenuClick={onOpenSidebar}

@@ -42,18 +42,6 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 export type DimensionType = "unit" | "persona" | "perspective" | "process";
 
-const BLOOM_LEVELS = [
-  { value: "", label: "None" },
-  { value: "remember", label: "Remember" },
-  { value: "understand", label: "Understand" },
-  { value: "apply", label: "Apply" },
-  { value: "analyze", label: "Analyze" },
-  { value: "evaluate", label: "Evaluate" },
-  { value: "create", label: "Create" },
-];
-
-const VALID_BLOOM_VALUES = ["remember", "understand", "apply", "analyze", "evaluate", "create"] as const;
-
 export interface DimensionEditData {
   _id: string;
   title: string;
@@ -62,7 +50,6 @@ export interface DimensionEditData {
   emoji?: string;
   icon?: string;
   rubric?: string;
-  targetBloomLevel?: string;
   steps?: { key: string; title: string; description?: string }[];
   personaId?: string;
   perspectiveId?: string;
@@ -308,7 +295,6 @@ export function DimensionEditModal({
     description: "",
     systemPrompt: "",
     rubric: "",
-    targetBloomLevel: "",
     emoji: "",
     icon: "",
     personaId: "",
@@ -332,7 +318,6 @@ export function DimensionEditModal({
         description: data?.description ?? "",
         systemPrompt: data?.systemPrompt ?? "",
         rubric: data?.rubric ?? "",
-        targetBloomLevel: data?.targetBloomLevel ?? "",
         emoji: data?.emoji ?? "",
         icon: data?.icon ?? "",
         personaId: data?.personaId ?? "",
@@ -376,7 +361,6 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
           });
         } else if (dimensionType === "unit") {
-          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
           await updateUnit({
             id: entityId as Id<"units">,
             title: formData.title,
@@ -384,7 +368,6 @@ export function DimensionEditModal({
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
-            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
             personaId: formData.personaId ? formData.personaId as Id<"personas"> : null,
             perspectiveId: formData.perspectiveId ? formData.perspectiveId as Id<"perspectives"> : null,
             processId: formData.processId ? formData.processId as Id<"processes"> : null,
@@ -416,14 +399,12 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
           });
         } else if (dimensionType === "unit") {
-          const bloomLevel = VALID_BLOOM_VALUES.find(v => v === formData.targetBloomLevel);
           await createUnit({
             title: formData.title,
             emoji: formData.emoji || undefined,
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
-            ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
             ...(formData.personaId ? { personaId: formData.personaId as Id<"personas"> } : {}),
             ...(formData.perspectiveId ? { perspectiveId: formData.perspectiveId as Id<"perspectives"> } : {}),
             ...(formData.processId ? { processId: formData.processId as Id<"processes"> } : {}),
@@ -558,27 +539,6 @@ export function DimensionEditModal({
                         bg="white"
                       />
                     </FieldRow>
-                    <FieldRow label="Target Bloom Level">
-                      <select
-                        value={formData.targetBloomLevel}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: "6px",
-                          border: "1px solid #e2e8f0",
-                          fontSize: "16px",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        {BLOOM_LEVELS.map((level) => (
-                          <option key={level.value} value={level.value}>
-                            {level.label}
-                          </option>
-                        ))}
-                      </select>
-                    </FieldRow>
-
                     {(personas?.length || perspectives?.length || processes?.length) ? (
                       <FieldRow
                         label="Building Blocks"

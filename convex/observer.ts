@@ -230,9 +230,6 @@ function buildObserverUserMessage(
 
   if (context.unitContext) {
     parts.push(`## Unit: "${context.unitContext.title}"`);
-    if (context.unitContext.targetBloomLevel) {
-      parts.push(`Target Bloom's Level: ${context.unitContext.targetBloomLevel}`);
-    }
   }
 
   // Current mastery observations for supersession decisions

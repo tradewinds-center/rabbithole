@@ -41,7 +41,6 @@ interface Entity {
   teacherName: string | null;
   createdAt: number;
   rubric?: string;
-  targetBloomLevel?: string;
   emoji?: string;
   icon?: string;
   steps?: { key: string; title: string; description?: string }[];
@@ -107,7 +106,6 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
       emoji: entity.emoji,
       icon: entity.icon,
       rubric: entity.rubric,
-      targetBloomLevel: entity.targetBloomLevel,
       steps: entity.steps,
       personaId: entity.personaId ? String(entity.personaId) : undefined,
       perspectiveId: entity.perspectiveId ? String(entity.perspectiveId) : undefined,
@@ -212,11 +210,6 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                         <Text fontWeight="600" fontFamily="heading" color="navy.500">
                           {entity.title}
                         </Text>
-                        {entityType === "unit" && entity.targetBloomLevel && (
-                          <Badge bg="violet.100" color="violet.700" fontSize="xs">
-                            {entity.targetBloomLevel}
-                          </Badge>
-                        )}
                         {entityType === "process" && entity.steps && (
                           <Badge bg="blue.100" color="blue.700" fontSize="xs">
                             {entity.steps.length} steps
@@ -304,7 +297,6 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
             </Card.Root>
           ))}
         </SimpleGrid>
-      )}
 
       <DimensionEditModal
         open={modalOpen}

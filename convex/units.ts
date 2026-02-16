@@ -1,15 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery, teacherMutation } from "./lib/customFunctions";
 
-const bloomLevelValidator = v.union(
-  v.literal("remember"),
-  v.literal("understand"),
-  v.literal("apply"),
-  v.literal("analyze"),
-  v.literal("evaluate"),
-  v.literal("create")
-);
-
 export const list = authedQuery({
   args: {},
   handler: async (ctx) => {
@@ -65,7 +56,6 @@ export const create = teacherMutation({
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
-    targetBloomLevel: v.optional(bloomLevelValidator),
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
@@ -78,7 +68,6 @@ export const create = teacherMutation({
       description: args.description?.trim() || undefined,
       systemPrompt: args.systemPrompt?.trim() || undefined,
       rubric: args.rubric?.trim() || undefined,
-      targetBloomLevel: args.targetBloomLevel || undefined,
       personaId: args.personaId,
       perspectiveId: args.perspectiveId,
       processId: args.processId,
@@ -95,7 +84,6 @@ export const update = teacherMutation({
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
-    targetBloomLevel: v.optional(bloomLevelValidator),
     personaId: v.optional(v.union(v.id("personas"), v.null())),
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
     processId: v.optional(v.union(v.id("processes"), v.null())),
@@ -112,8 +100,6 @@ export const update = teacherMutation({
       cleaned.systemPrompt = updates.systemPrompt.trim() || undefined;
     if (updates.rubric !== undefined)
       cleaned.rubric = updates.rubric.trim() || undefined;
-    if (updates.targetBloomLevel !== undefined)
-      cleaned.targetBloomLevel = updates.targetBloomLevel || undefined;
     if (updates.personaId !== undefined)
       cleaned.personaId = updates.personaId ?? undefined;
     if (updates.perspectiveId !== undefined)

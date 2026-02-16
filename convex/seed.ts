@@ -471,7 +471,7 @@ Guide them to apply this lens to everything — not just politics. A school rule
         emoji: "🦎",
         description:
           "Explore how animals develop physical and behavioral traits to survive in their environments. Compare adaptations across species and habitats.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Explorer"],
         perspectiveId: perspectiveIdByTitle["Patterns"],
       },
@@ -480,14 +480,14 @@ Guide them to apply this lens to everything — not just politics. A school rule
         emoji: "🤖",
         description:
           "Read and discuss Peter Brown's novel. Explore themes of nature vs. technology, belonging, and what it means to be alive.",
-        targetBloomLevel: "evaluate" as const,
+
       },
       {
         title: "Prime Numbers",
         emoji: "🔢",
         description:
           "Investigate prime numbers — what makes them special, how to find them, and why mathematicians have been fascinated by them for thousands of years.",
-        targetBloomLevel: "apply" as const,
+
       },
       {
         title: "Weekend News",
@@ -502,7 +502,7 @@ Guide them to apply this lens to everything — not just politics. A school rule
 
 The document title serves as the headline — do NOT repeat a headline or byline inside the document body. Encourage journalistic voice: clear, concise, factual. Ask questions to draw out details about their weekend experience. When they describe something, help them shape it into news-style writing in the document.`,
         rubric: "Headline | Lede (who/what/when/where) | Body (details, quotes) | Conclusion | Voice",
-        targetBloomLevel: "create" as const,
+
         // processId patched after processes are seeded (below)
       },
       {
@@ -529,7 +529,7 @@ The report should include these sections (guide the scholar to build them one at
 
 Remember: the document is plain text only (no markdown). Write clearly and directly.`,
         rubric: "Issue Statement (clear, factual) | Stakeholders (who's affected, how) | Norms vs Laws (what governs this, why it matters) | Viewpoints (fair presentation of different sides) | Recommendation (grounded in democratic principles)",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Citizen"],
         perspectiveId: perspectiveIdByTitle["Democratic Principles"],
         // processId patched after processes are seeded (below)
@@ -539,7 +539,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🦀",
         description:
           "Reflect on what you observed at the tide pools. What did you see? What surprised you? What questions do you have now?",
-        targetBloomLevel: "analyze" as const,
+
         perspectiveId: perspectiveIdByTitle["Debrief"],
       },
       {
@@ -547,7 +547,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🧭",
         description:
           "Explore any topic that sparks your curiosity. Follow your questions wherever they lead.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Explorer"],
       },
       {
@@ -555,7 +555,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "💭",
         description:
           "Explore a big question together — about justice, truth, identity, or anything worth wondering about. There may not be a right answer, and that's the point.",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Philosopher"],
         perspectiveId: perspectiveIdByTitle["Assumptions"],
       },
@@ -564,7 +564,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🔧",
         description:
           "Design something that solves a real problem for real people. Start with empathy, prototype fast, test, iterate, and present your solution.",
-        targetBloomLevel: "create" as const,
+
         personaId: personaIdByTitle["Designer"],
         perspectiveId: perspectiveIdByTitle["Craftsmanship"],
         // processId (DESIGN) patched after processes are seeded (below)
@@ -574,7 +574,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🤿",
         description:
           "Pick a question that fascinates you and investigate it like a real researcher. Use real methods, gather real evidence, and produce something for a real audience.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Mentor"],
         perspectiveId: perspectiveIdByTitle["Language of the Discipline"],
         // processId (QUEST) patched after processes are seeded (below)
@@ -584,7 +584,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🧪",
         description:
           "Explore chemical reactions through cooking and baking. Why does bread rise? What makes caramel turn brown? Why does lemon juice change the color of tea? Design an experiment in the kitchen and explain the science.",
-        targetBloomLevel: "apply" as const,
+
         personaId: personaIdByTitle["Mentor"],
         perspectiveId: perspectiveIdByTitle["Details"],
       },
@@ -593,7 +593,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "💰",
         description:
           "Follow a dollar through the economy. Explore trade, pricing, supply and demand, saving, investing, and why things cost what they cost. Design a business or marketplace and make the math real.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Feynman"],
         perspectiveId: perspectiveIdByTitle["Patterns"],
       },
@@ -602,7 +602,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🎵",
         description:
           "Investigate how sound works — waves, frequency, resonance, harmonics. Why do some notes sound good together? Build or describe an instrument. Explore the physics and math hiding inside music.",
-        targetBloomLevel: "apply" as const,
+
         personaId: personaIdByTitle["Explorer"],
         perspectiveId: perspectiveIdByTitle["Across Disciplines"],
       },
@@ -611,7 +611,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🗺️",
         description:
           "Make the unseen visible through maps and data visualization. Map your neighborhood by sound levels, map the ocean floor, map the spread of an idea. Use data to reveal patterns humans can't see with their eyes alone.",
-        targetBloomLevel: "create" as const,
+
         personaId: personaIdByTitle["Designer"],
         perspectiveId: perspectiveIdByTitle["Patterns"],
       },
@@ -620,7 +620,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         emoji: "🫀",
         description:
           "Explore how your body works as an interconnected system. How does food become energy? How do your muscles know to move? Why does your heart beat faster when you're scared? Trace a process from start to finish.",
-        targetBloomLevel: "understand" as const,
+
         personaId: personaIdByTitle["Storyteller"],
         perspectiveId: perspectiveIdByTitle["Big Ideas"],
       },
@@ -642,7 +642,7 @@ Push for specificity: not "a dark forest" but "the kind of forest where the moss
 
 The document is plain text only. The document title becomes the story title.`,
         rubric: "Character (wants something, feels real) | Setting (specific, sensory) | Conflict (matters, escalates) | Voice (distinctive, consistent) | Ending (earned, resonant)",
-        targetBloomLevel: "create" as const,
+
         personaId: personaIdByTitle["Storyteller"],
         perspectiveId: perspectiveIdByTitle["Craftsmanship"],
         // processId (CRAFT) patched after processes are seeded (below)
@@ -652,7 +652,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🔭",
         description:
           "Start with something small — a grain of sand, a cell, an atom — and zoom out to the largest scale you can reach. Or start with the universe and zoom in. Explore how every scale connects to the next.",
-        targetBloomLevel: "understand" as const,
+
         personaId: personaIdByTitle["Storyteller"],
         perspectiveId: perspectiveIdByTitle["Big Ideas"],
       },
@@ -661,7 +661,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🕵️",
         description:
           "Algorithms are everywhere — in your phone, in traffic lights, in how you decide what to eat for lunch. Find an algorithm in everyday life, break it into steps, and figure out how to make it better.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Feynman"],
         perspectiveId: perspectiveIdByTitle["Rules"],
       },
@@ -670,7 +670,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "📜",
         description:
           "Read a primary source — a letter, a diary entry, a photograph, a newspaper clipping — and investigate who created it, why, and what it leaves out. History is always told by someone. Who's missing from this story?",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Philosopher"],
         perspectiveId: perspectiveIdByTitle["Multiple Perspectives"],
       },
@@ -679,7 +679,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🌿",
         description:
           "Every living thing changes its environment. Beavers build dams. Humans build cities. Worms build soil. Pick an organism and trace how it reshapes its ecosystem — then figure out what would happen if it disappeared.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Mentor"],
         perspectiveId: perspectiveIdByTitle["Over Time"],
       },
@@ -688,7 +688,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🎲",
         description:
           "Explore strategy and decision-making through games. Why is rock-paper-scissors fair? What makes tic-tac-toe boring? Design your own game with interesting choices, test it with players, and refine the rules.",
-        targetBloomLevel: "create" as const,
+
         personaId: personaIdByTitle["Designer"],
         perspectiveId: perspectiveIdByTitle["Rules"],
       },
@@ -697,7 +697,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "👁️",
         description:
           "Choose a painting, sculpture, or photograph — or go outside and look at something closely. Practice really seeing. What do you notice that most people would walk past? What story does this object or image tell?",
-        targetBloomLevel: "analyze" as const,
+
         perspectiveId: perspectiveIdByTitle["Details"],
         // No persona — use default. The perspective does the heavy lifting.
       },
@@ -706,7 +706,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🔤",
         description:
           "Investigate how language works. Why do we say 'feet' instead of 'foots'? Where do words come from? How do new words get invented? How does Hawaiian compare to English or Japanese? Become a linguist for a day.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Feynman"],
         perspectiveId: perspectiveIdByTitle["Language of the Discipline"],
       },
@@ -715,7 +715,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🏗️",
         description:
           "Explore structural engineering through building challenges. Why are triangles strong? What makes a bridge hold weight? How do architects solve the problem of gravity? Design, test, and improve a structure.",
-        targetBloomLevel: "apply" as const,
+
         personaId: personaIdByTitle["Mentor"],
         perspectiveId: perspectiveIdByTitle["Details"],
       },
@@ -724,7 +724,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🌙",
         description:
           "Observe the sky over several nights and record what you see. Track the moon's phases, find constellations, notice how the sky changes. Connect your observations to the science of astronomy and the stories cultures have told about the stars.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Explorer"],
         perspectiveId: perspectiveIdByTitle["Over Time"],
       },
@@ -733,7 +733,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "⚔️",
         description:
           "Take a position on a real question and argue it — then argue the other side. Learn to build a case with evidence, anticipate counterarguments, and disagree respectfully. The goal is to understand both sides so well you could convince anyone of either.",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Citizen"],
         perspectiveId: perspectiveIdByTitle["Multiple Perspectives"],
         // processId (OREO) patched after processes are seeded (below)
@@ -743,7 +743,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🌀",
         description:
           "Mathematicians look for patterns — and then they try to break them. Explore sequences, series, fractals, or tessellations. Find a pattern, describe it precisely, then push it until it surprises you.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Feynman"],
         perspectiveId: perspectiveIdByTitle["Patterns"],
       },
@@ -752,7 +752,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🏝️",
         description:
           "Choose a place in Hawaii — an ahupuaa, a beach, a neighborhood, a mountain — and study it deeply. Explore its geology, ecology, history, and cultural significance. What does this place teach us about the relationship between people and land?",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Storyteller"],
         perspectiveId: perspectiveIdByTitle["Across Disciplines"],
         // processId (QUEST) patched after processes are seeded (below)
@@ -762,7 +762,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "⚖️",
         description:
           "Explore fairness through real situations — classroom rules, playground disputes, dividing resources, grading systems. When is equal the same as fair? When is it not? Design a system that's as fair as possible and defend your choices.",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Philosopher"],
         perspectiveId: perspectiveIdByTitle["Ethics"],
       },
@@ -771,7 +771,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🛠️",
         description:
           "Pick something that interests you and build, break, or modify it. A paper airplane, a simple circuit, a recipe, a code program, a cardboard contraption. The goal is learning through doing — prototype fast, fail fast, iterate fast.",
-        targetBloomLevel: "apply" as const,
+
         personaId: personaIdByTitle["Tinkerer"],
         perspectiveId: perspectiveIdByTitle["Details"],
       },
@@ -780,7 +780,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🏅",
         description:
           "Choose something you find genuinely difficult — a math concept, a writing skill, a physical challenge, a creative technique — and commit to getting measurably better at it. Track your progress, push through the hard parts, and reflect on what growth actually feels like.",
-        targetBloomLevel: "apply" as const,
+
         personaId: personaIdByTitle["Coach"],
         perspectiveId: perspectiveIdByTitle["Craftsmanship"],
       },
@@ -789,7 +789,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "📐",
         description:
           "Explore orders of magnitude — from atoms to galaxies, from milliseconds to eons, from one person to 8 billion. What changes when you multiply by 10? By a million? Pick any topic and zoom through its scales.",
-        targetBloomLevel: "understand" as const,
+
         personaId: personaIdByTitle["Storyteller"],
         perspectiveId: perspectiveIdByTitle["Scale"],
       },
@@ -798,7 +798,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🔎",
         description:
           "Pick a system — a school, a game, a company, a social media platform, a law — and trace the incentives. Who benefits? Who loses? Why is it designed this way? What would you change to shift who benefits?",
-        targetBloomLevel: "evaluate" as const,
+
         personaId: personaIdByTitle["Philosopher"],
         perspectiveId: perspectiveIdByTitle["Who Benefits?"],
       },
@@ -807,7 +807,7 @@ The document is plain text only. The document title becomes the story title.`,
         emoji: "🐛",
         description:
           "Something isn't working the way it should — a science experiment gave weird results, a math answer doesn't check out, a machine broke, a plan fell apart. Use systematic debugging to figure out why and fix it.",
-        targetBloomLevel: "analyze" as const,
+
         personaId: personaIdByTitle["Feynman"],
         perspectiveId: perspectiveIdByTitle["Details"],
         // processId (DEBUG) patched after processes are seeded (below)
@@ -819,7 +819,6 @@ The document is plain text only. The document title becomes the story title.`,
         teacherId: systemTeacherId,
         title: u.title,
         description: u.description,
-        targetBloomLevel: u.targetBloomLevel,
         ...("emoji" in u && u.emoji ? { emoji: u.emoji } : {}),
         ...("systemPrompt" in u && u.systemPrompt ? { systemPrompt: u.systemPrompt } : {}),
         ...("rubric" in u && u.rubric ? { rubric: u.rubric } : {}),
@@ -1177,19 +1176,19 @@ export const seedUnitsAndTopics = internalMutation({
           title: "Animal Adaptations",
           description:
             "Explore how animals develop physical and behavioral traits to survive in their environments. Compare adaptations across species and habitats.",
-          targetBloomLevel: "analyze" as const,
+  
         },
         {
           title: "The Wild Robot",
           description:
             "Read and discuss Peter Brown's novel. Explore themes of nature vs. technology, belonging, and what it means to be alive.",
-          targetBloomLevel: "evaluate" as const,
+  
         },
         {
           title: "Prime Numbers",
           description:
             "Investigate prime numbers — what makes them special, how to find them, and why mathematicians have been fascinated by them for thousands of years.",
-          targetBloomLevel: "apply" as const,
+  
         },
       ];
       for (const u of units) {
@@ -1197,7 +1196,6 @@ export const seedUnitsAndTopics = internalMutation({
           teacherId: teacher._id,
           title: u.title,
           description: u.description,
-          targetBloomLevel: u.targetBloomLevel,
           isActive: true,
         });
       }
@@ -1350,7 +1348,6 @@ export const seedWeekendNews = internalMutation({
 
 The document title serves as the headline — do NOT repeat a headline or byline inside the document body. Encourage journalistic voice: clear, concise, factual. Ask questions to draw out details about their weekend experience. When they describe something, help them shape it into news-style writing in the document.`,
       rubric: "Headline | Lede (who/what/when/where) | Body (details, quotes) | Conclusion | Voice",
-      targetBloomLevel: "create",
       isActive: true,
     });
 
@@ -1468,7 +1465,6 @@ The report should include these sections (guide the scholar to build them one at
 Remember: the document is plain text only (no markdown). Write clearly and directly.`,
         rubric:
           "Issue Statement (clear, factual) | Stakeholders (who's affected, how) | Norms vs Laws (what governs this, why it matters) | Viewpoints (fair presentation of different sides) | Recommendation (grounded in democratic principles)",
-        targetBloomLevel: "evaluate",
         isActive: true,
       });
       console.log("Seeded Citizens' Report unit.");

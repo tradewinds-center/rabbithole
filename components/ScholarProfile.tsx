@@ -302,7 +302,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         onValueChange={(e) => setActiveTab(e.value as TabKey)}
         variant="subtle"
         fitted={false}
-        size="sm"
+        size="lg"
       >
         <Tabs.List px={5} gap={0}>
           {TABS.map((tab) => {
@@ -312,11 +312,10 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 key={tab.key}
                 value={tab.key}
                 fontFamily="heading"
-                fontSize="sm"
+                fontSize="xs"
                 px={4}
-                py={2}
+                py={4}
                 color="charcoal.400"
-                _selected={{ color: "violet.600", fontWeight: "600" }}
               >
                 <TabIcon style={{ marginRight: "6px" }} />
                 {tab.label}
@@ -327,7 +326,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
       </Tabs.Root>
 
       {/* Tab content */}
-      <Box flex={1} overflow="auto" p={5}>
+      <Box flex={1} overflow="auto" p={4}>
         {activeTab === "dossier" && (
           <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
             <HStack mb={2}>

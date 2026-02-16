@@ -606,9 +606,6 @@ http.route({
               .filter((s: any) => s.suggestionType === "frontier")
               .map((s: any) => ({
                 topic: s.topic,
-                targetLevel: s.targetBloomsLevel
-                  ? bloomFromFloat(s.targetBloomsLevel)
-                  : "apply",
                 rationale: s.rationale,
               })),
           }
