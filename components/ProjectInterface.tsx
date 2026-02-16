@@ -186,7 +186,7 @@ export function ProjectInterface({
 
   const sendMessageRef = useRef<(text: string) => void>(() => {});
 
-  const { state: dictationState, error: dictationError, toggleRecording, startRecording, stopRecording } =
+  const { state: dictationState, error: dictationError, isTooLoud, toggleRecording, startRecording, stopRecording } =
     useVoiceDictation((text) => {
       sendMessageRef.current(text);
     });
@@ -492,6 +492,7 @@ export function ProjectInterface({
           onSendWhisper: handleSendWhisper,
           onClearWhisper: handleClearWhisper,
           observations: projectObservations,
+          isTooLoud,
           pendingImage,
           onSelectImage: () => fileInputRef.current?.click(),
           onClearImage: () => setPendingImage(null),
@@ -580,6 +581,7 @@ interface ChatColumnProps {
   onSendWhisper?: () => void;
   onClearWhisper?: () => void;
   observations?: ObservationData[];
+  isTooLoud?: boolean;
   pendingImage?: { file: File; preview: string } | null;
   onSelectImage?: () => void;
   onClearImage?: () => void;
@@ -611,6 +613,7 @@ function ChatColumn({
   onSendWhisper,
   onClearWhisper,
   observations = [],
+  isTooLoud = false,
   pendingImage,
   onSelectImage,
   onClearImage,
@@ -703,6 +706,39 @@ function ChatColumn({
             />
           ))}
         </>
+      )}
+
+      {/* Volume warning overlay */}
+      {isTooLoud && dictationState === "recording" && (
+        <Flex
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={9999}
+          align="center"
+          justify="center"
+          pointerEvents="none"
+          bg="rgba(229, 62, 62, 0.15)"
+        >
+          <Text
+            fontSize="6xl"
+            fontWeight="900"
+            fontFamily="heading"
+            color="red.600"
+            textShadow="0 2px 8px rgba(229, 62, 62, 0.3)"
+            css={{
+              animation: "loudPulse 0.5s ease-in-out infinite alternate",
+              "@keyframes loudPulse": {
+                "0%": { transform: "scale(1)", opacity: 0.9 },
+                "100%": { transform: "scale(1.08)", opacity: 1 },
+              },
+            }}
+          >
+            TOO LOUD!
+          </Text>
+        </Flex>
       )}
 
       {/* Messages */}
