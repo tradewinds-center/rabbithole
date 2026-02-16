@@ -255,7 +255,7 @@ export function ProjectHeader({
       <Flex px={5} pb={2} gap={4} align="center" flexWrap="wrap">
         <DimensionPicker
           label="Unit"
-          defaultLabel="None"
+          defaultLabel="Independent Study"
           activeId={unitId}
           options={unitOptions}
           locked={unitLocked}

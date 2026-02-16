@@ -40,6 +40,7 @@ import {
   FiLink,
   FiPlus,
   FiCopy,
+  FiPlay,
 } from "react-icons/fi";
 import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
@@ -680,17 +681,24 @@ function RacetrackPanel({
 // Scholar Card Component
 function ScholarCard({ scholar }: { scholar: Scholar }) {
   const remoteUrl = `/scholar?remote=${scholar.id}`;
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyTestLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const guestUrl = `${window.location.origin}/guest?token=${scholar.id}`;
+    navigator.clipboard.writeText(guestUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   return (
     <Card.Root
       bg="white"
       shadow="sm"
-      cursor="pointer"
-      _hover={{ shadow: "md", borderColor: "violet.300" }}
+      _hover={{ shadow: "md", borderColor: "gray.300" }}
       borderWidth="1px"
-      borderColor="transparent"
+      borderColor="gray.200"
       transition="all 0.15s"
-      onClick={() => window.open(remoteUrl, "_blank")}
     >
       <Card.Body p={4} position="relative">
         <Box position="absolute" top={3} right={3}>
@@ -787,6 +795,34 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
               No activity yet
             </Text>
           )}
+
+          {/* Action buttons */}
+          <HStack gap={2} pt={1}>
+            <Button
+              size="xs"
+              variant="ghost"
+              color="charcoal.400"
+              fontFamily="heading"
+              fontSize="xs"
+              _hover={{ color: "violet.500", bg: "violet.50" }}
+              onClick={handleCopyTestLink}
+            >
+              <FiCopy style={{ marginRight: "4px" }} />
+              {linkCopied ? "Copied!" : "Test Link"}
+            </Button>
+            <Button
+              size="xs"
+              bg="violet.500"
+              color="white"
+              fontFamily="heading"
+              fontSize="xs"
+              _hover={{ bg: "violet.600" }}
+              onClick={() => window.open(remoteUrl, "_blank")}
+            >
+              <FiPlay style={{ marginRight: "4px" }} />
+              Remote
+            </Button>
+          </HStack>
         </VStack>
       </Card.Body>
     </Card.Root>
@@ -906,7 +942,7 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
 
       <DimensionPicker
         label="Unit"
-        defaultLabel="Free Choice"
+        defaultLabel="Independent Study"
         activeId={focusUnitId}
         options={unitOptions}
         onChange={(id) => onSet({ unitId: (id as Id<"units">) ?? undefined })}
