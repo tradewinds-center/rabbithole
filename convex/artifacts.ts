@@ -127,6 +127,8 @@ export const aiCreate = internalMutation({
     projectId: v.id("projects"),
     title: v.string(),
     content: v.string(),
+    type: v.optional(v.union(v.literal("text"), v.literal("code"))),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("artifacts", {
@@ -134,6 +136,8 @@ export const aiCreate = internalMutation({
       title: args.title,
       content: args.content,
       lastEditedBy: "ai",
+      ...(args.type ? { type: args.type } : {}),
+      ...(args.language ? { language: args.language } : {}),
     });
     return id;
   },

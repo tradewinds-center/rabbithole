@@ -26,6 +26,7 @@ export default defineSchema({
       )
     ),
     readingLevel: v.optional(v.string()),
+    dateOfBirth: v.optional(v.string()), // ISO date string, e.g. "2018-03-15"
     guestToken: v.optional(v.string()),
   })
     .index("by_email", ["email"])
@@ -36,9 +37,8 @@ export default defineSchema({
   projects: defineTable({
     userId: v.id("users"),
     unitId: v.optional(v.id("units")),
-    personaId: v.optional(v.id("personas")),
-    perspectiveId: v.optional(v.id("perspectives")),
-    processId: v.optional(v.id("processes")),
+    // personaId, perspectiveId, processId REMOVED in Phase 1
+    // — all dimensions now come from the unit's building-block refs
     title: v.string(),
     analysisSummary: v.optional(v.string()),
     pulseScore: v.optional(v.number()),
@@ -109,43 +109,113 @@ export default defineSchema({
     .index("by_teacher", ["teacherId"])
     .index("by_project", ["projectId"]),
 
-  scholarTopics: defineTable({
-    scholarId: v.id("users"),
-    topic: v.string(),
-    bloomLevel: v.union(
-      v.literal("remember"),
-      v.literal("understand"),
-      v.literal("apply"),
-      v.literal("analyze"),
-      v.literal("evaluate"),
-      v.literal("create")
-    ),
-    teacherRating: v.number(), // 1 = thumbs up, -1 = thumbs down, 0 = neutral
-    mentionCount: v.number(),
-    lastProjectId: v.optional(v.id("projects")),
+  // ─── Standards Reference Layer (for compliance lens) ─────────────
+  standardsDocuments: defineTable({
+    asnDocumentId: v.string(),
+    title: v.string(),
+    subject: v.string(),
+    jurisdiction: v.string(),
   })
-    .index("by_scholar", ["scholarId"])
-    .index("by_scholar_and_topic", ["scholarId", "topic"]),
+    .index("by_subject", ["subject"])
+    .index("by_jurisdiction", ["jurisdiction"]),
 
-  suggestedTopics: defineTable({
+  standards: defineTable({
+    asnId: v.string(),
+    notation: v.optional(v.string()),
+    description: v.string(),
+    gradeLevels: v.array(v.string()),
+    subject: v.string(),
+    statementLabel: v.string(),
+    isLeaf: v.boolean(),
+    parentId: v.optional(v.id("standards")),
+    documentId: v.id("standardsDocuments"),
+  })
+    .index("by_subject", ["subject"])
+    .index("by_subject_leaf", ["subject", "isLeaf"])
+    .index("by_parent", ["parentId"])
+    .index("by_notation", ["notation"])
+    .index("by_document", ["documentId"])
+    .index("by_asnId", ["asnId"]),
+
+  // ─── Observer Output Tables ────────────────────────────────────────
+  masteryObservations: defineTable({
     scholarId: v.id("users"),
-    teacherId: v.id("users"),
-    topic: v.string(),
-    rationale: v.optional(v.string()),
-    targetBloomLevel: v.optional(
-      v.union(
-        v.literal("remember"),
-        v.literal("understand"),
-        v.literal("apply"),
-        v.literal("analyze"),
-        v.literal("evaluate"),
-        v.literal("create")
-      )
-    ),
-    explored: v.boolean(),
+    conceptLabel: v.string(),
+    domain: v.string(),
+    observedAt: v.number(),
+    projectId: v.id("projects"),
+    transcriptExcerpt: v.string(),
+    excerptMessageIds: v.optional(v.array(v.id("messages"))),
+    masteryLevel: v.number(),
+    confidenceScore: v.number(),
+    evidenceSummary: v.string(),
+    evidenceType: v.string(),
+    attemptContext: v.string(),
+    studentInitiated: v.boolean(),
+    standardIds: v.optional(v.array(v.id("standards"))),
+    supersedesId: v.optional(v.id("masteryObservations")),
+    isSuperseded: v.boolean(),
   })
     .index("by_scholar", ["scholarId"])
-    .index("by_teacher", ["teacherId"]),
+    .index("by_scholar_domain", ["scholarId", "domain"])
+    .index("by_scholar_current", ["scholarId", "isSuperseded"])
+    .index("by_project", ["projectId"]),
+
+  teacherMasteryOverrides: defineTable({
+    scholarId: v.id("users"),
+    observationId: v.id("masteryObservations"),
+    teacherId: v.id("users"),
+    masteryLevel: v.number(),
+    notes: v.string(),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_observation", ["observationId"]),
+
+  // ─── Seeds (replaces suggestedTopics) ──────────────────────────────
+  seeds: defineTable({
+    scholarId: v.id("users"),
+    origin: v.string(),
+    status: v.string(),
+    dismissedReason: v.optional(v.string()),
+    topic: v.string(),
+    domain: v.optional(v.string()),
+    suggestionType: v.string(),
+    rationale: v.string(),
+    approachHint: v.optional(v.string()),
+    connectionTo: v.optional(v.string()),
+    projectId: v.optional(v.id("projects")),
+    teacherId: v.optional(v.id("users")),
+    currentBloomsLevel: v.optional(v.number()),
+    targetBloomsLevel: v.optional(v.number()),
+  })
+    .index("by_scholar_status", ["scholarId", "status"])
+    .index("by_scholar_origin", ["scholarId", "origin"]),
+
+  // ─── Session Signals (learner character) ───────────────────────────
+  sessionSignals: defineTable({
+    scholarId: v.id("users"),
+    projectId: v.id("projects"),
+    signalType: v.string(),
+    description: v.string(),
+    intensity: v.string(),
+    transcriptExcerpt: v.optional(v.string()),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_scholar_type", ["scholarId", "signalType"])
+    .index("by_project", ["projectId"]),
+
+  // ─── Cross-Domain Connections ──────────────────────────────────────
+  crossDomainConnections: defineTable({
+    scholarId: v.id("users"),
+    domains: v.array(v.string()),
+    conceptLabels: v.array(v.string()),
+    description: v.string(),
+    projectId: v.id("projects"),
+    studentInitiated: v.boolean(),
+    transcriptExcerpt: v.optional(v.string()),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_project", ["projectId"]),
 
   personas: defineTable({
     teacherId: v.id("users"),
@@ -191,18 +261,23 @@ export default defineSchema({
         v.literal("create")
       )
     ),
+    // Phase 1: building-block references (unit composes these)
+    personaId: v.optional(v.id("personas")),
+    perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
+    // null = teacher-created; set = scholar-created independent study unit
+    scholarId: v.optional(v.id("users")),
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
     .index("by_active", ["isActive"])
-    .index("by_slug", ["slug"]),
+    .index("by_slug", ["slug"])
+    .index("by_scholar", ["scholarId"]),
 
   focusSettings: defineTable({
     teacherId: v.id("users"),
-    personaId: v.optional(v.id("personas")),
     unitId: v.optional(v.id("units")),
-    perspectiveId: v.optional(v.id("perspectives")),
-    processId: v.optional(v.id("processes")),
+    // Phase 1: simplified — only unitId, individual dims removed
     isActive: v.boolean(),
   }).index("by_active", ["isActive"]),
 
@@ -231,10 +306,19 @@ export default defineSchema({
     title: v.string(),
     content: v.string(),
     lastEditedBy: v.union(v.literal("scholar"), v.literal("ai")),
+    type: v.optional(v.union(v.literal("text"), v.literal("code"))),
+    language: v.optional(v.string()), // e.g. "html", "javascript", "python"
   }).index("by_project", ["projectId"]),
 
   scholarDossiers: defineTable({
     scholarId: v.id("users"),
+    content: v.string(),
+  }).index("by_scholar", ["scholarId"]),
+
+  reports: defineTable({
+    teacherId: v.id("users"),
+    scholarId: v.id("users"),
+    title: v.string(),
     content: v.string(),
   }).index("by_scholar", ["scholarId"]),
 

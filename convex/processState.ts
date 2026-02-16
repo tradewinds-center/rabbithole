@@ -122,12 +122,20 @@ export const getRacetrackData = teacherQuery({
     const process = await ctx.db.get(args.processId);
     if (!process) return null;
 
-    // Find all non-archived projects using this process
-    const projects = await ctx.db
-      .query("projects")
+    // Find all non-archived projects using this process (via unit building block)
+    const unitsWithProcess = await ctx.db
+      .query("units")
       .filter((q) => q.eq(q.field("processId"), args.processId))
       .collect();
-    const activeProjects = projects.filter((p) => !p.isArchived);
+    const allProjects = [];
+    for (const unit of unitsWithProcess) {
+      const unitProjects = await ctx.db
+        .query("projects")
+        .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
+        .collect();
+      allProjects.push(...unitProjects);
+    }
+    const activeProjects = allProjects.filter((p) => !p.isArchived);
 
     // For each project, get processState + scholar info
     const scholarResults = await Promise.all(

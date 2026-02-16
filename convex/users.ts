@@ -107,20 +107,23 @@ export const listScholars = teacherQuery({
           }
         }
 
-        // Get process state from most recent project
+        // Get process state from most recent project (resolve via unit's building block)
         let processStep: string | null = null;
         let processTitle: string | null = null;
-        if (mostRecent?.processId) {
-          const pState = await ctx.db
-            .query("processState")
-            .withIndex("by_project", (q) =>
-              q.eq("projectId", mostRecent._id)
-            )
-            .first();
-          if (pState) {
-            processStep = pState.currentStep;
-            const process = await ctx.db.get(mostRecent.processId);
-            processTitle = process?.title ?? null;
+        if (mostRecent?.unitId) {
+          const unit = await ctx.db.get(mostRecent.unitId);
+          if (unit?.processId) {
+            const pState = await ctx.db
+              .query("processState")
+              .withIndex("by_project", (q) =>
+                q.eq("projectId", mostRecent._id)
+              )
+              .first();
+            if (pState) {
+              processStep = pState.currentStep;
+              const process = await ctx.db.get(unit.processId);
+              processTitle = process?.title ?? null;
+            }
           }
         }
 
@@ -130,6 +133,8 @@ export const listScholars = teacherQuery({
           email: scholar.email,
           name: scholar.name,
           image: scholar.image,
+          readingLevel: scholar.readingLevel ?? null,
+          dateOfBirth: scholar.dateOfBirth ?? null,
           projectCount: activeProjects.length,
           messageCount,
           lastActive: mostRecent?._creationTime ?? scholar._creationTime,

@@ -17,15 +17,13 @@ export const getCurrent = authedQuery({
 });
 
 /**
- * Set focus dimensions (teacher only).
+ * Set focus unit (teacher only).
  * Deactivates any existing focus, then creates a new active one.
+ * Phase 1: only unitId — individual dimensions come from the unit.
  */
 export const set = teacherMutation({
   args: {
-    personaId: v.optional(v.id("personas")),
     unitId: v.optional(v.id("units")),
-    perspectiveId: v.optional(v.id("perspectives")),
-    processId: v.optional(v.id("processes")),
   },
   handler: async (ctx, args) => {
     // Deactivate all existing active focus settings
@@ -40,10 +38,7 @@ export const set = teacherMutation({
     // Insert new active focus
     return await ctx.db.insert("focusSettings", {
       teacherId: ctx.user._id,
-      personaId: args.personaId,
       unitId: args.unitId,
-      perspectiveId: args.perspectiveId,
-      processId: args.processId,
       isActive: true,
     });
   },

@@ -6,7 +6,11 @@
     "dev": "next dev -p 1041",
     "build": "next build",
     "start": "next start -p 1041",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:seed": "bash scripts/db-seed.sh",
+    "db:seed:prod": "bash scripts/db-seed.sh --prod",
+    "db:reset": "bash scripts/db-reset.sh",
+    "db:reset:prod": "bash scripts/db-reset.sh --prod"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

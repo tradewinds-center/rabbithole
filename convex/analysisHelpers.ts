@@ -1,15 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 
-const bloomLevelValidator = v.union(
-  v.literal("remember"),
-  v.literal("understand"),
-  v.literal("apply"),
-  v.literal("analyze"),
-  v.literal("evaluate"),
-  v.literal("create")
-);
-
 /**
  * Save an observer analysis result.
  */
@@ -55,43 +46,6 @@ export const getProject = internalQuery({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.projectId);
-  },
-});
-
-/**
- * Upsert a scholar topic — increment mention count if exists, create otherwise.
- */
-export const upsertScholarTopic = internalMutation({
-  args: {
-    scholarId: v.id("users"),
-    topic: v.string(),
-    bloomLevel: bloomLevelValidator,
-    projectId: v.id("projects"),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("scholarTopics")
-      .withIndex("by_scholar_and_topic", (q) =>
-        q.eq("scholarId", args.scholarId).eq("topic", args.topic)
-      )
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        mentionCount: existing.mentionCount + 1,
-        lastProjectId: args.projectId,
-        bloomLevel: args.bloomLevel,
-      });
-    } else {
-      await ctx.db.insert("scholarTopics", {
-        scholarId: args.scholarId,
-        topic: args.topic,
-        bloomLevel: args.bloomLevel,
-        teacherRating: 0,
-        mentionCount: 1,
-        lastProjectId: args.projectId,
-      });
-    }
   },
 });
 

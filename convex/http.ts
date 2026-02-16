@@ -63,7 +63,8 @@ http.route({
       project.processContext,
       project.processStateData,
       project.artifactData,
-      project.dossierContent
+      project.dossierContent,
+      project.seeds.length > 0 ? project.seeds : null
     );
 
     const encoder = new TextEncoder();
@@ -334,6 +335,50 @@ http.route({
             },
           });
 
+          const createCodeTool = betaTool({
+            name: "create_code",
+            description: "Create an interactive code artifact that the scholar can see rendered live. Use this when the scholar is building something visual with HTML/CSS/JavaScript — a web page, a game, an animation, a data visualization, or any interactive project. The code will be rendered in a live preview sandbox. Write a single self-contained HTML file with inline CSS and JavaScript.",
+            inputSchema: {
+              type: "object" as const,
+              properties: {
+                title: {
+                  type: "string" as const,
+                  description: "A short title for the code project (e.g., 'Bouncing Ball Game', 'Solar System Model')",
+                },
+                code: {
+                  type: "string" as const,
+                  description: "Complete self-contained HTML file with inline <style> and <script> tags. Must be a valid HTML document. Use modern CSS and vanilla JavaScript — no external libraries unless loaded via CDN.",
+                },
+              },
+              required: ["title", "code"] as const,
+            },
+            run: async (input) => {
+              const newArtifactId = await ctx.runMutation(internal.artifacts.aiCreate, {
+                projectId: projId,
+                title: input.title,
+                content: input.code,
+                type: "code",
+                language: "html",
+              });
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
+              );
+              const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
+                currentMessageId: assistantMsgId as Id<"messages">,
+                projectId: projId,
+                contentSoFar: fullContent,
+                toolAction: "Created code artifact",
+              });
+              assistantMsgId = newId;
+              fullContent = "";
+              lastPersistLength = 0;
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ newAssistantMsg: String(newId) })}\n\n`)
+              );
+              return `Code artifact created successfully. Document ID: ${String(newArtifactId)}. The scholar can now see the live preview. You can update it using edit_document with str_replace or insert commands using this document_id.`;
+            },
+          });
+
           const updateDossierTool = betaTool({
             name: "update_dossier",
             description: "Update the persistent scholar profile with learning patterns, interests, strengths, and growth areas you've observed. Only call this when you have a genuine new insight — not on every message.",
@@ -359,6 +404,7 @@ http.route({
           // Build tools array based on active features
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
           tools.push(updateDossierTool); // Always enabled
+          tools.push(createCodeTool); // Always enabled — scholars can build interactive code
           if (hasProcess) tools.push(processStepTool);
           if (project.unitContext || (project.artifactData && project.artifactData.length > 0)) tools.push(editDocumentTool);
 
@@ -509,9 +555,20 @@ http.route({
   }),
 });
 
+/** Map a Bloom's float (0-5) to a named level string. */
+function bloomFromFloat(level: number): string {
+  if (level >= 4.5) return "create";
+  if (level >= 3.5) return "evaluate";
+  if (level >= 2.5) return "analyze";
+  if (level >= 1.5) return "apply";
+  if (level >= 0.5) return "understand";
+  return "remember";
+}
+
 /**
  * Analyze a project endpoint.
- * Runs both observer and detailed analysis, returns combined results.
+ * Runs unified observer (writes mastery observations, signals, seeds, etc. to DB).
+ * Returns a backward-compatible "detailed" shape for ProjectViewer.
  */
 http.route({
   path: "/analyze",
@@ -521,21 +578,44 @@ http.route({
     const { projectId } = body as { projectId: string };
 
     try {
-      // Run both analyses in parallel
-      const [observerResult, detailedResult] = await Promise.all([
-        ctx.runAction(internal.analysisActions.runObserverAnalysis, {
-          projectId: projectId as Id<"projects">,
-        }),
-        ctx.runAction(internal.analysisActions.runDetailedAnalysis, {
-          projectId: projectId as Id<"projects">,
-        }),
-      ]);
+      const result = await ctx.runAction(internal.observer.analyzeProject, {
+        projectId: projectId as Id<"projects">,
+      });
+
+      // Map observer result to legacy "detailed" shape for ProjectViewer
+      const detailed = result
+        ? {
+            summary: result.pulse.summary,
+            topics: result.pulse.topics,
+            bloomLevel: result.observations.length > 0
+              ? bloomFromFloat(
+                  Math.max(...result.observations.map((o: any) => o.masteryLevel))
+                )
+              : "remember",
+            bloomDescription: result.observations.length > 0
+              ? result.observations
+                  .sort((a: any, b: any) => b.masteryLevel - a.masteryLevel)
+                  .slice(0, 3)
+                  .map((o: any) => `${o.conceptLabel}: ${o.masteryLevel.toFixed(1)}`)
+                  .join(", ")
+              : "No observations yet",
+            nudges: result.seeds
+              .filter((s: any) => s.suggestionType === "depth_probe")
+              .map((s: any) => ({ type: "challenge", message: s.rationale })),
+            suggestedFollowUps: result.seeds
+              .filter((s: any) => s.suggestionType === "frontier")
+              .map((s: any) => ({
+                topic: s.topic,
+                targetLevel: s.targetBloomsLevel
+                  ? bloomFromFloat(s.targetBloomsLevel)
+                  : "apply",
+                rationale: s.rationale,
+              })),
+          }
+        : null;
 
       return new Response(
-        JSON.stringify({
-          observer: observerResult,
-          detailed: detailedResult,
-        }),
+        JSON.stringify({ observer: result?.pulse ?? null, detailed }),
         {
           status: 200,
           headers: {

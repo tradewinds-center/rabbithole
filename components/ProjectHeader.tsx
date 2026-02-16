@@ -13,43 +13,33 @@ import {
 } from "@chakra-ui/react";
 import { FiMenu } from "react-icons/fi";
 import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { AccountMenu } from "./AccountMenu";
 import { DimensionPicker } from "./DimensionPicker";
 import type { DimensionOption } from "./DimensionPicker";
 import { DimensionEditModal } from "./DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
 
-interface FocusLock {
-  personaId?: string | null;
-  unitId?: string | null;
-  perspectiveId?: string | null;
-  processId?: string | null;
-}
-
 interface ProjectHeaderProps {
   projectTitle: string;
-  // Current selections
-  personaId: string | null;
+  // Current unit selection
   unitId: string | null;
-  perspectiveId: string | null;
-  processId: string | null;
-  // Options
-  personaOptions: DimensionOption[];
+  // Unit options
   unitOptions: DimensionOption[];
-  perspectiveOptions: DimensionOption[];
-  processOptions: DimensionOption[];
+  // Building block info from unit (read-only display)
+  unitPersonaEmoji?: string | null;
+  unitPersonaTitle?: string | null;
+  unitPerspectiveIcon?: string | null;
+  unitPerspectiveTitle?: string | null;
+  unitProcessEmoji?: string | null;
+  unitProcessTitle?: string | null;
   // Full entity data for edit modal (optional — only needed when edit is enabled)
-  personaData?: DimensionEditData[];
   unitData?: DimensionEditData[];
-  perspectiveData?: DimensionEditData[];
-  processData?: DimensionEditData[];
   // Handlers
-  onPersonaChange: (id: string | null) => void;
   onUnitChange: (id: string | null) => void;
-  onPerspectiveChange: (id: string | null) => void;
-  onProcessChange: (id: string | null) => void;
   // Focus lock (optional)
-  focusLock?: FocusLock | null;
+  focusLock?: { unitId?: string | null } | null;
   // Hamburger menu to open sidebar drawer
   onMenuClick?: () => void;
   // Global sync state indicator
@@ -74,22 +64,16 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({
   projectTitle,
-  personaId,
   unitId,
-  perspectiveId,
-  processId,
-  personaOptions,
   unitOptions,
-  perspectiveOptions,
-  processOptions,
-  personaData,
+  unitPersonaEmoji,
+  unitPersonaTitle,
+  unitPerspectiveIcon,
+  unitPerspectiveTitle,
+  unitProcessEmoji,
+  unitProcessTitle,
   unitData,
-  perspectiveData,
-  processData,
-  onPersonaChange,
   onUnitChange,
-  onPerspectiveChange,
-  onProcessChange,
   focusLock,
   onMenuClick,
   isSynced,
@@ -106,10 +90,7 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
-  const personaLocked = effectiveLock?.personaId != null;
   const unitLocked = effectiveLock?.unitId != null;
-  const perspectiveLocked = effectiveLock?.perspectiveId != null;
-  const processLocked = effectiveLock?.processId != null;
 
   // Inline title editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -135,6 +116,11 @@ export function ProjectHeader({
     }
   };
 
+  // Building block lists for unit edit modal (only queried in test mode)
+  const personasList = useQuery(api.personas.list, isTestMode ? {} : "skip");
+  const perspectivesList = useQuery(api.perspectives.list, isTestMode ? {} : "skip");
+  const processesList = useQuery(api.processes.list, isTestMode ? {} : "skip");
+
   // Edit modal state
   const [editModal, setEditModal] = useState<{
     type: DimensionType;
@@ -146,6 +132,12 @@ export function ProjectHeader({
     const item = dataList.find((d) => d._id === id);
     if (item) setEditModal({ type, data: item });
   };
+
+  // Build building-block chips for display
+  const buildingBlocks: { label: string; emoji: string }[] = [];
+  if (unitPersonaTitle) buildingBlocks.push({ label: unitPersonaTitle, emoji: unitPersonaEmoji || "🤖" });
+  if (unitPerspectiveTitle) buildingBlocks.push({ label: unitPerspectiveTitle, emoji: unitPerspectiveIcon || "🔍" });
+  if (unitProcessTitle) buildingBlocks.push({ label: unitProcessTitle, emoji: unitProcessEmoji || "📋" });
 
   return (
     <Box
@@ -259,23 +251,8 @@ export function ProjectHeader({
         )}
       </Flex>
 
-      {/* Row 2: Dimension pickers */}
-      <Flex px={5} pb={2} gap={7} align="center" flexWrap="wrap">
-        <DimensionPicker
-          label="Persona"
-          defaultLabel="None"
-          activeId={personaId}
-          options={personaOptions}
-          locked={personaLocked}
-          lockedTitle={personaOptions.find((p) => p.id === personaId)?.title}
-          onChange={onPersonaChange}
-          renderOption={(p) => `${p.emoji || "🤖"} ${p.title}`}
-          renderActive={() => {
-            const a = personaOptions.find((p) => p.id === personaId);
-            return a ? `${a.emoji} ${a.title}` : null;
-          }}
-          onEdit={isTestMode && personaData ? (id) => openEdit("persona", id, personaData) : undefined}
-        />
+      {/* Row 2: Unit picker + building block chips */}
+      <Flex px={5} pb={2} gap={4} align="center" flexWrap="wrap">
         <DimensionPicker
           label="Unit"
           defaultLabel="None"
@@ -284,44 +261,53 @@ export function ProjectHeader({
           locked={unitLocked}
           lockedTitle={unitOptions.find((p) => p.id === unitId)?.title}
           onChange={onUnitChange}
-          renderOption={(p) => `📚 ${p.title}`}
+          renderOption={(p) => `${p.emoji || "📚"} ${p.title}`}
           renderActive={() => {
             const a = unitOptions.find((p) => p.id === unitId);
-            return a ? `📚 ${a.title}` : null;
+            return a ? `${a.emoji || "📚"} ${a.title}` : null;
           }}
           onEdit={isTestMode && unitData ? (id) => openEdit("unit", id, unitData) : undefined}
         />
-        <DimensionPicker
-          label="Lens"
-          defaultLabel="None"
-          activeId={perspectiveId}
-          options={perspectiveOptions}
-          locked={perspectiveLocked}
-          lockedTitle={perspectiveOptions.find((p) => p.id === perspectiveId)?.title}
-          onChange={onPerspectiveChange}
-          renderOption={(p) => `${p.icon || "🔍"} ${p.title}`}
-          renderActive={() => {
-            const a = perspectiveOptions.find((p) => p.id === perspectiveId);
-            return a ? `${a.icon || "🔍"} ${a.title}` : null;
-          }}
-          onEdit={isTestMode && perspectiveData ? (id) => openEdit("perspective", id, perspectiveData) : undefined}
-        />
-        <DimensionPicker
-          label="Process"
-          defaultLabel="None"
-          activeId={processId}
-          options={processOptions}
-          locked={processLocked}
-          lockedTitle={processOptions.find((p) => p.id === processId)?.title}
-          onChange={onProcessChange}
-          renderOption={(p) => `${p.emoji || "📋"} ${p.title}`}
-          renderActive={() => {
-            const a = processOptions.find((p) => p.id === processId);
-            return a ? `${a.emoji || "📋"} ${a.title}` : null;
-          }}
-          onEdit={isTestMode && processData ? (id) => openEdit("process", id, processData) : undefined}
-          stepBadge={currentStepKey || undefined}
-        />
+
+        {/* Read-only building block chips from current unit */}
+        {buildingBlocks.length > 0 && (
+          <HStack gap={2} flexWrap="wrap">
+            {buildingBlocks.map((bb) => (
+              <HStack
+                key={bb.label}
+                gap={1}
+                px={2}
+                py={0.5}
+                bg="gray.100"
+                borderRadius="md"
+                fontSize="xs"
+                fontFamily="heading"
+                color="charcoal.500"
+              >
+                <Text>{bb.emoji}</Text>
+                <Text>{bb.label}</Text>
+              </HStack>
+            ))}
+          </HStack>
+        )}
+
+        {/* Process step badge */}
+        {currentStepKey && unitProcessTitle && (
+          <HStack
+            gap={1}
+            px={2}
+            py={0.5}
+            bg="violet.100"
+            borderRadius="md"
+            fontSize="xs"
+            fontFamily="heading"
+            color="violet.700"
+            fontWeight="600"
+          >
+            <Text>Step: {currentStepKey}</Text>
+          </HStack>
+        )}
+
         {onToggleRightPanel && (
           <IconButton
             aria-label={showRightPanel ? "Hide side panel" : "Show side panel"}
@@ -345,6 +331,9 @@ export function ProjectHeader({
           onClose={() => setEditModal(null)}
           dimensionType={editModal.type}
           data={editModal.data}
+          personas={personasList as { _id: string; title: string; emoji: string }[] | undefined}
+          perspectives={perspectivesList as { _id: string; title: string; icon?: string }[] | undefined}
+          processes={processesList as { _id: string; title: string; emoji?: string }[] | undefined}
         />
       )}
     </Box>

@@ -99,11 +99,15 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 | `personas.ts` | Persona CRUD |
 | `perspectives.ts` | Perspective CRUD |
 | `units.ts` | Unit (curriculum assignment) CRUD |
-| `scholars.ts` | Scholar profile, topics, suggestions |
+| `scholars.ts` | Scholar profile + reading level |
 | `observations.ts` | Teacher observation CRUD |
 | `analyses.ts` | Analysis queries |
-| `analysisActions.ts` | "use node" actions for Claude Haiku analysis |
-| `analysisHelpers.ts` | Internal mutations for analysis results |
+| `observer.ts` | "use node" unified observer action (Sonnet) — mastery, signals, seeds |
+| `masteryObservations.ts` | Concept mastery records (Bloom's 0-5 float) |
+| `sessionSignals.ts` | Learner character signals per session |
+| `crossDomainConnections.ts` | Cross-domain thinking records |
+| `seeds.ts` | AI-generated + teacher-created exploration seeds |
+| `analysisHelpers.ts` | Internal mutations for pulse/analysis results |
 | `audioActions.ts` | "use node" action for OpenAI Whisper transcription |
 | `seed.ts` | Seed personas, perspectives, test users |
 
@@ -135,10 +139,15 @@ projects          -> per-scholar work sessions, with status and teacherWhisper
 messages          -> project message history
 artifacts         -> shared documents within a project
 processState      -> guided workflow step tracking
-analyses          -> AI analysis results
+analyses          -> AI analysis results (pulse scores)
 observations      -> teacher notes on scholars
-scholarTopics     -> topics discovered + Bloom level + teacher rating
-suggestedTopics   -> teacher-curated suggestions
+masteryObservations -> concept mastery records (Bloom's 0-5 float)
+teacherMasteryOverrides -> teacher corrections to mastery observations
+seeds             -> AI-generated + teacher-created exploration seeds
+sessionSignals    -> learner character signals per session
+crossDomainConnections -> cross-domain thinking records
+standardsDocuments -> curriculum standards documents (future)
+standards         -> individual curriculum standards (future)
 personas          -> AI persona configurations
 perspectives      -> learning perspectives (Makawalu lenses)
 units             -> teacher-created curriculum assignments
@@ -149,7 +158,7 @@ focusSettings     -> teacher dimension locks per scholar
 **Key relationships:**
 - 1 User -> Many Projects -> Many Messages
 - 1 Project -> Many Analyses
-- 1 Scholar -> Many Topics, Many Suggestions, Many Observations
+- 1 Scholar -> Many MasteryObservations, Many Seeds, Many SessionSignals, Many Observations
 - Projects reference optional persona, unit, perspective, process
 
 ---
@@ -177,7 +186,7 @@ Scholars:
   Kai Nakamura: test-scholar-001@test.makawulu.dev
   Lani Kealoha: test-scholar-002@test.makawulu.dev
   Noah Takahashi: test-scholar-003@test.makawulu.dev
-Seed data: npx convex run seed:seedAll
+Seed data: pnpm db:seed
 ```
 
 ---
@@ -189,7 +198,10 @@ npm run dev          # Next.js dev server (port 1041)
 npm run build        # Production build
 npm run start        # Production server (port 1041)
 npx convex dev       # Convex dev server (run alongside npm run dev)
-npx convex run seed:seedAll  # Seed personas, perspectives, test users
+pnpm db:seed         # Seed data + import Common Core standards (non-destructive)
+pnpm db:seed:prod    # Same but for production
+pnpm db:reset        # Wipe ALL tables, re-seed, re-import standards
+pnpm db:reset:prod   # Same but for production (be careful!)
 ```
 
 ## DevOps / Type-Checking Without Interactive Terminal

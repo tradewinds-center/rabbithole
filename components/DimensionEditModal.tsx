@@ -64,6 +64,9 @@ export interface DimensionEditData {
   rubric?: string;
   targetBloomLevel?: string;
   steps?: { key: string; title: string; description?: string }[];
+  personaId?: string;
+  perspectiveId?: string;
+  processId?: string;
 }
 
 interface DimensionEditModalProps {
@@ -72,6 +75,10 @@ interface DimensionEditModalProps {
   dimensionType: DimensionType;
   /** Pass existing data to edit. Omit for create mode. */
   data?: DimensionEditData | null;
+  /** Option lists for unit building blocks */
+  personas?: { _id: string; title: string; emoji: string }[];
+  perspectives?: { _id: string; title: string; icon?: string }[];
+  processes?: { _id: string; title: string; emoji?: string }[];
 }
 
 const TYPE_LABELS: Record<DimensionType, string> = {
@@ -278,6 +285,9 @@ export function DimensionEditModal({
   onClose,
   dimensionType,
   data,
+  personas,
+  perspectives,
+  processes,
 }: DimensionEditModalProps) {
   const label = TYPE_LABELS[dimensionType];
   const isEditing = !!data;
@@ -301,6 +311,9 @@ export function DimensionEditModal({
     targetBloomLevel: "",
     emoji: "",
     icon: "",
+    personaId: "",
+    perspectiveId: "",
+    processId: "",
   });
   const [stepsData, setStepsData] = useState<StepWithId[]>([]);
   const nextIdRef = useRef(0);
@@ -322,6 +335,9 @@ export function DimensionEditModal({
         targetBloomLevel: data?.targetBloomLevel ?? "",
         emoji: data?.emoji ?? "",
         icon: data?.icon ?? "",
+        personaId: data?.personaId ?? "",
+        perspectiveId: data?.perspectiveId ?? "",
+        processId: data?.processId ?? "",
       });
       setStepsData(
         data?.steps?.map((s) => ({
@@ -369,6 +385,9 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
             ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
+            personaId: formData.personaId ? formData.personaId as Id<"personas"> : null,
+            perspectiveId: formData.perspectiveId ? formData.perspectiveId as Id<"perspectives"> : null,
+            processId: formData.processId ? formData.processId as Id<"processes"> : null,
           });
         } else if (dimensionType === "process") {
           await updateProcess({
@@ -405,6 +424,9 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
             ...(bloomLevel ? { targetBloomLevel: bloomLevel } : {}),
+            ...(formData.personaId ? { personaId: formData.personaId as Id<"personas"> } : {}),
+            ...(formData.perspectiveId ? { perspectiveId: formData.perspectiveId as Id<"perspectives"> } : {}),
+            ...(formData.processId ? { processId: formData.processId as Id<"processes"> } : {}),
           });
         } else if (dimensionType === "process") {
           await createProcess({
@@ -556,6 +578,79 @@ export function DimensionEditModal({
                         ))}
                       </select>
                     </FieldRow>
+
+                    {(personas?.length || perspectives?.length || processes?.length) ? (
+                      <FieldRow
+                        label="Building Blocks"
+                        hint="Optional persona, perspective, and process applied when this unit is active."
+                      >
+                        <VStack gap={3} align="stretch">
+                          {personas && personas.length > 0 && (
+                            <select
+                              value={formData.personaId}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, personaId: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                padding: "10px 12px",
+                                borderRadius: "6px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "16px",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              <option value="">No Persona</option>
+                              {personas.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                  {p.emoji} {p.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {perspectives && perspectives.length > 0 && (
+                            <select
+                              value={formData.perspectiveId}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, perspectiveId: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                padding: "10px 12px",
+                                borderRadius: "6px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "16px",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              <option value="">No Perspective</option>
+                              {perspectives.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                  {p.icon || "🔍"} {p.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {processes && processes.length > 0 && (
+                            <select
+                              value={formData.processId}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, processId: e.target.value }))}
+                              style={{
+                                width: "100%",
+                                padding: "10px 12px",
+                                borderRadius: "6px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "16px",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              <option value="">No Process</option>
+                              {processes.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                  {p.emoji || "📋"} {p.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </VStack>
+                      </FieldRow>
+                    ) : null}
                   </>
                 )}
 

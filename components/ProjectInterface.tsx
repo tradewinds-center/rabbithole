@@ -73,40 +73,27 @@ export function ProjectInterface({
   const [whisperInput, setWhisperInput] = useState("");
 
   // Convex queries for dimension options (reactive, auto-updating)
-  const personas = useQuery(api.personas.list) ?? [];
   const units = useQuery(api.units.list) ?? [];
-  const perspectives = useQuery(api.perspectives.list) ?? [];
   const processes = useQuery(api.processes.list) ?? [];
+  const personas = useQuery(api.personas.list) ?? [];
 
-  // Focus lock from teacher
+  // Focus lock from teacher (Phase 1: only unitId)
   const currentFocus = useQuery(api.focus.getCurrent);
   const focusLock = currentFocus?.isActive
-    ? {
-        personaId: currentFocus.personaId ? String(currentFocus.personaId) : null,
-        unitId: currentFocus.unitId ? String(currentFocus.unitId) : null,
-        perspectiveId: currentFocus.perspectiveId ? String(currentFocus.perspectiveId) : null,
-        processId: currentFocus.processId ? String(currentFocus.processId) : null,
-      }
+    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
     : null;
 
+  const unitOptions: DimensionOption[] = units.map((u) => ({
+    id: u._id,
+    title: u.title,
+    emoji: u.emoji ?? undefined,
+  }));
+
+  // Persona options for message bubble labels (still need persona list for historical snapshots)
   const personaOptions: DimensionOption[] = personas.map((p) => ({
     id: p._id,
     title: p.title,
     emoji: p.emoji,
-  }));
-  const unitOptions: DimensionOption[] = units.map((u) => ({
-    id: u._id,
-    title: u.title,
-  }));
-  const perspectiveOptions: DimensionOption[] = perspectives.map((p) => ({
-    id: p._id,
-    title: p.title,
-    icon: p.icon ?? null,
-  }));
-  const processOptions: DimensionOption[] = processes.map((p) => ({
-    id: p._id,
-    title: p.title,
-    emoji: p.emoji ?? null,
   }));
 
   // Convex query for project + messages (reactive, auto-updating)
@@ -119,38 +106,33 @@ export function ProjectInterface({
   const activeProject = projectData?.project
     ? {
         title: projectData.project.title,
-        personaId: projectData.project.personaId
-          ? String(projectData.project.personaId)
-          : null,
         unitId: projectData.project.unitId
           ? String(projectData.project.unitId)
-          : null,
-        perspectiveId: projectData.project.perspectiveId
-          ? String(projectData.project.perspectiveId)
-          : null,
-        processId: projectData.project.processId
-          ? String(projectData.project.processId)
           : null,
       }
     : {
         title: "New Project",
-        personaId: null,
         unitId: null,
-        perspectiveId: null,
-        processId: null,
       };
 
+  // Resolve building blocks from the active unit
+  const activeUnit = activeProject.unitId
+    ? units.find((u) => u._id === activeProject.unitId)
+    : null;
+
   // Process state (reactive query, updates when AI tool fires)
+  // Derive processId from the unit's building block
+  const unitProcessId = activeUnit?.processId ? String(activeUnit.processId) : null;
   const processState = useQuery(
     api.processState.getByProject,
-    activeProject.processId
+    unitProcessId
       ? { projectId: projectId as Id<"projects"> }
       : "skip"
   );
 
-  // Look up the full process definition for the panel
-  const activeProcessDef = activeProject.processId
-    ? processes.find((p) => p._id === activeProject.processId)
+  // Look up the full process definition from the unit's building block
+  const activeProcessDef = unitProcessId
+    ? processes.find((p) => p._id === unitProcessId)
     : null;
 
   // Artifacts (reactive query, returns array)
@@ -225,54 +207,41 @@ export function ProjectInterface({
     }
   }, [isLoading, projectId]);
 
-  // Auto-apply locked dimensions when focus becomes active (skip in test mode)
+  // Auto-apply locked unit when focus becomes active (skip in test mode)
   useEffect(() => {
     if (isTestMode || !focusLock || !projectData?.project) return;
     const proj = projectData.project;
-    const updates: Record<string, string | null> = {};
-    if (focusLock.personaId != null && String(proj.personaId ?? "") !== focusLock.personaId) {
-      updates.personaId = focusLock.personaId;
-    }
     if (focusLock.unitId != null && String(proj.unitId ?? "") !== focusLock.unitId) {
-      updates.unitId = focusLock.unitId;
-    }
-    if (focusLock.perspectiveId != null && String(proj.perspectiveId ?? "") !== focusLock.perspectiveId) {
-      updates.perspectiveId = focusLock.perspectiveId;
-    }
-    if (focusLock.processId != null && String(proj.processId ?? "") !== focusLock.processId) {
-      updates.processId = focusLock.processId;
-    }
-    if (Object.keys(updates).length > 0) {
       updateProject({
         id: projectId as Id<"projects">,
-        ...updates,
-      } as Parameters<typeof updateProject>[0]).catch(console.error);
+        unitId: focusLock.unitId as Id<"units">,
+      }).catch(console.error);
     }
   }, [focusLock, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle dimension changes via Convex mutation
-  const handleDimensionChange = async (
-    field: "personaId" | "unitId" | "perspectiveId" | "processId",
-    value: string | null
-  ) => {
-    // Skip if this dimension is locked by focus (unless in test mode)
-    if (!isTestMode && focusLock) {
-      const lockKey = field as keyof typeof focusLock;
-      if (focusLock[lockKey] != null) return;
-    }
+  // Handle unit change via Convex mutation
+  const handleUnitChange = async (value: string | null) => {
+    // Skip if unit is locked by focus (unless in test mode)
+    if (!isTestMode && focusLock?.unitId != null) return;
     try {
       await updateProject({
         id: projectId as Id<"projects">,
-        [field]: value as Id<"personas"> | Id<"units"> | Id<"perspectives"> | null,
+        unitId: (value as Id<"units">) ?? null,
       });
       onProjectUpdate?.();
     } catch (error) {
-      console.error("Error updating dimension:", error);
+      console.error("Error updating unit:", error);
     }
   };
 
   // Pending whisper from project data (reactive)
   const pendingWhisper = projectData?.project?.pendingWhisper ?? null;
+
+  // Mastery observations for this project (teacher only, for inline debug display)
+  const projectObservations = useQuery(
+    api.masteryObservations.byProject,
+    isRemoteMode ? { projectId: projectId as Id<"projects"> } : "skip"
+  ) ?? [];
 
   // Send whisper via project update mutation
   const handleSendWhisper = async () => {
@@ -445,27 +414,21 @@ export function ProjectInterface({
       {/* Project Header with dimension selectors */}
       <ProjectHeader
         projectTitle={activeProject.title}
-        personaId={activeProject.personaId}
         unitId={activeProject.unitId}
-        perspectiveId={activeProject.perspectiveId}
-        processId={activeProject.processId}
         pulseScore={projectData?.project?.pulseScore ?? null}
         lastMessageAt={(() => {
           const userMsgs = messages.filter((m) => m.role === "user");
           return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].createdAt : null;
         })()}
-        personaOptions={personaOptions}
         unitOptions={unitOptions}
-        perspectiveOptions={perspectiveOptions}
-        processOptions={processOptions}
-        personaData={isTestMode ? personas.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
-        unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, targetBloomLevel: u.targetBloomLevel })) : undefined}
-        perspectiveData={isTestMode ? perspectives.map((p): DimensionEditData => ({ _id: p._id, title: p.title, icon: p.icon ?? undefined, systemPrompt: p.systemPrompt, description: p.description })) : undefined}
-        processData={isTestMode ? processes.map((p): DimensionEditData => ({ _id: p._id, title: p.title, emoji: p.emoji ?? undefined, systemPrompt: p.systemPrompt, description: p.description, steps: p.steps })) : undefined}
-        onPersonaChange={(id) => handleDimensionChange("personaId", id)}
-        onUnitChange={(id) => handleDimensionChange("unitId", id)}
-        onPerspectiveChange={(id) => handleDimensionChange("perspectiveId", id)}
-        onProcessChange={(id) => handleDimensionChange("processId", id)}
+        unitPersonaEmoji={activeUnit?.personaEmoji}
+        unitPersonaTitle={activeUnit?.personaTitle}
+        unitPerspectiveIcon={activeUnit?.perspectiveIcon}
+        unitPerspectiveTitle={activeUnit?.perspectiveTitle}
+        unitProcessEmoji={activeUnit?.processEmoji}
+        unitProcessTitle={activeUnit?.processTitle}
+        unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, targetBloomLevel: u.targetBloomLevel, personaId: u.personaId ? String(u.personaId) : undefined, perspectiveId: u.perspectiveId ? String(u.perspectiveId) : undefined, processId: u.processId ? String(u.processId) : undefined })) : undefined}
+        onUnitChange={handleUnitChange}
         focusLock={focusLock}
         onMenuClick={onOpenSidebar}
         isSynced={hasArtifacts ? artifactSynced : undefined}
@@ -480,96 +443,78 @@ export function ProjectInterface({
       />
 
       {/* Main content area with optional right panel */}
-      {showRightPanel ? (
-        <Splitter.Root
-          flex={1}
-          overflow="hidden"
-          defaultSize={[55, 45]}
-          panels={[
-            { id: "chat", minSize: 40 },
-            { id: "side", minSize: 25 },
-          ]}
-        >
-          <Splitter.Panel id="chat">
-            <ChatColumn
-              messages={messages}
-              streamingContent={streamingContent}
-              streamingMsgId={streamingMsgId}
-              personaOptions={personaOptions}
-              isStreaming={isStreaming}
-              input={input}
-              setInput={setInput}
-              handleKeyDown={handleKeyDown}
-              handleSend={handleSend}
-              textareaRef={textareaRef}
-              messagesEndRef={messagesEndRef}
-              dictationState={dictationState}
-              dictationError={dictationError}
-              toggleRecording={toggleRecording}
-              startRecording={startRecording}
-              stopRecording={stopRecording}
-              isRemoteMode={isRemoteMode}
-              whisperInput={whisperInput}
-              setWhisperInput={setWhisperInput}
-              pendingWhisper={pendingWhisper}
-              onSendWhisper={handleSendWhisper}
-              onClearWhisper={handleClearWhisper}
-            />
-          </Splitter.Panel>
-          <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
-          <Splitter.Panel id="side">
-            <Flex
-              h="full"
-              flexDir="column"
-              overflow="hidden"
-            >
-              <ArtifactPanel
-                artifacts={artifacts}
-                activeArtifactId={activeArtifactId}
-                onSelectArtifact={setActiveArtifactId}
-                onSave={handleSaveArtifact}
-                onCreateArtifact={handleCreateArtifact}
-                onDeleteArtifact={handleDeleteArtifact}
-                onSyncChange={setArtifactSynced}
-                process={hasProcess ? {
-                  title: activeProcessDef!.title,
-                  emoji: activeProcessDef!.emoji ?? null,
-                  steps: activeProcessDef!.steps,
-                } : null}
-                processCurrentStep={hasProcess ? processState!.currentStep : undefined}
-                processSteps={hasProcess ? processState!.steps : undefined}
-              />
-            </Flex>
-          </Splitter.Panel>
-        </Splitter.Root>
-      ) : (
-        <Flex flex={1} overflow="hidden">
-          <ChatColumn
-            messages={messages}
-            streamingContent={streamingContent}
-            streamingMsgId={streamingMsgId}
-            personaOptions={personaOptions}
-            isStreaming={isStreaming}
-            input={input}
-            setInput={setInput}
-            handleKeyDown={handleKeyDown}
-            handleSend={handleSend}
-            textareaRef={textareaRef}
-            messagesEndRef={messagesEndRef}
-            dictationState={dictationState}
-            dictationError={dictationError}
-            toggleRecording={toggleRecording}
-            startRecording={startRecording}
-            stopRecording={stopRecording}
-            isRemoteMode={isRemoteMode}
-            whisperInput={whisperInput}
-            setWhisperInput={setWhisperInput}
-            pendingWhisper={pendingWhisper}
-            onSendWhisper={handleSendWhisper}
-            onClearWhisper={handleClearWhisper}
-          />
-        </Flex>
-      )}
+      {(() => {
+        const chatProps: ChatColumnProps = {
+          messages,
+          streamingContent,
+          streamingMsgId,
+          personaOptions,
+          isStreaming,
+          input,
+          setInput,
+          handleKeyDown,
+          handleSend,
+          textareaRef,
+          messagesEndRef,
+          dictationState,
+          dictationError,
+          toggleRecording,
+          startRecording,
+          stopRecording,
+          isRemoteMode,
+          whisperInput,
+          setWhisperInput,
+          pendingWhisper,
+          onSendWhisper: handleSendWhisper,
+          onClearWhisper: handleClearWhisper,
+          observations: projectObservations,
+        };
+
+        return showRightPanel ? (
+          <Splitter.Root
+            flex={1}
+            overflow="hidden"
+            defaultSize={[55, 45]}
+            panels={[
+              { id: "chat", minSize: 40 },
+              { id: "side", minSize: 25 },
+            ]}
+          >
+            <Splitter.Panel id="chat">
+              <ChatColumn {...chatProps} />
+            </Splitter.Panel>
+            <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
+            <Splitter.Panel id="side">
+              <Flex
+                h="full"
+                flexDir="column"
+                overflow="hidden"
+              >
+                <ArtifactPanel
+                  artifacts={artifacts}
+                  activeArtifactId={activeArtifactId}
+                  onSelectArtifact={setActiveArtifactId}
+                  onSave={handleSaveArtifact}
+                  onCreateArtifact={handleCreateArtifact}
+                  onDeleteArtifact={handleDeleteArtifact}
+                  onSyncChange={setArtifactSynced}
+                  process={hasProcess ? {
+                    title: activeProcessDef!.title,
+                    emoji: activeProcessDef!.emoji ?? null,
+                    steps: activeProcessDef!.steps,
+                  } : null}
+                  processCurrentStep={hasProcess ? processState!.currentStep : undefined}
+                  processSteps={hasProcess ? processState!.steps : undefined}
+                />
+              </Flex>
+            </Splitter.Panel>
+          </Splitter.Root>
+        ) : (
+          <Flex flex={1} overflow="hidden">
+            <ChatColumn {...chatProps} />
+          </Flex>
+        );
+      })()}
     </Flex>
   );
 }
@@ -598,6 +543,7 @@ interface ChatColumnProps {
   pendingWhisper?: string | null;
   onSendWhisper?: () => void;
   onClearWhisper?: () => void;
+  observations?: ObservationData[];
 }
 
 function ChatColumn({
@@ -623,6 +569,7 @@ function ChatColumn({
   pendingWhisper,
   onSendWhisper,
   onClearWhisper,
+  observations = [],
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -721,11 +668,64 @@ function ChatColumn({
             </Flex>
           )}
 
-          {messages
-            .filter((m) => m.role !== "system")
-            .filter((m) => !(m.role === "user" && m.content === "<start>"))
-            .filter((m) => isRemoteMode || m.toolAction !== "whisper")
-            .map((message) => {
+          {(() => {
+            const filteredMsgs = messages
+              .filter((m) => m.role !== "system")
+              .filter((m) => !(m.role === "user" && m.content === "<start>"))
+              .filter((m) => isRemoteMode || m.toolAction !== "whisper");
+
+            // Build a unified timeline: messages + observations (teacher only)
+            type TimelineItem =
+              | { kind: "message"; data: MessageData; time: number }
+              | { kind: "observation"; data: ObservationData; time: number };
+            const timeline: TimelineItem[] = filteredMsgs.map((m) => ({
+              kind: "message" as const,
+              data: m,
+              time: m.createdAt,
+            }));
+            if (isRemoteMode && observations.length > 0) {
+              for (const obs of observations) {
+                timeline.push({
+                  kind: "observation" as const,
+                  data: obs,
+                  time: obs.observedAt,
+                });
+              }
+            }
+            timeline.sort((a, b) => a.time - b.time);
+
+            return timeline.map((item) => {
+              if (item.kind === "observation") {
+                const obs = item.data;
+                const bloomLabel = obs.masteryLevel >= 4.5 ? "Create"
+                  : obs.masteryLevel >= 3.5 ? "Evaluate"
+                  : obs.masteryLevel >= 2.5 ? "Analyze"
+                  : obs.masteryLevel >= 1.5 ? "Apply"
+                  : obs.masteryLevel >= 0.5 ? "Understand"
+                  : "Remember";
+                return (
+                  <Flex
+                    key={`obs-${obs._id}`}
+                    justify="center"
+                    py={1}
+                    gap={1.5}
+                    align="center"
+                    opacity={obs.isSuperseded ? 0.4 : 1}
+                  >
+                    <Text fontSize="xs" color="teal.500" fontFamily="heading" fontWeight="600">
+                      {obs.studentInitiated ? "★" : "◆"} {obs.conceptLabel}
+                    </Text>
+                    <Text fontSize="xs" color="teal.600" fontFamily="body">
+                      {obs.domain} · {bloomLabel} ({obs.masteryLevel.toFixed(1)}) · conf {(obs.confidenceScore * 100).toFixed(0)}%
+                    </Text>
+                    <Text fontSize="xs" color="teal.400" fontFamily="body" fontStyle="italic" truncate maxW="300px">
+                      {obs.evidenceSummary}
+                    </Text>
+                  </Flex>
+                );
+              }
+
+              const message = item.data;
               if (message.role === "tool") {
                 if (message.toolAction === "whisper") {
                   return (
@@ -778,7 +778,8 @@ function ChatColumn({
                   isStreaming={!!isActiveStream && !!streamingContent}
                 />
               );
-            })}
+            });
+          })()}
 
           {/* Typing indicator */}
           {isStreaming && !streamingContent && (
@@ -1037,6 +1038,19 @@ interface MessageData {
   unitId?: string | null;
   perspectiveId?: string | null;
   toolAction?: string | null;
+}
+
+interface ObservationData {
+  _id: string;
+  conceptLabel: string;
+  domain: string;
+  masteryLevel: number;
+  confidenceScore: number;
+  evidenceSummary: string;
+  evidenceType: string;
+  studentInitiated: boolean;
+  isSuperseded: boolean;
+  observedAt: number;
 }
 
 // Message Bubble Component

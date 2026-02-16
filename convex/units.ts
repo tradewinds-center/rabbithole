@@ -30,10 +30,20 @@ export const list = authedQuery({
     return Promise.all(
       unitList.map(async (u) => {
         const teacher = await ctx.db.get(u.teacherId);
+        // Resolve building block names for display
+        const persona = u.personaId ? await ctx.db.get(u.personaId) : null;
+        const perspective = u.perspectiveId ? await ctx.db.get(u.perspectiveId) : null;
+        const process = u.processId ? await ctx.db.get(u.processId) : null;
         return {
           ...u,
           id: u._id,
           teacherName: teacher?.name ?? null,
+          personaTitle: persona?.title ?? null,
+          personaEmoji: persona?.emoji ?? null,
+          perspectiveTitle: perspective?.title ?? null,
+          perspectiveIcon: perspective?.icon ?? null,
+          processTitle: process?.title ?? null,
+          processEmoji: process?.emoji ?? null,
           createdAt: u._creationTime,
         };
       })
@@ -56,6 +66,9 @@ export const create = teacherMutation({
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
     targetBloomLevel: v.optional(bloomLevelValidator),
+    personaId: v.optional(v.id("personas")),
+    perspectiveId: v.optional(v.id("perspectives")),
+    processId: v.optional(v.id("processes")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("units", {
@@ -66,6 +79,9 @@ export const create = teacherMutation({
       systemPrompt: args.systemPrompt?.trim() || undefined,
       rubric: args.rubric?.trim() || undefined,
       targetBloomLevel: args.targetBloomLevel || undefined,
+      personaId: args.personaId,
+      perspectiveId: args.perspectiveId,
+      processId: args.processId,
       isActive: true,
     });
   },
@@ -80,6 +96,9 @@ export const update = teacherMutation({
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
     targetBloomLevel: v.optional(bloomLevelValidator),
+    personaId: v.optional(v.union(v.id("personas"), v.null())),
+    perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
+    processId: v.optional(v.union(v.id("processes"), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -95,6 +114,12 @@ export const update = teacherMutation({
       cleaned.rubric = updates.rubric.trim() || undefined;
     if (updates.targetBloomLevel !== undefined)
       cleaned.targetBloomLevel = updates.targetBloomLevel || undefined;
+    if (updates.personaId !== undefined)
+      cleaned.personaId = updates.personaId ?? undefined;
+    if (updates.perspectiveId !== undefined)
+      cleaned.perspectiveId = updates.perspectiveId ?? undefined;
+    if (updates.processId !== undefined)
+      cleaned.processId = updates.processId ?? undefined;
 
     await ctx.db.patch(id, cleaned);
   },

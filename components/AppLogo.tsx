@@ -25,9 +25,7 @@ export function AppLogo({ variant = "dark", size = 40 }: AppLogoProps) {
         fontFamily="heading"
         lineHeight="1.3"
       >
-        Tradewinds
-        <br />
-        Learn
+        Rabbithole
       </Text>
     </HStack>
   );

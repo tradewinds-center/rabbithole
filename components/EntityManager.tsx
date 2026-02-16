@@ -24,6 +24,7 @@ import {
   FiSmile,
   FiEye,
   FiLayers,
+  FiPlay,
 } from "react-icons/fi";
 import { Scroll } from "@phosphor-icons/react";
 import { DimensionEditModal } from "./DimensionEditModal";
@@ -33,6 +34,7 @@ interface Entity {
   id: string;
   _id: string;
   title: string;
+  slug?: string;
   description?: string;
   systemPrompt?: string;
   isActive: boolean;
@@ -43,6 +45,9 @@ interface Entity {
   emoji?: string;
   icon?: string;
   steps?: { key: string; title: string; description?: string }[];
+  personaId?: string | null;
+  perspectiveId?: string | null;
+  processId?: string | null;
 }
 
 interface EntityManagerProps {
@@ -72,6 +77,11 @@ export function EntityManager({ entityType }: EntityManagerProps) {
     api.perspectives.list
   ) as Entity[] | undefined;
 
+  // Query building block lists when managing units
+  const personasList = useQuery(api.personas.list, entityType === "unit" ? {} : "skip");
+  const perspectivesList = useQuery(api.perspectives.list, entityType === "unit" ? {} : "skip");
+  const processesList = useQuery(api.processes.list, entityType === "unit" ? {} : "skip");
+
   const deactivatePersona = useMutation(api.personas.deactivate);
   const deactivateUnit = useMutation(api.units.deactivate);
   const deactivatePerspective = useMutation(api.perspectives.deactivate);
@@ -98,6 +108,9 @@ export function EntityManager({ entityType }: EntityManagerProps) {
       rubric: entity.rubric,
       targetBloomLevel: entity.targetBloomLevel,
       steps: entity.steps,
+      personaId: entity.personaId ? String(entity.personaId) : undefined,
+      perspectiveId: entity.perspectiveId ? String(entity.perspectiveId) : undefined,
+      processId: entity.processId ? String(entity.processId) : undefined,
     });
     setModalOpen(true);
   };
@@ -245,19 +258,38 @@ export function EntityManager({ entityType }: EntityManagerProps) {
                     </Badge>
                   )}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    fontFamily="heading"
-                    color="violet.500"
-                    borderColor="violet.200"
-                    _hover={{ bg: "violet.50", borderColor: "violet.400" }}
-                    onClick={() => handleEdit(entity)}
-                    mt={1}
-                  >
-                    <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
-                    Edit Prompt
-                  </Button>
+                  <HStack gap={2} mt={1}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      fontFamily="heading"
+                      color="violet.500"
+                      borderColor="violet.200"
+                      _hover={{ bg: "violet.50", borderColor: "violet.400" }}
+                      onClick={() => handleEdit(entity)}
+                    >
+                      <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
+                      Edit Prompt
+                    </Button>
+                    {entityType === "unit" && entity.isActive && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        fontFamily="heading"
+                        color="teal.600"
+                        borderColor="teal.200"
+                        _hover={{ bg: "teal.50", borderColor: "teal.400" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const slug = entity.slug || entity.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                          window.open(`/scholar/new?unit=${slug}&demo=1`, "_blank");
+                        }}
+                      >
+                        <FiPlay size={14} style={{ marginRight: "6px" }} />
+                        Test
+                      </Button>
+                    )}
+                  </HStack>
                 </VStack>
               </Card.Body>
             </Card.Root>
@@ -270,6 +302,9 @@ export function EntityManager({ entityType }: EntityManagerProps) {
         onClose={() => setModalOpen(false)}
         dimensionType={entityType}
         data={editData}
+        personas={personasList as { _id: string; title: string; emoji: string }[] | undefined}
+        perspectives={perspectivesList as { _id: string; title: string; icon?: string }[] | undefined}
+        processes={processesList as { _id: string; title: string; emoji?: string }[] | undefined}
       />
     </Box>
   );

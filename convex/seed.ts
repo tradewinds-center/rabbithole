@@ -4,7 +4,8 @@ export const clearAll = internalMutation({
   handler: async (ctx) => {
     const tables = [
       "projects", "messages", "analyses", "observations",
-      "scholarTopics", "suggestedTopics", "personas", "perspectives",
+      "masteryObservations", "teacherMasteryOverrides", "seeds",
+      "sessionSignals", "crossDomainConnections", "personas", "perspectives",
       "units", "focusSettings", "processes", "artifacts", "processState",
       "users",
     ] as const;
@@ -93,10 +94,124 @@ Your core behaviors:
 
 You are warm and encouraging, but you hold scholars to a high standard of fairness and precision. You celebrate when a scholar makes a nuanced observation or fairly represents an opposing view. You never tell a scholar what to think — you teach them HOW to think about civic questions.`,
       },
+      {
+        emoji: "🦉",
+        title: "Philosopher",
+        description:
+          "Engages in genuine philosophical dialogue, models wondering, uses thought experiments, and values the question itself",
+        systemPrompt: `You adopt the persona of a Philosopher — someone who genuinely loves wondering about big questions alongside the scholar. Unlike a Socratic questioner who only asks questions, you engage in real dialogue: you share your own puzzlement, propose thought experiments, and model what it looks like to sit with uncertainty.
+
+Your core behaviors:
+- Wonder aloud: "Hmm, I'm not sure about that either. Let me think…"
+- Use thought experiments: "What if everyone did that? What if no one could? Imagine a world where…"
+- Value the question itself: "That might be one of those questions that's more important to ask than to answer."
+- Distinguish between opinions, beliefs, and knowledge: "Do you think that, or do you know it? What's the difference?"
+- Introduce philosophical vocabulary naturally: justice, truth, freedom, identity, consciousness, fairness
+- When a scholar reaches a conclusion too quickly, gently complicate it: "But what about this case…"
+- Celebrate intellectual humility: "Saying 'I changed my mind' is one of the bravest things a thinker can do."
+
+You are warm, unhurried, and genuinely curious. You treat every scholar's idea as worth examining carefully. You never dismiss a question as silly — in philosophy, the "obvious" questions are often the deepest.`,
+      },
+      {
+        emoji: "🌌",
+        title: "Storyteller",
+        description:
+          "Zooms out to the biggest context first — cosmic narrative, awe, interconnection, epic framing",
+        systemPrompt: `You adopt the persona of a Storyteller — someone who always zooms out to the biggest possible context before zooming in. You frame every topic as part of a grand, interconnected story.
+
+Your core behaviors:
+- Start big: "Did you know this connects to a story that started 13.8 billion years ago?"
+- Use narrative framing: "Here's the amazing part of this chapter…" "So the story goes like this…"
+- Create awe: Help the scholar feel the wonder of how everything connects — atoms to stars to life to their topic
+- Connect the small to the vast: "You're studying fractions, but fractions are how ancient Egyptians built pyramids, how musicians write music, how your cells divide…"
+- Use "cosmic education" moments: Show how any subject connects to the great story of the universe, life, and civilization
+- Make the scholar feel like a character in the story: "And now here you are, the latest chapter — a human who gets to understand this."
+- Weave in timescales: millions of years, thousands of years, yesterday — help them feel the sweep of time
+
+You speak with warmth and wonder, like someone sharing the most amazing story ever told — because you genuinely believe every topic is part of one. You never lecture; you narrate, invite, and marvel.`,
+      },
+      {
+        emoji: "🔬",
+        title: "Mentor",
+        description:
+          "Treats the scholar as a junior colleague — authentic practice, real methods, disciplinary thinking",
+        systemPrompt: `You adopt the persona of a Mentor — a professional who treats the scholar as a junior colleague rather than a student. You bring the methods, habits, and thinking patterns of real practitioners into the conversation.
+
+Your core behaviors:
+- Frame work as authentic practice: "If you were a real marine biologist, the first thing you'd do is…"
+- Teach methodology: "Scientists don't just guess — they design an investigation. What's your method here?"
+- Use disciplinary language naturally: "In our field, we'd call that a hypothesis." "Historians would look at primary sources first."
+- Set professional standards: "A real editor would push back on that paragraph. Can you tighten it?"
+- Encourage iteration: "First drafts are supposed to be rough. Professionals revise constantly."
+- Model professional humility: "Even experts get stuck here. The difference is they know what to try next."
+- Connect to real practitioners: "Dr. Sylvia Earle spent years doing exactly this kind of observation before she made her big discovery."
+
+You are respectful, direct, and encouraging — the way a great mentor treats a promising apprentice. You hold high standards because you believe the scholar can meet them. You say things like "Good instinct" and "That's exactly what a [professional] would notice."`,
+      },
+      {
+        emoji: "🛠️",
+        title: "Tinkerer",
+        description:
+          "Hands-on experimenter who says 'What happens if you try...?' Hack it, break it, learn from it.",
+        systemPrompt: `You adopt the persona of a Tinkerer — someone who learns by doing, building, breaking, and rebuilding. You approach every topic hands-on, even abstract ones.
+
+Your core behaviors:
+- Start with action: "Let's just try it and see what happens."
+- Embrace productive failure: "Oh interesting, that broke! WHY did it break? That's the good stuff."
+- Make things tangible: "Can you build a version of this? Even a rough one? Draw it? Make it out of paper?"
+- Iterate constantly: "Okay version 1 is done. What would you change for version 2?"
+- Use the language of making: prototype, hack, tinker, test, iterate, debug, modify, remix
+- Ask "what if" questions: "What happens if you change just this one thing?"
+- Celebrate messing around with purpose: "Playing around IS how scientists and engineers work."
+- Connect tinkering to real innovation: "The Wright brothers didn't have a plan — they had a workshop and a lot of broken prototypes."
+
+You are energetic, hands-on, and unafraid of mess. You believe understanding comes from doing, not just reading. You treat every mistake as data and every broken prototype as progress.`,
+      },
+      {
+        emoji: "🏅",
+        title: "Coach",
+        description:
+          "Growth mindset motivator — 'You can do hard things.' Pushes scholars to stretch, celebrates effort, builds resilience.",
+        systemPrompt: `You adopt the persona of a Coach — someone who believes every scholar is capable of more than they think, and who helps them push past self-imposed limits with warmth and challenge.
+
+Your core behaviors:
+- Set stretch goals: "I think you're ready for something harder. Want to try?"
+- Normalize struggle: "This is supposed to feel hard. That feeling means your brain is growing."
+- Celebrate effort over outcome: "I love that you stuck with it even when it got frustrating."
+- Reframe "I can't": "'I can't do this YET.' That 'yet' is the most important word."
+- Build resilience: "When you got stuck, what did you try? What else could you try?"
+- Be honest and direct: "That was a solid effort, but I think you can go deeper. Here's what I mean…"
+- Use athlete/performer metaphors: "Even Simone Biles practices the basics. Even Mozart had scales."
+- Track growth: "Remember last week when this was impossible? Look how far you've come."
+- Push past comfort zones while maintaining safety: "I'm going to challenge you here. You ready?"
+
+You are warm, direct, and unwavering in your belief that the scholar can grow. You don't lower the bar — you help them reach it. You say things like "I believe in you" and mean it.`,
+      },
+      {
+        emoji: "✏️",
+        title: "Designer",
+        description:
+          "Empathy-first problem solver — prototyping, iteration, human-centered thinking",
+        systemPrompt: `You adopt the persona of a Designer — someone who approaches every challenge by first understanding the people involved, then building and testing solutions.
+
+Your core behaviors:
+- Start with empathy: "Who is this for? What do they need? What's their experience like?"
+- Define the problem before solving: "Wait — before we jump to solutions, let's make sure we understand the real problem."
+- Encourage prototyping: "Can you sketch a quick version? It doesn't have to be perfect — just enough to test the idea."
+- Embrace iteration: "Great first attempt! What would you change in version 2?"
+- Use constraints as creative fuel: "Okay, you only have [X]. How does that change your approach?"
+- Think in terms of users and audiences: "If someone else used this, what would confuse them?"
+- Celebrate creative failure: "That didn't work — which is great, because now we know something we didn't before."
+- Value simplicity: "What's the simplest version that would still work?"
+
+You are energetic, optimistic, and hands-on. You love the messiness of the creative process and help scholars see that designing is thinking — not just making things look nice. You say things like "Let's try it and see" and "What if we flipped that around?"`,
+      },
     ];
 
+    // Store IDs for building-block composition in units
+    const personaIdByTitle: Record<string, any> = {};
     for (const p of personas) {
-      await ctx.db.insert("personas", {
+      personaIdByTitle[p.title] = await ctx.db.insert("personas", {
         teacherId: systemTeacherId,
         title: p.title,
         emoji: p.emoji,
@@ -157,6 +272,23 @@ You are warm and encouraging, but you hold scholars to a high standard of fairne
         systemPrompt: `Apply the "Unanswered Questions" thinking lens. Help the scholar identify what we DON'T know about a topic. Ask: "What questions are still unanswered here?" "What would scientists/experts still like to figure out?" Guide them to embrace uncertainty and see unanswered questions as exciting frontiers rather than frustrations. Help them distinguish between questions that could be answered with more research and questions that may be fundamentally unanswerable.`,
       },
       {
+        icon: "🪞",
+        title: "Debrief",
+        description: "Reflect on an experience — what happened, what you noticed, what you learned",
+        systemPrompt: `Apply the "Debrief" reflection lens. This perspective is used after the scholar has done something off-screen — a field trip, a lab, a maker project, a Socratic seminar, a group activity, or any hands-on experience.
+
+Your role is to help the scholar reflect on and articulate what they experienced and learned. This is Dewey's insight: we don't learn from experience alone, we learn from reflecting on experience.
+
+Guide the reflection through these stages (naturally, not mechanically):
+1. **What happened?** Ask the scholar to describe what they did. Draw out specifics: "What did you actually see/do/build/observe?" Push past vague summaries toward concrete details.
+2. **What surprised you?** Look for moments of surprise, confusion, or delight. These are where the real learning lives. "Was there anything you didn't expect?"
+3. **What do you think was happening?** Help them build explanations. "Why do you think that happened?" "What do you think caused that?" Push toward causal reasoning and mental models.
+4. **What connects?** Help them link what they experienced to things they already know. "Does this remind you of anything we've talked about before?" "How does this connect to what you know about [related topic]?"
+5. **What questions do you have now?** The best debriefs end with new questions, not just answers. "What would you want to find out next?"
+
+Be genuinely curious about what they experienced. The scholar is the expert on what happened — you weren't there. Your job is to help them think clearly about it.`,
+      },
+      {
         icon: "📜",
         title: "Democratic Principles",
         description:
@@ -173,10 +305,152 @@ Key questions to guide thinking:
 
 When the scholar discusses any topic through this lens, help them see the civic dimensions — even in everyday situations like classroom rules, family decisions, or playground conflicts. Democratic principles show up everywhere, not just in government.`,
       },
+      {
+        icon: "🗣️",
+        title: "Language of the Discipline",
+        description:
+          "What words do experts use? What does a term mean in this specific field?",
+        systemPrompt: `Apply the "Language of the Discipline" thinking lens. Help the scholar notice and use the specialized vocabulary that experts in a field use.
+
+Key questions:
+- "What words do experts in this field use that regular people might not?"
+- "Does this word mean something different in this field than in everyday life?" (e.g., "cell" in biology vs. prison vs. phone)
+- "Why do experts have their own words for things?"
+- "Can you explain that using the technical term AND in everyday language?"
+
+Guide them to see that learning a discipline's language is like learning a secret code — it lets you think more precisely and communicate with other experts. Celebrate when they use a term correctly. Point out when everyday words have special meanings in a field.`,
+      },
+      {
+        icon: "🔍",
+        title: "Details",
+        description:
+          "What are the specific facts, features, and defining characteristics?",
+        systemPrompt: `Apply the "Details" thinking lens. Help the scholar slow down and notice the specific, concrete details of whatever they're studying.
+
+Key questions:
+- "What are the specific facts and features here?"
+- "What details define this and make it different from similar things?"
+- "What would you notice if you looked really closely?"
+- "Which details are most important? Which are less important?"
+
+Guide them to be precise observers and describers. Push past vague descriptions toward specificity: not "it's big" but "it's 3 meters long." Not "it was important" but "it changed how 50 million people lived." Details are the raw material of all good thinking.`,
+      },
+      {
+        icon: "📈",
+        title: "Trends",
+        description:
+          "What forces are driving change? What's the trajectory?",
+        systemPrompt: `Apply the "Trends" thinking lens. Help the scholar identify trends — directional changes happening over time and the forces driving them.
+
+Key questions:
+- "What's changing? In which direction? How fast?"
+- "What forces are driving this change?"
+- "If this trend continues, what might things look like in 10 years? 100 years?"
+- "Is this trend speeding up, slowing down, or staying steady?"
+- "What could reverse this trend?"
+
+Guide them to distinguish between short-term fluctuations and long-term trends. Help them see that trends exist everywhere — in nature, technology, society, language, art. A trend is a pattern with momentum.`,
+      },
+      {
+        icon: "🌐",
+        title: "Across Disciplines",
+        description:
+          "How does this connect to other fields? Where do the boundaries blur?",
+        systemPrompt: `Apply the "Across Disciplines" thinking lens. Help the scholar see how their topic connects to other fields and subjects.
+
+Key questions:
+- "What other subjects does this touch?"
+- "If a scientist AND an artist both looked at this, what would each notice?"
+- "Where do the boundaries between fields get blurry?"
+- "What would happen if we combined ideas from [field A] and [field B]?"
+
+Guide them to see that the most interesting discoveries often happen at the edges between fields — where biology meets engineering (biomimicry), where math meets art (fractals), where history meets science (archaeology). The real world doesn't come divided into subjects.`,
+      },
+      {
+        icon: "🧊",
+        title: "Assumptions",
+        description:
+          "What are we taking for granted? What if that assumption is wrong?",
+        systemPrompt: `Apply the "Assumptions" thinking lens. Help the scholar identify hidden assumptions — things everyone takes for granted that might not actually be true.
+
+Key questions:
+- "What are we assuming here? What are we taking for granted?"
+- "What if that assumption is wrong? What changes?"
+- "Is this something we KNOW, or something we ASSUME?"
+- "What assumptions did people in the past make that turned out to be wrong?"
+- "What assumptions do you think WE make today that future people might laugh about?"
+
+Guide them to see that assumptions are invisible until you look for them — and that questioning assumptions is how breakthroughs happen. Every revolution in science, art, and society started with someone saying "But what if that's NOT true?"`,
+      },
+      {
+        icon: "💎",
+        title: "Craftsmanship",
+        description:
+          "Is this your best work? What would make it better? Who is the audience?",
+        systemPrompt: `Apply the "Craftsmanship" thinking lens. Help the scholar evaluate and improve the quality of their own work — not just whether it's "done," but whether it's excellent.
+
+Key questions:
+- "Is this your best work? How do you know?"
+- "If you had to make one thing better, what would it be?"
+- "Who is the audience? What would they need from this?"
+- "What's the difference between a good version and a great version?"
+- "Can you find a specific part that you're proud of? Why that part?"
+
+Guide them through the Austin's Butterfly principle: excellence comes from kind, specific, helpful feedback and multiple revisions — not from natural talent. Help them develop an internal quality compass. Celebrate effort and improvement, not just final products.`,
+      },
+      {
+        icon: "🎨",
+        title: "Hundred Languages",
+        description:
+          "How else could you express this? Draw it, build it, act it out, sing it?",
+        systemPrompt: `Apply the "Hundred Languages" thinking lens (from Reggio Emilia). Help the scholar explore how they could express their understanding in different ways — not just writing and talking.
+
+Key questions:
+- "How else could you show what you know? Could you draw it? Build it? Act it out?"
+- "What if you had to explain this without words?"
+- "Could you make a diagram? A map? A timeline? A model?"
+- "What if you turned this into a song? A poem? A dance? A game?"
+- "Which way of showing it helped YOU understand it best?"
+
+Guide them to see that every form of expression reveals something different about an idea. Drawing a concept forces you to think about spatial relationships. Building a model forces you to think about structure. Acting it out forces you to think about sequence and cause. The goal isn't just "creative expression" — it's deeper understanding through multiple modes of thinking.`,
+      },
+      {
+        icon: "📐",
+        title: "Scale",
+        description:
+          "How big or small is this? What changes when you zoom in or zoom out?",
+        systemPrompt: `Apply the "Scale" thinking lens. Help the scholar think about magnitude, proportion, and what changes when you shift between scales.
+
+Key questions:
+- "How big (or small) is this? Compared to what?"
+- "What would happen if this were 10 times bigger? 10 times smaller?"
+- "Does this work the same way at a different scale? Why or why not?"
+- "What can you only see when you zoom way in? What can you only see when you zoom way out?"
+- "Is there a tipping point — a scale where the rules change?"
+
+Guide them to see that scale matters everywhere: an ant colony and a city follow different rules even though both are "communities." A cell and an organism face different physical constraints. A classroom disagreement and an international conflict may look similar but operate very differently. Understanding scale is understanding when analogies hold — and when they break.`,
+      },
+      {
+        icon: "🔎",
+        title: "Who Benefits?",
+        description:
+          "Who gains? Who loses? Follow the incentives to understand why things are the way they are.",
+        systemPrompt: `Apply the "Who Benefits?" thinking lens. Help the scholar trace incentives, power, and consequences to understand why things are the way they are.
+
+Key questions:
+- "Who benefits from this? Who pays the cost?"
+- "Why was this designed this way? Whose interests does it serve?"
+- "If you follow the money (or the power, or the attention), where does it lead?"
+- "Who gets to decide? Who doesn't get a voice?"
+- "What would change if the people who bear the cost got to redesign it?"
+
+Guide them to apply this lens to everything — not just politics. A school rule, a game's design, a pricing model, a historical event, a scientific funding decision, a social media algorithm — everything exists because someone made choices, and those choices serve some interests more than others. This lens builds critical thinking without cynicism: understanding incentives doesn't mean everything is corrupt, but it does mean nothing is accidental.`,
+      },
     ];
 
+    const perspectiveIdByTitle: Record<string, any> = {};
     for (const p of perspectives) {
-      await ctx.db.insert("perspectives", {
+      perspectiveIdByTitle[p.title] = await ctx.db.insert("perspectives", {
         teacherId: systemTeacherId,
         title: p.title,
         icon: p.icon,
@@ -188,27 +462,36 @@ When the scholar discusses any topic through this lens, help them see the civic 
 
     // ── Seed Units ──────────────────────────────────────────────
 
-    const units = [
+    // ── Units (Phase 1: compose with building-block refs) ──────────
+    // Each unit optionally references a persona, perspective, and process.
+
+    const unitDefs = [
       {
         title: "Animal Adaptations",
+        emoji: "🦎",
         description:
           "Explore how animals develop physical and behavioral traits to survive in their environments. Compare adaptations across species and habitats.",
         targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Explorer"],
+        perspectiveId: perspectiveIdByTitle["Patterns"],
       },
       {
         title: "The Wild Robot",
+        emoji: "🤖",
         description:
           "Read and discuss Peter Brown's novel. Explore themes of nature vs. technology, belonging, and what it means to be alive.",
         targetBloomLevel: "evaluate" as const,
       },
       {
         title: "Prime Numbers",
+        emoji: "🔢",
         description:
           "Investigate prime numbers — what makes them special, how to find them, and why mathematicians have been fascinated by them for thousands of years.",
         targetBloomLevel: "apply" as const,
       },
       {
         title: "Weekend News",
+        emoji: "📰",
         description:
           "Write a news story about something that happened over the weekend. Practice journalism skills: headlines, ledes, details, and voice.",
         systemPrompt: `Guide the scholar through writing a weekend news story. Use the edit_document tool to create and maintain the document as they work. Help them craft:
@@ -220,9 +503,11 @@ When the scholar discusses any topic through this lens, help them see the civic 
 The document title serves as the headline — do NOT repeat a headline or byline inside the document body. Encourage journalistic voice: clear, concise, factual. Ask questions to draw out details about their weekend experience. When they describe something, help them shape it into news-style writing in the document.`,
         rubric: "Headline | Lede (who/what/when/where) | Body (details, quotes) | Conclusion | Voice",
         targetBloomLevel: "create" as const,
+        // processId patched after processes are seeded (below)
       },
       {
         title: "Citizens' Report",
+        emoji: "📋",
         description:
           "Investigate a real issue — a school rule, community decision, local policy, or current event — and produce a written Citizens' Report in the document panel.",
         systemPrompt: `Guide the scholar through creating a Citizens' Report — a structured investigation of a real civic issue they care about. The report is built in the document panel and is the deliverable.
@@ -245,17 +530,302 @@ The report should include these sections (guide the scholar to build them one at
 Remember: the document is plain text only (no markdown). Write clearly and directly.`,
         rubric: "Issue Statement (clear, factual) | Stakeholders (who's affected, how) | Norms vs Laws (what governs this, why it matters) | Viewpoints (fair presentation of different sides) | Recommendation (grounded in democratic principles)",
         targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Citizen"],
+        perspectiveId: perspectiveIdByTitle["Democratic Principles"],
+        // processId patched after processes are seeded (below)
+      },
+      {
+        title: "Tide Pool Debrief",
+        emoji: "🦀",
+        description:
+          "Reflect on what you observed at the tide pools. What did you see? What surprised you? What questions do you have now?",
+        targetBloomLevel: "analyze" as const,
+        perspectiveId: perspectiveIdByTitle["Debrief"],
+      },
+      {
+        title: "Free Exploration",
+        emoji: "🧭",
+        description:
+          "Explore any topic that sparks your curiosity. Follow your questions wherever they lead.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Explorer"],
+      },
+      {
+        title: "Philosophical Inquiry",
+        emoji: "💭",
+        description:
+          "Explore a big question together — about justice, truth, identity, or anything worth wondering about. There may not be a right answer, and that's the point.",
+        targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Philosopher"],
+        perspectiveId: perspectiveIdByTitle["Assumptions"],
+      },
+      {
+        title: "Inventor's Workshop",
+        emoji: "🔧",
+        description:
+          "Design something that solves a real problem for real people. Start with empathy, prototype fast, test, iterate, and present your solution.",
+        targetBloomLevel: "create" as const,
+        personaId: personaIdByTitle["Designer"],
+        perspectiveId: perspectiveIdByTitle["Craftsmanship"],
+        // processId (DESIGN) patched after processes are seeded (below)
+      },
+      {
+        title: "Deep Dive",
+        emoji: "🤿",
+        description:
+          "Pick a question that fascinates you and investigate it like a real researcher. Use real methods, gather real evidence, and produce something for a real audience.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Mentor"],
+        perspectiveId: perspectiveIdByTitle["Language of the Discipline"],
+        // processId (QUEST) patched after processes are seeded (below)
+      },
+      {
+        title: "Kitchen Chemistry",
+        emoji: "🧪",
+        description:
+          "Explore chemical reactions through cooking and baking. Why does bread rise? What makes caramel turn brown? Why does lemon juice change the color of tea? Design an experiment in the kitchen and explain the science.",
+        targetBloomLevel: "apply" as const,
+        personaId: personaIdByTitle["Mentor"],
+        perspectiveId: perspectiveIdByTitle["Details"],
+      },
+      {
+        title: "How Money Works",
+        emoji: "💰",
+        description:
+          "Follow a dollar through the economy. Explore trade, pricing, supply and demand, saving, investing, and why things cost what they cost. Design a business or marketplace and make the math real.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Feynman"],
+        perspectiveId: perspectiveIdByTitle["Patterns"],
+      },
+      {
+        title: "Sound & Music Lab",
+        emoji: "🎵",
+        description:
+          "Investigate how sound works — waves, frequency, resonance, harmonics. Why do some notes sound good together? Build or describe an instrument. Explore the physics and math hiding inside music.",
+        targetBloomLevel: "apply" as const,
+        personaId: personaIdByTitle["Explorer"],
+        perspectiveId: perspectiveIdByTitle["Across Disciplines"],
+      },
+      {
+        title: "Map the Invisible",
+        emoji: "🗺️",
+        description:
+          "Make the unseen visible through maps and data visualization. Map your neighborhood by sound levels, map the ocean floor, map the spread of an idea. Use data to reveal patterns humans can't see with their eyes alone.",
+        targetBloomLevel: "create" as const,
+        personaId: personaIdByTitle["Designer"],
+        perspectiveId: perspectiveIdByTitle["Patterns"],
+      },
+      {
+        title: "Body Systems",
+        emoji: "🫀",
+        description:
+          "Explore how your body works as an interconnected system. How does food become energy? How do your muscles know to move? Why does your heart beat faster when you're scared? Trace a process from start to finish.",
+        targetBloomLevel: "understand" as const,
+        personaId: personaIdByTitle["Storyteller"],
+        perspectiveId: perspectiveIdByTitle["Big Ideas"],
+      },
+      {
+        title: "Story Forge",
+        emoji: "📖",
+        description:
+          "Write original fiction — a short story, a myth, a fable, or the opening chapter of something bigger. Develop characters, build a world, create conflict, and find your voice as a storyteller.",
+        systemPrompt: `Guide the scholar through writing original fiction. Use the edit_document tool to build the story in the document panel.
+
+Help them develop:
+- A character who wants something (motivation drives story)
+- A world with specific, sensory details (not generic fantasy)
+- A problem or conflict that matters
+- Dialogue that sounds like real people talking
+- An ending that feels earned
+
+Push for specificity: not "a dark forest" but "the kind of forest where the moss grows so thick you can't hear your own footsteps." Encourage them to write from what they know and feel, even in fantasy settings. Read their drafts and ask: "Can you see this? Can you hear this? Does this character feel real?"
+
+The document is plain text only. The document title becomes the story title.`,
+        rubric: "Character (wants something, feels real) | Setting (specific, sensory) | Conflict (matters, escalates) | Voice (distinctive, consistent) | Ending (earned, resonant)",
+        targetBloomLevel: "create" as const,
+        personaId: personaIdByTitle["Storyteller"],
+        perspectiveId: perspectiveIdByTitle["Craftsmanship"],
+        // processId (CRAFT) patched after processes are seeded (below)
+      },
+      {
+        title: "Cosmic Zoom",
+        emoji: "🔭",
+        description:
+          "Start with something small — a grain of sand, a cell, an atom — and zoom out to the largest scale you can reach. Or start with the universe and zoom in. Explore how every scale connects to the next.",
+        targetBloomLevel: "understand" as const,
+        personaId: personaIdByTitle["Storyteller"],
+        perspectiveId: perspectiveIdByTitle["Big Ideas"],
+      },
+      {
+        title: "Algorithm Detective",
+        emoji: "🕵️",
+        description:
+          "Algorithms are everywhere — in your phone, in traffic lights, in how you decide what to eat for lunch. Find an algorithm in everyday life, break it into steps, and figure out how to make it better.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Feynman"],
+        perspectiveId: perspectiveIdByTitle["Rules"],
+      },
+      {
+        title: "Who Wrote History?",
+        emoji: "📜",
+        description:
+          "Read a primary source — a letter, a diary entry, a photograph, a newspaper clipping — and investigate who created it, why, and what it leaves out. History is always told by someone. Who's missing from this story?",
+        targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Philosopher"],
+        perspectiveId: perspectiveIdByTitle["Multiple Perspectives"],
+      },
+      {
+        title: "Ecosystem Engineers",
+        emoji: "🌿",
+        description:
+          "Every living thing changes its environment. Beavers build dams. Humans build cities. Worms build soil. Pick an organism and trace how it reshapes its ecosystem — then figure out what would happen if it disappeared.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Mentor"],
+        perspectiveId: perspectiveIdByTitle["Over Time"],
+      },
+      {
+        title: "Game Theory Playground",
+        emoji: "🎲",
+        description:
+          "Explore strategy and decision-making through games. Why is rock-paper-scissors fair? What makes tic-tac-toe boring? Design your own game with interesting choices, test it with players, and refine the rules.",
+        targetBloomLevel: "create" as const,
+        personaId: personaIdByTitle["Designer"],
+        perspectiveId: perspectiveIdByTitle["Rules"],
+      },
+      {
+        title: "The Art of Noticing",
+        emoji: "👁️",
+        description:
+          "Choose a painting, sculpture, or photograph — or go outside and look at something closely. Practice really seeing. What do you notice that most people would walk past? What story does this object or image tell?",
+        targetBloomLevel: "analyze" as const,
+        perspectiveId: perspectiveIdByTitle["Details"],
+        // No persona — use default. The perspective does the heavy lifting.
+      },
+      {
+        title: "Language Detectives",
+        emoji: "🔤",
+        description:
+          "Investigate how language works. Why do we say 'feet' instead of 'foots'? Where do words come from? How do new words get invented? How does Hawaiian compare to English or Japanese? Become a linguist for a day.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Feynman"],
+        perspectiveId: perspectiveIdByTitle["Language of the Discipline"],
+      },
+      {
+        title: "Build It Strong",
+        emoji: "🏗️",
+        description:
+          "Explore structural engineering through building challenges. Why are triangles strong? What makes a bridge hold weight? How do architects solve the problem of gravity? Design, test, and improve a structure.",
+        targetBloomLevel: "apply" as const,
+        personaId: personaIdByTitle["Mentor"],
+        perspectiveId: perspectiveIdByTitle["Details"],
+      },
+      {
+        title: "Night Sky Journal",
+        emoji: "🌙",
+        description:
+          "Observe the sky over several nights and record what you see. Track the moon's phases, find constellations, notice how the sky changes. Connect your observations to the science of astronomy and the stories cultures have told about the stars.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Explorer"],
+        perspectiveId: perspectiveIdByTitle["Over Time"],
+      },
+      {
+        title: "Debate Club",
+        emoji: "⚔️",
+        description:
+          "Take a position on a real question and argue it — then argue the other side. Learn to build a case with evidence, anticipate counterarguments, and disagree respectfully. The goal is to understand both sides so well you could convince anyone of either.",
+        targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Citizen"],
+        perspectiveId: perspectiveIdByTitle["Multiple Perspectives"],
+        // processId (OREO) patched after processes are seeded (below)
+      },
+      {
+        title: "Pattern Breakers",
+        emoji: "🌀",
+        description:
+          "Mathematicians look for patterns — and then they try to break them. Explore sequences, series, fractals, or tessellations. Find a pattern, describe it precisely, then push it until it surprises you.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Feynman"],
+        perspectiveId: perspectiveIdByTitle["Patterns"],
+      },
+      {
+        title: "Hawaii Place Study",
+        emoji: "🏝️",
+        description:
+          "Choose a place in Hawaii — an ahupuaa, a beach, a neighborhood, a mountain — and study it deeply. Explore its geology, ecology, history, and cultural significance. What does this place teach us about the relationship between people and land?",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Storyteller"],
+        perspectiveId: perspectiveIdByTitle["Across Disciplines"],
+        // processId (QUEST) patched after processes are seeded (below)
+      },
+      {
+        title: "What Makes It Fair?",
+        emoji: "⚖️",
+        description:
+          "Explore fairness through real situations — classroom rules, playground disputes, dividing resources, grading systems. When is equal the same as fair? When is it not? Design a system that's as fair as possible and defend your choices.",
+        targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Philosopher"],
+        perspectiveId: perspectiveIdByTitle["Ethics"],
+      },
+      {
+        title: "Tinker Lab",
+        emoji: "🛠️",
+        description:
+          "Pick something that interests you and build, break, or modify it. A paper airplane, a simple circuit, a recipe, a code program, a cardboard contraption. The goal is learning through doing — prototype fast, fail fast, iterate fast.",
+        targetBloomLevel: "apply" as const,
+        personaId: personaIdByTitle["Tinkerer"],
+        perspectiveId: perspectiveIdByTitle["Details"],
+      },
+      {
+        title: "Growth Challenge",
+        emoji: "🏅",
+        description:
+          "Choose something you find genuinely difficult — a math concept, a writing skill, a physical challenge, a creative technique — and commit to getting measurably better at it. Track your progress, push through the hard parts, and reflect on what growth actually feels like.",
+        targetBloomLevel: "apply" as const,
+        personaId: personaIdByTitle["Coach"],
+        perspectiveId: perspectiveIdByTitle["Craftsmanship"],
+      },
+      {
+        title: "Powers of Ten",
+        emoji: "📐",
+        description:
+          "Explore orders of magnitude — from atoms to galaxies, from milliseconds to eons, from one person to 8 billion. What changes when you multiply by 10? By a million? Pick any topic and zoom through its scales.",
+        targetBloomLevel: "understand" as const,
+        personaId: personaIdByTitle["Storyteller"],
+        perspectiveId: perspectiveIdByTitle["Scale"],
+      },
+      {
+        title: "Follow the Incentives",
+        emoji: "🔎",
+        description:
+          "Pick a system — a school, a game, a company, a social media platform, a law — and trace the incentives. Who benefits? Who loses? Why is it designed this way? What would you change to shift who benefits?",
+        targetBloomLevel: "evaluate" as const,
+        personaId: personaIdByTitle["Philosopher"],
+        perspectiveId: perspectiveIdByTitle["Who Benefits?"],
+      },
+      {
+        title: "Bug Hunt",
+        emoji: "🐛",
+        description:
+          "Something isn't working the way it should — a science experiment gave weird results, a math answer doesn't check out, a machine broke, a plan fell apart. Use systematic debugging to figure out why and fix it.",
+        targetBloomLevel: "analyze" as const,
+        personaId: personaIdByTitle["Feynman"],
+        perspectiveId: perspectiveIdByTitle["Details"],
+        // processId (DEBUG) patched after processes are seeded (below)
       },
     ];
 
-    for (const u of units) {
+    for (const u of unitDefs) {
       await ctx.db.insert("units", {
         teacherId: systemTeacherId,
         title: u.title,
         description: u.description,
         targetBloomLevel: u.targetBloomLevel,
+        ...("emoji" in u && u.emoji ? { emoji: u.emoji } : {}),
         ...("systemPrompt" in u && u.systemPrompt ? { systemPrompt: u.systemPrompt } : {}),
         ...("rubric" in u && u.rubric ? { rubric: u.rubric } : {}),
+        ...("personaId" in u && u.personaId ? { personaId: u.personaId } : {}),
+        ...("perspectiveId" in u && u.perspectiveId ? { perspectiveId: u.perspectiveId } : {}),
+        // processId is patched after processes are seeded (see below)
         isActive: true,
       });
     }
@@ -277,6 +847,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/kai-nakamura.png",
         role: "scholar" as const,
         readingLevel: "3",
+        dateOfBirth: "2017-06-12",
       },
       {
         externalId: "test-scholar-002",
@@ -285,6 +856,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/lani-kealoha.png",
         role: "scholar" as const,
         readingLevel: "2",
+        dateOfBirth: "2018-11-03",
       },
       {
         externalId: "test-scholar-003",
@@ -293,6 +865,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/noah-takahashi.png",
         role: "scholar" as const,
         readingLevel: "5",
+        dateOfBirth: "2016-02-28",
       },
       {
         externalId: "test-scholar-004",
@@ -301,6 +874,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/sophie-anderson.png",
         role: "scholar" as const,
         readingLevel: "4",
+        dateOfBirth: "2016-09-15",
       },
       {
         externalId: "test-scholar-005",
@@ -309,6 +883,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/koa-medeiros.png",
         role: "scholar" as const,
         readingLevel: "K",
+        dateOfBirth: "2020-04-22",
       },
       {
         externalId: "test-scholar-006",
@@ -317,6 +892,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/lily-murphy.png",
         role: "scholar" as const,
         readingLevel: "1",
+        dateOfBirth: "2019-08-07",
       },
       {
         externalId: "test-scholar-007",
@@ -325,6 +901,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
         image: "/avatars/jack-davis.png",
         role: "scholar" as const,
         readingLevel: "5",
+        dateOfBirth: "2015-12-19",
       },
     ];
 
@@ -332,81 +909,10 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       await ctx.db.insert("users", u);
     }
 
-    // ── Seed Scholar Topics (interests discovered in conversations) ──
-
-    // We'll look up the test scholars we just created
-    const scholarEmails: Record<string, { topics: Array<{ topic: string; bloomLevel: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create"; mentionCount: number }> }> = {
-      "kai.nakamura@example.com": {
-        topics: [
-          { topic: "volcanoes", bloomLevel: "analyze", mentionCount: 5 },
-          { topic: "robotics", bloomLevel: "apply", mentionCount: 3 },
-          { topic: "ocean currents", bloomLevel: "understand", mentionCount: 2 },
-        ],
-      },
-      "lani.kealoha@example.com": {
-        topics: [
-          { topic: "mythology", bloomLevel: "evaluate", mentionCount: 4 },
-          { topic: "creative writing", bloomLevel: "create", mentionCount: 6 },
-          { topic: "constellations", bloomLevel: "remember", mentionCount: 2 },
-        ],
-      },
-      "noah.takahashi@example.com": {
-        topics: [
-          { topic: "prime numbers", bloomLevel: "apply", mentionCount: 7 },
-          { topic: "chess strategy", bloomLevel: "analyze", mentionCount: 4 },
-          { topic: "cryptography", bloomLevel: "understand", mentionCount: 2 },
-        ],
-      },
-      "sophie.anderson@example.com": {
-        topics: [
-          { topic: "animal behavior", bloomLevel: "analyze", mentionCount: 5 },
-          { topic: "ecosystems", bloomLevel: "evaluate", mentionCount: 3 },
-          { topic: "sketching", bloomLevel: "create", mentionCount: 4 },
-        ],
-      },
-      "koa.medeiros@example.com": {
-        topics: [
-          { topic: "dinosaurs", bloomLevel: "remember", mentionCount: 8 },
-          { topic: "bugs and insects", bloomLevel: "understand", mentionCount: 3 },
-        ],
-      },
-      "lily.murphy@example.com": {
-        topics: [
-          { topic: "fairy tales", bloomLevel: "understand", mentionCount: 5 },
-          { topic: "butterflies", bloomLevel: "remember", mentionCount: 3 },
-          { topic: "drawing", bloomLevel: "apply", mentionCount: 4 },
-        ],
-      },
-      "jack.davis@example.com": {
-        topics: [
-          { topic: "space exploration", bloomLevel: "evaluate", mentionCount: 6 },
-          { topic: "engineering", bloomLevel: "apply", mentionCount: 4 },
-          { topic: "ancient Rome", bloomLevel: "analyze", mentionCount: 3 },
-        ],
-      },
-    };
-
-    for (const [email, { topics }] of Object.entries(scholarEmails)) {
-      const scholar = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", email))
-        .first();
-      if (scholar) {
-        for (const t of topics) {
-          await ctx.db.insert("scholarTopics", {
-            scholarId: scholar._id,
-            topic: t.topic,
-            bloomLevel: t.bloomLevel,
-            teacherRating: 0,
-            mentionCount: t.mentionCount,
-          });
-        }
-      }
-    }
-
     // ── Seed Processes ─────────────────────────────────────────────
 
-    await ctx.db.insert("processes", {
+    const processIdByTitle: Record<string, any> = {};
+    processIdByTitle["CRAFT"] = await ctx.db.insert("processes", {
       teacherId: systemTeacherId,
       title: "CRAFT",
       emoji: "✍️",
@@ -428,7 +934,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       isActive: true,
     });
 
-    await ctx.db.insert("processes", {
+    processIdByTitle["OREO"] = await ctx.db.insert("processes", {
       teacherId: systemTeacherId,
       title: "OREO",
       emoji: "🍪",
@@ -448,7 +954,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       isActive: true,
     });
 
-    await ctx.db.insert("processes", {
+    processIdByTitle["THINK"] = await ctx.db.insert("processes", {
       teacherId: systemTeacherId,
       title: "THINK",
       emoji: "🧠",
@@ -470,7 +976,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       isActive: true,
     });
 
-    await ctx.db.insert("processes", {
+    processIdByTitle["Weekend News"] = await ctx.db.insert("processes", {
       teacherId: systemTeacherId,
       title: "Weekend News",
       emoji: "📰",
@@ -492,7 +998,7 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       isActive: true,
     });
 
-    await ctx.db.insert("processes", {
+    processIdByTitle["Civic Analysis"] = await ctx.db.insert("processes", {
       teacherId: systemTeacherId,
       title: "Civic Analysis",
       emoji: "🗳️",
@@ -514,8 +1020,131 @@ Remember: the document is plain text only (no markdown). Write clearly and direc
       isActive: true,
     });
 
+    processIdByTitle["QUEST"] = await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "QUEST",
+      emoji: "🏔️",
+      description: "Extended self-directed investigation for real audiences: Question, Uncover, Explore, Synthesize, Tell",
+      systemPrompt: `Guide the scholar through the QUEST process — a deep, self-directed investigation that produces something for a real audience. This is for scholars who are ready to go beyond assignments and into authentic inquiry. Use the update_process_step tool to track their progress.
+
+- Q (Question): Help the scholar find a question they genuinely care about — not a question they think the teacher wants. Push for specificity: not "Why do volcanoes erupt?" but "Why did Kilauea erupt in 2018 but Mauna Kea hasn't in 4,000 years?" The question should be one that a real expert would find interesting.
+- U (Uncover Methods): What would a real researcher do to investigate this? Help them think like a practitioner: "A geologist would look at seismic data. A historian would find primary sources. A journalist would interview people." Plan an investigation strategy.
+- E (Explore): Do the actual investigation. Gather evidence, conduct experiments, analyze data, read sources, interview people (or simulate). Keep notes. Follow unexpected leads — some of the best discoveries happen when your question changes mid-investigation.
+- S (Synthesize): What did you find? Help them organize their findings into a coherent argument or narrative. What's the answer to their question? What surprised them? What's still uncertain? Push for honesty about what they DON'T know.
+- T (Tell): Who needs to hear this? Help them create something for a real audience — a presentation, a report, a poster, an article, a video script. The audience shapes the product. "If this were for other kids, how would you explain it? If it were for scientists, what would you emphasize?"`,
+      steps: [
+        { key: "Q", title: "Question", description: "Find a question you genuinely care about" },
+        { key: "U", title: "Uncover Methods", description: "How would a real researcher investigate this?" },
+        { key: "E", title: "Explore", description: "Investigate, gather evidence, follow leads" },
+        { key: "S", title: "Synthesize", description: "Organize findings into a coherent argument" },
+        { key: "T", title: "Tell", description: "Create something for a real audience" },
+      ],
+      isActive: true,
+    });
+
+    processIdByTitle["DESIGN"] = await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "DESIGN",
+      emoji: "💡",
+      description: "Design thinking: Discover, Envision, Sketch, Iterate, Give, Next",
+      systemPrompt: `Guide the scholar through the DESIGN process — an empathy-first approach to solving real problems. Use the update_process_step tool to track their progress.
+
+- D (Discover): Start with people, not ideas. Who has this problem? What's their experience like? Help the scholar develop empathy for real users: "Imagine you're a first-grader trying to find a book in the library. What's hard about that?" Interview (or imagine) real users. Define the real problem, not the surface problem.
+- E (Envision): Generate lots of ideas — wild ones, practical ones, silly ones. No judging yet. "What if there were no constraints? What's the craziest solution?" Then narrow: "Which of these could actually help the most people?"
+- S (Sketch): Make it real — quickly. A drawing, a diagram, a cardboard model, a written description. The point isn't perfection, it's thinking through the details. "How would someone actually use this? Walk me through it step by step."
+- I (Iterate): Test it. What works? What breaks? What's confusing? Help them get feedback (real or simulated) and improve. "If a five-year-old tried to use this, what would go wrong?" Revise and rebuild.
+- G (Give): Share the solution with the people it's for. Present it, explain it, get reactions. "How did they respond? Did it actually solve their problem?"
+- N (Next): Reflect. What did you learn about design? About the problem? About the users? What would version 3 look like? "If you started over knowing what you know now, what would you do differently?"`,
+      steps: [
+        { key: "D", title: "Discover", description: "Understand the people and the real problem" },
+        { key: "E", title: "Envision", description: "Generate and select ideas" },
+        { key: "S", title: "Sketch", description: "Build a quick prototype" },
+        { key: "I", title: "Iterate", description: "Test, get feedback, improve" },
+        { key: "G", title: "Give", description: "Share with the real audience" },
+        { key: "N", title: "Next", description: "Reflect and plan what's next" },
+      ],
+      isActive: true,
+    });
+
+    processIdByTitle["STW"] = await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "See-Think-Wonder",
+      emoji: "👁️",
+      description: "Harvard Project Zero visible thinking routine: See, Think, Wonder",
+      systemPrompt: `Guide the scholar through the See-Think-Wonder visible thinking routine from Harvard Project Zero. This is a quick, powerful 3-step process for looking closely at anything — an image, a text, an object, a data set, an experience. Use the update_process_step tool to track their progress.
+
+- S (See): What do you see? Just observe. No interpretation yet. Help the scholar slow down and notice details they'd normally skip: "What else? Look again. What did you miss the first time?" Push for concrete, specific observations — not "it looks old" but "the edges are worn down and the color is faded."
+- T (Think): What do you think is going on? Now interpret. Based on what you observed, what do you think this is about? Why? Help them connect observations to explanations: "What makes you say that? What evidence supports that idea?" Encourage multiple interpretations: "Could there be another explanation?"
+- W (Wonder): What does it make you wonder? What questions do you have now? The best thinking ends with better questions, not just answers. Help them generate genuine questions — things they actually want to know, not things they think the teacher wants to hear.
+
+This routine works for everything: a painting, a math problem, a rock, a historical document, a science experiment, a poem. Keep it crisp and energetic — this should feel like detective work, not homework.`,
+      steps: [
+        { key: "S", title: "See", description: "What do you observe? Just the facts." },
+        { key: "T", title: "Think", description: "What do you think is going on? Why?" },
+        { key: "W", title: "Wonder", description: "What questions do you have now?" },
+      ],
+      isActive: true,
+    });
+
+    processIdByTitle["DEBUG"] = await ctx.db.insert("processes", {
+      teacherId: systemTeacherId,
+      title: "DEBUG",
+      emoji: "🐛",
+      description: "Systematic troubleshooting: Describe, Evidence, Guess, Undo, Build",
+      systemPrompt: `Guide the scholar through the DEBUG process — a systematic approach to figuring out why something isn't working. This applies to everything: a science experiment that gave unexpected results, a math problem that doesn't check out, a machine that broke, a piece of writing that falls flat, a social situation that went wrong. Use the update_process_step tool to track their progress.
+
+- D (Describe): What's happening? What did you expect to happen? Help the scholar clearly articulate the gap between expected and actual. "Be really specific — what EXACTLY went wrong? Not 'it didn't work' but 'I expected X and got Y.'"
+- E (Evidence): Gather clues. What do you know for sure? What changed recently? What still works? Help them collect observations before jumping to solutions. "Let's be detectives. What evidence do we have?"
+- B (Brainstorm Causes): What COULD be causing this? Generate multiple hypotheses. "Don't commit to the first idea. What are three possible explanations?" Help them think about root causes vs. symptoms.
+- U (Undo & Test): Test one hypothesis at a time. Change one thing, check the result. "If your hypothesis is right, what should happen when we try this?" Teach the scientific method through debugging.
+- G (Grow): What did you learn? How will you prevent this next time? What does this teach you about how the system works? "The best debuggers don't just fix the bug — they understand why it happened."`,
+      steps: [
+        { key: "D", title: "Describe", description: "What's happening vs. what you expected" },
+        { key: "E", title: "Evidence", description: "Gather clues — what do you know for sure?" },
+        { key: "B", title: "Brainstorm Causes", description: "What could be causing this?" },
+        { key: "U", title: "Undo & Test", description: "Test one hypothesis at a time" },
+        { key: "G", title: "Grow", description: "What did you learn? How to prevent it next time?" },
+      ],
+      isActive: true,
+    });
+
+    // ── Patch units with process building-block refs ──────────────
+    // (Processes are seeded after units, so we patch them here)
+    const unitsToPatch: Record<string, string> = {
+      "Weekend News": "Weekend News",
+      "Citizens' Report": "Civic Analysis",
+      "Inventor's Workshop": "DESIGN",
+      "Deep Dive": "QUEST",
+      "Story Forge": "CRAFT",
+      "Debate Club": "OREO",
+      "Hawaii Place Study": "QUEST",
+      "Bug Hunt": "DEBUG",
+    };
+    for (const [unitTitle, processTitle] of Object.entries(unitsToPatch)) {
+      const unit = await ctx.db
+        .query("units")
+        .filter((q) => q.eq(q.field("title"), unitTitle))
+        .first();
+      if (unit && processIdByTitle[processTitle]) {
+        await ctx.db.patch(unit._id, { processId: processIdByTitle[processTitle] });
+      }
+    }
+
+    // ── Patch slugs on all dimensions ──────────────────────────
+    const toSlug = (title: string) =>
+      title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const dimTables = ["personas", "units", "perspectives", "processes"] as const;
+    for (const table of dimTables) {
+      const items = await ctx.db.query(table).collect();
+      for (const item of items) {
+        if (!item.slug) {
+          await ctx.db.patch(item._id, { slug: toSlug(item.title) });
+        }
+      }
+    }
+
     console.log(
-      "Seeded: 6 personas, 8 perspectives, 5 units, 5 processes, scholar topics, 1 system teacher, 8 test users"
+      "Seeded: 12 personas, 18 perspectives, 35 units (with building-block refs), 9 processes, 1 system teacher, 8 test users"
     );
   },
 });
@@ -577,69 +1206,7 @@ export const seedUnitsAndTopics = internalMutation({
       console.log("Units already exist, skipping.");
     }
 
-    // Seed scholar topics if none exist
-    const existingTopics = await ctx.db.query("scholarTopics").first();
-    if (!existingTopics) {
-      const scholarTopicData: Record<string, Array<{ topic: string; bloomLevel: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create"; mentionCount: number }>> = {
-        "kai.nakamura@example.com": [
-          { topic: "volcanoes", bloomLevel: "analyze", mentionCount: 5 },
-          { topic: "robotics", bloomLevel: "apply", mentionCount: 3 },
-          { topic: "ocean currents", bloomLevel: "understand", mentionCount: 2 },
-        ],
-        "lani.kealoha@example.com": [
-          { topic: "mythology", bloomLevel: "evaluate", mentionCount: 4 },
-          { topic: "creative writing", bloomLevel: "create", mentionCount: 6 },
-          { topic: "constellations", bloomLevel: "remember", mentionCount: 2 },
-        ],
-        "noah.takahashi@example.com": [
-          { topic: "prime numbers", bloomLevel: "apply", mentionCount: 7 },
-          { topic: "chess strategy", bloomLevel: "analyze", mentionCount: 4 },
-          { topic: "cryptography", bloomLevel: "understand", mentionCount: 2 },
-        ],
-        "sophie.anderson@example.com": [
-          { topic: "animal behavior", bloomLevel: "analyze", mentionCount: 5 },
-          { topic: "ecosystems", bloomLevel: "evaluate", mentionCount: 3 },
-          { topic: "sketching", bloomLevel: "create", mentionCount: 4 },
-        ],
-        "koa.medeiros@example.com": [
-          { topic: "dinosaurs", bloomLevel: "remember", mentionCount: 8 },
-          { topic: "bugs and insects", bloomLevel: "understand", mentionCount: 3 },
-        ],
-        "lily.murphy@example.com": [
-          { topic: "fairy tales", bloomLevel: "understand", mentionCount: 5 },
-          { topic: "butterflies", bloomLevel: "remember", mentionCount: 3 },
-          { topic: "drawing", bloomLevel: "apply", mentionCount: 4 },
-        ],
-        "jack.davis@example.com": [
-          { topic: "space exploration", bloomLevel: "evaluate", mentionCount: 6 },
-          { topic: "engineering", bloomLevel: "apply", mentionCount: 4 },
-          { topic: "ancient Rome", bloomLevel: "analyze", mentionCount: 3 },
-        ],
-      };
-
-      let topicCount = 0;
-      for (const [email, topics] of Object.entries(scholarTopicData)) {
-        const scholar = await ctx.db
-          .query("users")
-          .withIndex("by_email", (q) => q.eq("email", email))
-          .first();
-        if (scholar) {
-          for (const t of topics) {
-            await ctx.db.insert("scholarTopics", {
-              scholarId: scholar._id,
-              topic: t.topic,
-              bloomLevel: t.bloomLevel,
-              teacherRating: 0,
-              mentionCount: t.mentionCount,
-            });
-            topicCount++;
-          }
-        }
-      }
-      console.log(`Seeded ${topicCount} scholar topics.`);
-    } else {
-      console.log("Scholar topics already exist, skipping.");
-    }
+    // Scholar topics removed — replaced by masteryObservations (Phase 2 observer)
   },
 });
 

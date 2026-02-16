@@ -71,12 +71,9 @@ function ScholarProjectInner() {
   const remoteUserId = searchParams.get("remote");
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
 
-  // Dimension params from URL (for pre-setting dimensions on new projects)
-  const urlPersona = searchParams.get("persona");
+  // Unit param from URL (for pre-setting unit on new projects)
   const urlUnit = searchParams.get("unit");
-  const urlPerspective = searchParams.get("perspective");
-  const urlProcess = searchParams.get("process");
-  const hasDimensionParams = !!(urlPersona || urlUnit || urlPerspective || urlProcess);
+  const hasDimensionParams = !!urlUnit;
 
   // Fetch projects reactively via Convex
   const projects = useQuery(
@@ -84,11 +81,8 @@ function ScholarProjectInner() {
     isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
   ) ?? [];
 
-  // Fetch dimension lists for resolving URL param titles to IDs
-  const personas = useQuery(api.personas.list) ?? [];
+  // Fetch unit list for resolving URL param slug to ID
   const units = useQuery(api.units.list) ?? [];
-  const perspectives = useQuery(api.perspectives.list) ?? [];
-  const processes = useQuery(api.processes.list) ?? [];
 
   // Fetch scholar info for remote mode banner
   const remoteUser = useQuery(
@@ -99,31 +93,13 @@ function ScholarProjectInner() {
   const createProject = useMutation(api.projects.create);
   const archiveProject = useMutation(api.projects.archive);
 
-  // Resolve URL param slugs to dimension IDs
-  const resolvedDimensions = (() => {
-    const result: {
-      personaId?: Id<"personas">;
-      unitId?: Id<"units">;
-      perspectiveId?: Id<"perspectives">;
-      processId?: Id<"processes">;
-    } = {};
-    if (urlPersona) {
-      const match = personas.find((p) => p.slug === urlPersona);
-      if (match) result.personaId = match._id;
-    }
+  // Resolve URL param slug to unit ID
+  const resolvedUnitId = (() => {
     if (urlUnit) {
       const match = units.find((u) => u.slug === urlUnit);
-      if (match) result.unitId = match._id;
+      if (match) return match._id;
     }
-    if (urlPerspective) {
-      const match = perspectives.find((p) => p.slug === urlPerspective);
-      if (match) result.perspectiveId = match._id;
-    }
-    if (urlProcess) {
-      const match = processes.find((p) => p.slug === urlProcess);
-      if (match) result.processId = match._id;
-    }
-    return result;
+    return undefined;
   })();
 
   const isDemoMode = searchParams.get("demo") === "1";
@@ -145,11 +121,8 @@ function ScholarProjectInner() {
   // Auto-create project when projectId is "new"
   useEffect(() => {
     if (!isNewProject || newProjectCreatedRef.current) return;
-    // Wait for dimension lists to load if we have dimension params
-    if (urlPersona && personas.length === 0) return;
+    // Wait for unit list to load if we have a unit param
     if (urlUnit && units.length === 0) return;
-    if (urlPerspective && perspectives.length === 0) return;
-    if (urlProcess && processes.length === 0) return;
 
     newProjectCreatedRef.current = true;
 
@@ -157,10 +130,7 @@ function ScholarProjectInner() {
     if (isRemoteMode && remoteUserId) {
       createArgs.userId = remoteUserId as Id<"users">;
     }
-    if (resolvedDimensions.personaId) createArgs.personaId = resolvedDimensions.personaId;
-    if (resolvedDimensions.unitId) createArgs.unitId = resolvedDimensions.unitId;
-    if (resolvedDimensions.perspectiveId) createArgs.perspectiveId = resolvedDimensions.perspectiveId;
-    if (resolvedDimensions.processId) createArgs.processId = resolvedDimensions.processId;
+    if (resolvedUnitId) createArgs.unitId = resolvedUnitId;
 
     createProject(createArgs as Parameters<typeof createProject>[0])
       .then((result) => {
@@ -176,23 +146,23 @@ function ScholarProjectInner() {
         console.error("Error creating project:", error);
         newProjectCreatedRef.current = false;
       });
-  }, [isNewProject, hasDimensionParams, personas, units, perspectives, processes, resolvedDimensions, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNewProject, hasDimensionParams, units, resolvedUnitId, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Navigate to /scholar/new, carrying forward current dimensions
+  // Navigate to /scholar/new, carrying forward current unit
   const handleNewProject = useCallback(() => {
     const currentProject = projects.find((p) => p._id === projectId);
     const queryParts: string[] = [];
     if (remoteUserId) queryParts.push(`remote=${remoteUserId}`);
     const dimParams = buildDimensionParams(
       currentProject ?? {},
-      { personas, units, perspectives, processes }
+      { units }
     );
     if (dimParams) queryParts.push(dimParams);
     if (isDemoMode || dimParams) queryParts.push("demo=1");
     const query = queryParts.length ? `?${queryParts.join("&")}` : "";
     newProjectCreatedRef.current = false;
     router.push(`/scholar/new${query}`);
-  }, [router, remoteUserId, projectId, projects, personas, units, perspectives, processes, isDemoMode]);
+  }, [router, remoteUserId, projectId, projects, units, isDemoMode]);
 
   // Archive project
   const handleArchiveProject = async (id: string) => {

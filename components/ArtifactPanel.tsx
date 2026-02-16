@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Box, Flex, Input, Text, Textarea, Button, HStack, IconButton } from "@chakra-ui/react";
-import { FiPlus, FiTrash2, FiFileText, FiChevronDown, FiChevronRight } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiFileText, FiCode, FiChevronDown, FiChevronRight } from "react-icons/fi";
 import { ProcessPanel } from "./ProcessPanel";
 import type { ProcessDefinition, ProcessStep } from "./ProcessPanel";
+import { CodeArtifactViewer } from "./CodeArtifactViewer";
 
 interface ArtifactDoc {
   _id: string;
   title: string;
   content: string;
   lastEditedBy: string;
+  type?: "text" | "code";
+  language?: string;
 }
 
 interface ArtifactPanelProps {
@@ -190,7 +193,7 @@ export function ArtifactPanel({
                 gap={1}
               >
                 {isExpanded ? <FiChevronDown size={14} style={{ flexShrink: 0 }} /> : <FiChevronRight size={14} style={{ flexShrink: 0 }} />}
-                <FiFileText size={12} style={{ flexShrink: 0 }} />
+                {a.type === "code" ? <FiCode size={12} style={{ flexShrink: 0 }} /> : <FiFileText size={12} style={{ flexShrink: 0 }} />}
                 {a.title.length > 18 ? a.title.slice(0, 18) + "..." : a.title}
               </Button>
             </Flex>
@@ -203,13 +206,23 @@ export function ArtifactPanel({
                 borderRadius="lg"
                 shadow="0 1px 3px rgba(0,0,0,0.08)"
               >
-                <ArtifactEditor
-                  key={a._id}
-                  artifact={a}
-                  onSave={(updates) => onSave(a._id, updates)}
-                  onDelete={() => onDeleteArtifact(a._id)}
-                  onSyncChange={onSyncChange}
-                />
+                {a.type === "code" ? (
+                  <CodeArtifactViewer
+                    key={a._id}
+                    artifact={a}
+                    onSave={(updates) => onSave(a._id, updates)}
+                    onDelete={() => onDeleteArtifact(a._id)}
+                    onSyncChange={onSyncChange}
+                  />
+                ) : (
+                  <ArtifactEditor
+                    key={a._id}
+                    artifact={a}
+                    onSave={(updates) => onSave(a._id, updates)}
+                    onDelete={() => onDeleteArtifact(a._id)}
+                    onSyncChange={onSyncChange}
+                  />
+                )}
               </Box>
             )}
           </Flex>

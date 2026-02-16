@@ -33,25 +33,24 @@ export const getProjectContext = internalQuery({
     const scholar = await ctx.db.get(project.userId);
     const readingLevel = project.readingLevelOverride ?? scholar?.readingLevel ?? null;
 
-    // Get unit context
+    // Get unit context + resolve building-block dimensions from unit
+    const unit = project.unitId ? await ctx.db.get(project.unitId) : null;
+
     let unitContext = null;
-    if (project.unitId) {
-      const unit = await ctx.db.get(project.unitId);
-      if (unit) {
-        unitContext = {
-          title: unit.title,
-          description: unit.description ?? null,
-          systemPrompt: unit.systemPrompt ?? null,
-          rubric: unit.rubric ?? null,
-          targetBloomLevel: unit.targetBloomLevel ?? null,
-        };
-      }
+    if (unit) {
+      unitContext = {
+        title: unit.title,
+        description: unit.description ?? null,
+        systemPrompt: unit.systemPrompt ?? null,
+        rubric: unit.rubric ?? null,
+        targetBloomLevel: unit.targetBloomLevel ?? null,
+      };
     }
 
-    // Get persona context
+    // Get persona context (from unit's building block ref)
     let personaContext = null;
-    if (project.personaId) {
-      const persona = await ctx.db.get(project.personaId);
+    if (unit?.personaId) {
+      const persona = await ctx.db.get(unit.personaId);
       if (persona) {
         personaContext = {
           title: persona.title,
@@ -61,10 +60,10 @@ export const getProjectContext = internalQuery({
       }
     }
 
-    // Get perspective context
+    // Get perspective context (from unit's building block ref)
     let perspectiveContext = null;
-    if (project.perspectiveId) {
-      const perspective = await ctx.db.get(project.perspectiveId);
+    if (unit?.perspectiveId) {
+      const perspective = await ctx.db.get(unit.perspectiveId);
       if (perspective) {
         perspectiveContext = {
           title: perspective.title,
@@ -74,11 +73,11 @@ export const getProjectContext = internalQuery({
       }
     }
 
-    // Get process context + state
+    // Get process context + state (from unit's building block ref)
     let processContext = null;
     let processStateData = null;
-    if (project.processId) {
-      const process = await ctx.db.get(project.processId);
+    if (unit?.processId) {
+      const process = await ctx.db.get(unit.processId);
       if (process) {
         processContext = {
           title: process.title,
@@ -106,6 +105,37 @@ export const getProjectContext = internalQuery({
       .query("scholarDossiers")
       .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
       .first();
+
+    // Get active + pending seeds for this scholar (never dismissed)
+    const activeSeeds = await ctx.db
+      .query("seeds")
+      .withIndex("by_scholar_status", (q) =>
+        q.eq("scholarId", project.userId).eq("status", "active")
+      )
+      .collect();
+    const pendingSeeds = await ctx.db
+      .query("seeds")
+      .withIndex("by_scholar_status", (q) =>
+        q.eq("scholarId", project.userId).eq("status", "pending")
+      )
+      .collect();
+    // Active (teacher-approved) first, then pending (unreviewed)
+    const seeds = [
+      ...activeSeeds.map((s) => ({
+        topic: s.topic,
+        domain: s.domain ?? null,
+        approachHint: s.approachHint ?? null,
+        suggestionType: s.suggestionType,
+        approved: true,
+      })),
+      ...pendingSeeds.map((s) => ({
+        topic: s.topic,
+        domain: s.domain ?? null,
+        approachHint: s.approachHint ?? null,
+        suggestionType: s.suggestionType,
+        approved: false,
+      })),
+    ];
 
     // Get artifact data (multi-document)
     const allArtifacts = await ctx.db
@@ -136,6 +166,7 @@ export const getProjectContext = internalQuery({
       processContext,
       processStateData,
       artifactData,
+      seeds,
       chatHistory,
       title: project.title,
     };
@@ -204,8 +235,8 @@ export const finalizeStream = internalMutation({
       }
     }
 
-    // Auto-trigger observer analysis in background
-    await ctx.scheduler.runAfter(0, internal.analysisActions.runObserverAnalysis, {
+    // Auto-trigger unified observer in background
+    await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
       projectId: args.projectId,
     });
   },
@@ -262,7 +293,14 @@ export function buildSystemPrompt(
     content: string;
     lastEditedBy: string;
   }[] | null = null,
-  dossierContent: string | null = null
+  dossierContent: string | null = null,
+  seedsData: {
+    topic: string;
+    domain: string | null;
+    approachHint: string | null;
+    suggestionType: string;
+    approved: boolean;
+  }[] | null = null
 ): string {
   const parts: string[] = [];
 
@@ -389,6 +427,33 @@ ${numberedContent}`);
 IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header. Do NOT include a title, headline, or byline at the top of document content — that would be redundant. Document body should start directly with the actual content.`);
   } else if (unitContext) {
     parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the unit involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
+  }
+
+  // Exploration seeds (teacher-approved + pending ideas to weave in)
+  if (seedsData && seedsData.length > 0) {
+    const approvedSeeds = seedsData.filter((s) => s.approved);
+    const pendingSeeds = seedsData.filter((s) => !s.approved);
+
+    parts.push(`\n\nEXPLORATION SEEDS (ideas to naturally weave into conversation when relevant):`);
+    if (approvedSeeds.length > 0) {
+      parts.push(`Teacher-approved seeds — prioritize these:`);
+      for (const s of approvedSeeds) {
+        let line = `- "${s.topic}"`;
+        if (s.domain) line += ` (${s.domain})`;
+        if (s.approachHint) line += ` — ${s.approachHint}`;
+        parts.push(line);
+      }
+    }
+    if (pendingSeeds.length > 0) {
+      parts.push(`${approvedSeeds.length > 0 ? "\n" : ""}Additional seed ideas:`);
+      for (const s of pendingSeeds) {
+        let line = `- "${s.topic}"`;
+        if (s.domain) line += ` (${s.domain})`;
+        if (s.approachHint) line += ` — ${s.approachHint}`;
+        parts.push(line);
+      }
+    }
+    parts.push(`When the scholar sends "<start>", use one of these seeds (preferring teacher-approved ones) as an engaging conversation opener. During ongoing conversation, look for natural moments to introduce seeds that connect to what the scholar is already exploring. Don't force them — weave them in when the connection feels genuine.`);
   }
 
   // Teacher whisper (private guidance)

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 /**
  * List projects for a user (non-archived, most recent first).
@@ -24,20 +25,21 @@ export const list = authedQuery({
       .order("desc")
       .collect();
 
-    // Enrich with persona emoji, unit info, and message count
+    // Enrich with unit info (+ unit's persona emoji) and message count
     return Promise.all(
       projects.map(async (project) => {
-        let personaEmoji: string | null = null;
-        if (project.personaId) {
-          const persona = await ctx.db.get(project.personaId);
-          personaEmoji = persona?.emoji ?? null;
-        }
         let unitTitle: string | null = null;
         let unitEmoji: string | null = null;
+        let personaEmoji: string | null = null;
         if (project.unitId) {
           const unit = await ctx.db.get(project.unitId);
           unitTitle = unit?.title ?? null;
           unitEmoji = unit?.emoji ?? null;
+          // Resolve persona from unit's building block
+          if (unit?.personaId) {
+            const persona = await ctx.db.get(unit.personaId);
+            personaEmoji = persona?.emoji ?? null;
+          }
         }
         const messages = await ctx.db
           .query("messages")
@@ -106,9 +108,6 @@ export const create = authedMutation({
   args: {
     userId: v.optional(v.id("users")), // For teacher remote mode
     unitId: v.optional(v.id("units")),
-    personaId: v.optional(v.id("personas")),
-    perspectiveId: v.optional(v.id("perspectives")),
-    processId: v.optional(v.id("processes")),
   },
   handler: async (ctx, args) => {
     const isTeacher =
@@ -116,30 +115,29 @@ export const create = authedMutation({
     const ownerUserId =
       isTeacher && args.userId ? args.userId : ctx.user._id;
 
-    // Get unit title if linked
+    // Get unit title and process from unit's building block
     let title = "New Project";
+    let processId: Id<"processes"> | undefined = undefined;
     if (args.unitId) {
       const unit = await ctx.db.get(args.unitId);
       if (unit && unit.isActive) {
         title = unit.title;
+        processId = unit.processId ?? undefined;
       }
     }
 
     const id = await ctx.db.insert("projects", {
       userId: ownerUserId,
       unitId: args.unitId,
-      personaId: args.personaId,
-      perspectiveId: args.perspectiveId,
-      processId: args.processId,
       title,
       isArchived: false,
     });
 
-    // Initialize process state if a process was set
-    if (args.processId) {
+    // Initialize process state if unit has a process
+    if (processId) {
       await ctx.scheduler.runAfter(0, internal.processState.initialize, {
         projectId: id,
-        processId: args.processId,
+        processId,
       });
     }
 
@@ -157,9 +155,6 @@ export const update = authedMutation({
     id: v.id("projects"),
     title: v.optional(v.string()),
     unitId: v.optional(v.union(v.id("units"), v.null())),
-    personaId: v.optional(v.union(v.id("personas"), v.null())),
-    perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
-    processId: v.optional(v.union(v.id("processes"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
     pendingWhisper: v.optional(v.union(v.string(), v.null())),
     readingLevelOverride: v.optional(v.union(v.string(), v.null())),
@@ -183,12 +178,6 @@ export const update = authedMutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.unitId !== undefined)
       updates.unitId = args.unitId ?? undefined;
-    if (args.personaId !== undefined)
-      updates.personaId = args.personaId ?? undefined;
-    if (args.perspectiveId !== undefined)
-      updates.perspectiveId = args.perspectiveId ?? undefined;
-    if (args.processId !== undefined)
-      updates.processId = args.processId ?? undefined;
 
     // Only teachers can update these
     if (isTeacher) {
@@ -202,24 +191,26 @@ export const update = authedMutation({
         updates.analysisSummary = args.analysisSummary ?? undefined;
     }
 
-    await ctx.db.patch(args.id, updates);
+    // Handle processState when unitId changes
+    if (args.unitId !== undefined) {
+      const oldUnit = project.unitId ? await ctx.db.get(project.unitId) : null;
+      const newUnit = args.unitId ? await ctx.db.get(args.unitId) : null;
+      const oldProcessId = oldUnit?.processId ?? null;
+      const newProcessId = newUnit?.processId ?? null;
 
-    // Handle processState when processId changes
-    if (args.processId !== undefined) {
-      const newProcessId = args.processId;
-      if (newProcessId) {
-        // Initialize/replace processState
+      if (newProcessId && newProcessId !== oldProcessId) {
         await ctx.scheduler.runAfter(0, internal.processState.initialize, {
           projectId: args.id,
           processId: newProcessId,
         });
-      } else {
-        // Remove processState when process is cleared
+      } else if (!newProcessId && oldProcessId) {
         await ctx.scheduler.runAfter(0, internal.processState.remove, {
           projectId: args.id,
         });
       }
     }
+
+    await ctx.db.patch(args.id, updates);
 
     return await ctx.db.get(args.id);
   },
@@ -266,18 +257,12 @@ export const sendMessage = authedMutation({
     }
 
     // Dimension snapshot (as strings, not IDs, for historical reference)
-    const personaId = project.personaId
-      ? String(project.personaId)
-      : undefined;
-    const unitId = project.unitId
-      ? String(project.unitId)
-      : undefined;
-    const perspectiveId = project.perspectiveId
-      ? String(project.perspectiveId)
-      : undefined;
-    const processId = project.processId
-      ? String(project.processId)
-      : undefined;
+    // Resolve building blocks from the unit
+    const unit = project.unitId ? await ctx.db.get(project.unitId) : null;
+    const personaId = unit?.personaId ? String(unit.personaId) : undefined;
+    const unitId = project.unitId ? String(project.unitId) : undefined;
+    const perspectiveId = unit?.perspectiveId ? String(unit.perspectiveId) : undefined;
+    const processId = unit?.processId ? String(unit.processId) : undefined;
 
     // Save user message
     await ctx.db.insert("messages", {

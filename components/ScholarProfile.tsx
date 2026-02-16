@@ -12,19 +12,17 @@ import {
   Text,
   Button,
   IconButton,
-  Input,
   Textarea,
   Spinner,
   Badge,
+  Input,
+  Tabs,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
-  FiThumbsUp,
-  FiThumbsDown,
   FiPlus,
   FiTrash2,
   FiBookOpen,
-  FiTarget,
   FiFileText,
   FiExternalLink,
   FiUser,
@@ -33,29 +31,22 @@ import {
   FiCpu,
   FiLink,
   FiCheck,
+  FiClipboard,
 } from "react-icons/fi";
+import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
+import { MasteryTab } from "@/components/MasteryTab";
+import { SeedsTab } from "@/components/SeedsTab";
+import { SignalsTab } from "@/components/SignalsTab";
+import { StandardsTab } from "@/components/StandardsTab";
+
+export type ScholarTabKey = "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "observations" | "reports" | "reading";
+type TabKey = ScholarTabKey;
 
 interface ScholarProfileProps {
   scholarId: string;
+  activeTab?: TabKey;
+  onTabChange?: (tab: TabKey) => void;
 }
-
-const BLOOM_COLORS: Record<string, string> = {
-  remember: "gray",
-  understand: "blue",
-  apply: "cyan",
-  analyze: "teal",
-  evaluate: "purple",
-  create: "violet",
-};
-
-const BLOOM_LEVELS = [
-  { value: "remember", label: "Remember - Recall facts" },
-  { value: "understand", label: "Understand - Explain ideas" },
-  { value: "apply", label: "Apply - Use in new situations" },
-  { value: "analyze", label: "Analyze - Draw connections" },
-  { value: "evaluate", label: "Evaluate - Justify decisions" },
-  { value: "create", label: "Create - Produce new work" },
-];
 
 const READING_LEVELS = [
   { value: "", label: "Not set" },
@@ -75,13 +66,15 @@ const READING_LEVELS = [
   { value: "college", label: "College" },
 ];
 
-type TabKey = "dossier" | "documents" | "topics" | "observations" | "reading";
-
 const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
   { key: "dossier", label: "Dossier", icon: FiUser },
+  { key: "mastery", label: "Mastery", icon: FiCpu },
+  { key: "standards", label: "Standards", icon: FiClipboard },
+  { key: "seeds", label: "Seeds", icon: Plant },
+  { key: "strengths", label: "Strengths", icon: ShootingStar },
   { key: "documents", label: "Documents", icon: FiFolder },
-  { key: "topics", label: "Topics", icon: FiBookOpen },
-  { key: "observations", label: "Observations", icon: FiFileText },
+  { key: "observations", label: "Notes", icon: FiFileText },
+  { key: "reports", label: "Reports", icon: Notebook },
   { key: "reading", label: "Reading Level", icon: FiBookOpen },
 ];
 
@@ -98,38 +91,39 @@ function timeAgo(timestamp: number): string {
   return `${months}mo ago`;
 }
 
-export function ScholarProfile({ scholarId }: ScholarProfileProps) {
+export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange }: ScholarProfileProps) {
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
+  // masteryByDomain moved to MasteryTab component
   const dossierContent = useQuery(api.dossier.getForTeacher, { scholarId: scholarId as Id<"users"> });
   const artifacts = useQuery(api.artifacts.getByScholar, { scholarId: scholarId as Id<"users"> });
+  const reports = useQuery(api.reports.list, { scholarId: scholarId as Id<"users"> }) ?? [];
+  const createReport = useMutation(api.reports.create);
+  const removeReport = useMutation(api.reports.remove);
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
-  const rateTopic = useMutation(api.scholars.rateTopic);
-  const addSuggestion = useMutation(api.scholars.addSuggestion);
-  const removeSuggestion = useMutation(api.scholars.removeSuggestion);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
   const generateGuestToken = useMutation(api.users.generateGuestToken);
 
   const [guestLinkCopied, setGuestLinkCopied] = useState(false);
 
-  const { scholar, topics, suggestions, stats } = profile ?? {
+  const { scholar, stats } = profile ?? {
     scholar: null,
-    topics: [],
-    suggestions: [],
-    stats: { projectCount: 0, messageCount: 0, topicCount: 0 },
+    stats: { projectCount: 0, messageCount: 0, observationCount: 0 },
   };
 
   const isLoading = profile === undefined;
 
-  const [activeTab, setActiveTab] = useState<TabKey>("dossier");
+  const [internalTab, setInternalTab] = useState<TabKey>("dossier");
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = onTabChange ?? setInternalTab;
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
-  const [newSuggestion, setNewSuggestion] = useState({ topic: "", rationale: "", targetBloomLevel: "apply" });
-  const [isAddingSuggestion, setIsAddingSuggestion] = useState(false);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
   const [newObservation, setNewObservation] = useState({ type: "praise" as "praise" | "concern" | "suggestion" | "intervention", note: "" });
   const [isAddingObservation, setIsAddingObservation] = useState(false);
+  const [newReport, setNewReport] = useState({ title: "", content: "" });
+  const [isAddingReport, setIsAddingReport] = useState(false);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
@@ -143,49 +137,6 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
       console.error("Error updating reading level:", error);
     } finally {
       setIsSavingReadingLevel(false);
-    }
-  };
-
-  // Rate a topic
-  const handleRateTopic = async (topicId: string, rating: number) => {
-    try {
-      await rateTopic({
-        topicId: topicId as Id<"scholarTopics">,
-        rating,
-      });
-    } catch (error) {
-      console.error("Error rating topic:", error);
-    }
-  };
-
-  // Add a suggested topic
-  const handleAddSuggestion = async () => {
-    if (!newSuggestion.topic.trim()) return;
-
-    setIsAddingSuggestion(true);
-    try {
-      await addSuggestion({
-        scholarId: scholarId as Id<"users">,
-        topic: newSuggestion.topic,
-        ...(newSuggestion.rationale.trim() ? { rationale: newSuggestion.rationale } : {}),
-        ...(newSuggestion.targetBloomLevel ? { targetBloomLevel: newSuggestion.targetBloomLevel as "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" } : {}),
-      });
-      setNewSuggestion({ topic: "", rationale: "", targetBloomLevel: "apply" });
-    } catch (error) {
-      console.error("Error adding suggestion:", error);
-    } finally {
-      setIsAddingSuggestion(false);
-    }
-  };
-
-  // Delete a suggested topic
-  const handleDeleteSuggestion = async (suggestionId: string) => {
-    try {
-      await removeSuggestion({
-        suggestionId: suggestionId as Id<"suggestedTopics">,
-      });
-    } catch (error) {
-      console.error("Error deleting suggestion:", error);
     }
   };
 
@@ -213,6 +164,33 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
       await removeObservation({ observationId: observationId as Id<"observations"> });
     } catch (error) {
       console.error("Error deleting observation:", error);
+    }
+  };
+
+  // Add a report
+  const handleAddReport = async () => {
+    if (!newReport.title.trim() || !newReport.content.trim()) return;
+    setIsAddingReport(true);
+    try {
+      await createReport({
+        scholarId: scholarId as Id<"users">,
+        title: newReport.title,
+        content: newReport.content,
+      });
+      setNewReport({ title: "", content: "" });
+    } catch (error) {
+      console.error("Error adding report:", error);
+    } finally {
+      setIsAddingReport(false);
+    }
+  };
+
+  // Delete a report
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      await removeReport({ reportId: reportId as Id<"reports"> });
+    } catch (error) {
+      console.error("Error deleting report:", error);
     }
   };
 
@@ -262,7 +240,7 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
           {[
             { value: stats.projectCount, label: "Projects" },
             { value: stats.messageCount, label: "Messages" },
-            { value: stats.topicCount, label: "Topics" },
+            { value: stats.observationCount, label: "Concepts" },
           ].map((stat) => (
             <HStack key={stat.label} gap={1}>
               <Text fontSize="lg" fontWeight="bold" fontFamily="heading" color="navy.500">
@@ -319,37 +297,34 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
       </Flex>
 
       {/* Tab bar */}
-      <HStack px={5} gap={0} borderBottom="1px solid" borderColor="gray.200">
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          const TabIcon = tab.icon;
-          return (
-            <Button
-              key={tab.key}
-              variant="ghost"
-              borderRadius={0}
-              borderBottom="2px solid"
-              borderColor={isActive ? "violet.500" : "transparent"}
-              color={isActive ? "violet.600" : "charcoal.400"}
-              fontFamily="heading"
-              fontWeight={isActive ? "600" : "500"}
-              fontSize="sm"
-              px={4}
-              py={3}
-              h="auto"
-              outline="none"
-              boxShadow="none"
-              _hover={{ color: "violet.500", bg: "violet.50" }}
-              _focus={{ outline: "none", boxShadow: "none" }}
-              _focusVisible={{ outline: "none", boxShadow: "none" }}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <TabIcon style={{ marginRight: "6px" }} />
-              {tab.label}
-            </Button>
-          );
-        })}
-      </HStack>
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={(e) => setActiveTab(e.value as TabKey)}
+        variant="enclosed"
+        fitted={false}
+        size="sm"
+      >
+        <Tabs.List px={5} gap={0} borderBottom="1px solid" borderColor="gray.200">
+          {TABS.map((tab) => {
+            const TabIcon = tab.icon;
+            return (
+              <Tabs.Trigger
+                key={tab.key}
+                value={tab.key}
+                fontFamily="heading"
+                fontSize="sm"
+                px={4}
+                py={2}
+                color="charcoal.400"
+                _selected={{ color: "violet.600", fontWeight: "600" }}
+              >
+                <TabIcon style={{ marginRight: "6px" }} />
+                {tab.label}
+              </Tabs.Trigger>
+            );
+          })}
+        </Tabs.List>
+      </Tabs.Root>
 
       {/* Tab content */}
       <Box flex={1} overflow="auto" p={5}>
@@ -385,6 +360,22 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
               AI-maintained learning profile. You can also edit manually.
             </Text>
           </Box>
+        )}
+
+        {activeTab === "mastery" && (
+          <MasteryTab scholarId={scholarId} />
+        )}
+
+        {activeTab === "standards" && (
+          <StandardsTab scholarId={scholarId} readingLevel={scholar?.readingLevel} />
+        )}
+
+        {activeTab === "seeds" && (
+          <SeedsTab scholarId={scholarId} />
+        )}
+
+        {activeTab === "strengths" && (
+          <SignalsTab scholarId={scholarId} />
         )}
 
         {activeTab === "documents" && (
@@ -436,214 +427,9 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
                       {artifact.projectTitle}
                     </Text>
                   </Text>
-                  {/* TODO: "independence %" — ratio of scholar vs ai edits */}
                 </Box>
               ))
             )}
-          </VStack>
-        )}
-
-        {activeTab === "topics" && (
-          <VStack gap={5} align="stretch" maxW="700px">
-            {/* Topics of Interest */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={3}>
-                <FiBookOpen color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Topics of Interest
-                </Text>
-              </HStack>
-              {topics.length > 0 ? (
-                <VStack gap={2} align="stretch">
-                  {topics.map((topic) => (
-                    <Box
-                      key={topic.id}
-                      p={3}
-                      bg="gray.50"
-                      borderRadius="md"
-                      borderLeft="3px solid"
-                      borderColor={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.500`}
-                    >
-                      <HStack justify="space-between">
-                        <VStack gap={1} align="start" flex={1}>
-                          <HStack>
-                            <Text fontFamily="heading" fontSize="sm" fontWeight="600">
-                              {topic.topic}
-                            </Text>
-                            <Badge
-                              bg={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.100`}
-                              color={`${BLOOM_COLORS[topic.bloomLevel] || "gray"}.700`}
-                              fontSize="xs"
-                            >
-                              {topic.bloomLevel}
-                            </Badge>
-                          </HStack>
-                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                            Mentioned {topic.mentionCount} time{topic.mentionCount !== 1 ? "s" : ""}
-                          </Text>
-                        </VStack>
-                        <HStack gap={1}>
-                          <IconButton
-                            aria-label="Thumbs up"
-                            size="sm"
-                            variant={topic.teacherRating === 1 ? "solid" : "ghost"}
-                            bg={topic.teacherRating === 1 ? "green.500" : "transparent"}
-                            color={topic.teacherRating === 1 ? "white" : "green.500"}
-                            _hover={{ bg: topic.teacherRating === 1 ? "green.600" : "green.50" }}
-                            onClick={() => handleRateTopic(topic.id, topic.teacherRating === 1 ? 0 : 1)}
-                          >
-                            <FiThumbsUp />
-                          </IconButton>
-                          <IconButton
-                            aria-label="Thumbs down"
-                            size="sm"
-                            variant={topic.teacherRating === -1 ? "solid" : "ghost"}
-                            bg={topic.teacherRating === -1 ? "red.500" : "transparent"}
-                            color={topic.teacherRating === -1 ? "white" : "red.500"}
-                            _hover={{ bg: topic.teacherRating === -1 ? "red.600" : "red.50" }}
-                            onClick={() => handleRateTopic(topic.id, topic.teacherRating === -1 ? 0 : -1)}
-                          >
-                            <FiThumbsDown />
-                          </IconButton>
-                        </HStack>
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
-                  No topics tracked yet. Run an analysis on a conversation to detect topics.
-                </Text>
-              )}
-            </Box>
-
-            {/* Suggested Follow-ups */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={3}>
-                <FiTarget color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Suggested Follow-ups
-                </Text>
-              </HStack>
-
-              {/* Add new suggestion */}
-              <Box p={3} bg="violet.50" borderRadius="md" mb={3}>
-                <Text fontSize="xs" fontWeight="600" fontFamily="heading" color="violet.700" mb={2}>
-                  Push {scholar?.name?.split(" ")[0]} intellectually:
-                </Text>
-                <VStack gap={2} align="stretch">
-                  <Input
-                    size="sm"
-                    placeholder="Topic (e.g., 'Design a triple-decker aircraft')"
-                    value={newSuggestion.topic}
-                    onChange={(e) => setNewSuggestion((prev) => ({ ...prev, topic: e.target.value }))}
-                    bg="white"
-                    fontFamily="body"
-                  />
-                  <Textarea
-                    size="sm"
-                    placeholder="Why this topic? (optional)"
-                    value={newSuggestion.rationale}
-                    onChange={(e) => setNewSuggestion((prev) => ({ ...prev, rationale: e.target.value }))}
-                    rows={2}
-                    bg="white"
-                    fontFamily="body"
-                  />
-                  <HStack>
-                    <Box flex={1}>
-                      <select
-                        value={newSuggestion.targetBloomLevel}
-                        onChange={(e) => setNewSuggestion((prev) => ({ ...prev, targetBloomLevel: e.target.value }))}
-                        style={{
-                          width: "100%",
-                          padding: "6px 8px",
-                          borderRadius: "6px",
-                          border: "1px solid #e2e8f0",
-                          fontSize: "12px",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        {BLOOM_LEVELS.map((level) => (
-                          <option key={level.value} value={level.value}>
-                            {level.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Box>
-                    <Button
-                      size="sm"
-                      bg="violet.500"
-                      color="white"
-                      _hover={{ bg: "violet.600" }}
-                      fontFamily="heading"
-                      onClick={handleAddSuggestion}
-                      disabled={isAddingSuggestion || !newSuggestion.topic.trim()}
-                    >
-                      <FiPlus style={{ marginRight: "4px" }} />
-                      Add
-                    </Button>
-                  </HStack>
-                </VStack>
-              </Box>
-
-              {/* Existing suggestions */}
-              {suggestions.length > 0 ? (
-                <VStack gap={2} align="stretch">
-                  {suggestions.map((suggestion) => (
-                    <Box
-                      key={suggestion.id}
-                      p={3}
-                      bg="cyan.50"
-                      borderRadius="md"
-                      opacity={suggestion.explored ? 0.6 : 1}
-                    >
-                      <HStack justify="space-between" align="start">
-                        <VStack gap={1} align="start" flex={1}>
-                          <HStack flexWrap="wrap">
-                            <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="cyan.700">
-                              {suggestion.topic}
-                            </Text>
-                            {suggestion.targetBloomLevel && (
-                              <Badge
-                                bg={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.100`}
-                                color={`${BLOOM_COLORS[suggestion.targetBloomLevel] || "gray"}.700`}
-                                fontSize="xs"
-                              >
-                                {suggestion.targetBloomLevel}
-                              </Badge>
-                            )}
-                            {suggestion.explored && (
-                              <Badge bg="green.100" color="green.700" fontSize="xs">
-                                explored
-                              </Badge>
-                            )}
-                          </HStack>
-                          {suggestion.rationale && (
-                            <Text fontSize="xs" color="charcoal.500" fontFamily="body">
-                              {suggestion.rationale}
-                            </Text>
-                          )}
-                        </VStack>
-                        <IconButton
-                          aria-label="Delete"
-                          size="xs"
-                          variant="ghost"
-                          color="red.400"
-                          _hover={{ bg: "red.50", color: "red.600" }}
-                          onClick={() => handleDeleteSuggestion(suggestion.id)}
-                        >
-                          <FiTrash2 />
-                        </IconButton>
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
-                  No suggestions yet. Add topics above to guide learning.
-                </Text>
-              )}
-            </Box>
           </VStack>
         )}
 
@@ -759,6 +545,106 @@ export function ScholarProfile({ scholarId }: ScholarProfileProps) {
             ) : (
               <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
                 No observations yet.
+              </Text>
+            )}
+          </Box>
+        )}
+
+        {activeTab === "reports" && (
+          <Box maxW="700px">
+            {/* Add new report */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs" mb={4}>
+              <HStack mb={3}>
+                <Notebook size={16} color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  New Report
+                </Text>
+              </HStack>
+              <Box p={3} bg="gray.50" borderRadius="md">
+                <Input
+                  size="sm"
+                  placeholder="Report title"
+                  value={newReport.title}
+                  onChange={(e) => setNewReport((prev) => ({ ...prev, title: e.target.value }))}
+                  bg="white"
+                  fontFamily="heading"
+                  mb={2}
+                />
+                <Textarea
+                  size="sm"
+                  placeholder="Write your report..."
+                  value={newReport.content}
+                  onChange={(e) => setNewReport((prev) => ({ ...prev, content: e.target.value }))}
+                  rows={8}
+                  bg="white"
+                  fontFamily="body"
+                  mb={2}
+                />
+                <Flex justify="space-between" align="center">
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                    Reports auto-append to the AI dossier.
+                  </Text>
+                  <Button
+                    size="sm"
+                    bg="violet.500"
+                    color="white"
+                    _hover={{ bg: "violet.600" }}
+                    fontFamily="heading"
+                    onClick={handleAddReport}
+                    disabled={isAddingReport || !newReport.title.trim() || !newReport.content.trim()}
+                  >
+                    Save
+                  </Button>
+                </Flex>
+              </Box>
+            </Box>
+
+            {/* Existing reports */}
+            {reports.length > 0 ? (
+              <VStack gap={3} align="stretch">
+                {reports.map((report) => (
+                  <Box
+                    key={report._id}
+                    bg="white"
+                    borderRadius="lg"
+                    p={4}
+                    shadow="xs"
+                    borderLeft="3px solid"
+                    borderColor="violet.400"
+                  >
+                    <HStack justify="space-between" align="start" mb={1}>
+                      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+                        {report.title}
+                      </Text>
+                      <HStack gap={2}>
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading" whiteSpace="nowrap">
+                          {new Date(report._creationTime).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </Text>
+                        <IconButton
+                          aria-label="Delete report"
+                          size="xs"
+                          variant="ghost"
+                          color="red.400"
+                          _hover={{ bg: "red.50", color: "red.600" }}
+                          onClick={() => handleDeleteReport(report._id)}
+                        >
+                          <FiTrash2 />
+                        </IconButton>
+                      </HStack>
+                    </HStack>
+                    <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.5" whiteSpace="pre-wrap">
+                      {report.content}
+                    </Text>
+                  </Box>
+                ))}
+              </VStack>
+            ) : (
+              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={8}>
+                No reports yet. Reports are permanent records that also feed into the AI dossier.
               </Text>
             )}
           </Box>
