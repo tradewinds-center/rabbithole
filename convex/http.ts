@@ -52,7 +52,7 @@ http.route({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Build system prompt (now includes artifact data + dossier)
+    // Build system prompt (now includes artifact data + dossier + mastery context)
     const systemPrompt = buildSystemPrompt(
       project.teacherWhisper,
       project.readingLevel,
@@ -64,7 +64,9 @@ http.route({
       project.processStateData,
       project.artifactData,
       project.dossierContent,
-      project.seeds.length > 0 ? project.seeds : null
+      project.seeds.length > 0 ? project.seeds : null,
+      project.masteryContext,
+      project.signalContext
     );
 
     const encoder = new TextEncoder();
@@ -79,13 +81,62 @@ http.route({
 
           const projId = projectId as Id<"projects">;
 
-          // Build messages for API
-          const apiMessages = project.chatHistory.map(
-            (m: { role: string; content: string }) => ({
-              role: m.role as "user" | "assistant",
-              content: m.content,
-            })
-          );
+          // Build messages for API (with image support)
+          const apiMessages: { role: "user" | "assistant"; content: any }[] = [];
+          for (const m of project.chatHistory) {
+            const msg = m as { role: string; content: string; imageId: string | null };
+            if (msg.imageId && msg.role === "user") {
+              // Get image URL from storage, then fetch and convert to base64
+              const imageUrl = await ctx.runQuery(internal.files.getUrlInternal, {
+                storageId: msg.imageId as Id<"_storage">,
+              });
+              if (imageUrl) {
+                try {
+                  const imgRes = await fetch(imageUrl);
+                  const imgBuf = await imgRes.arrayBuffer();
+                  const bytes = new Uint8Array(imgBuf);
+                  let binary = "";
+                  for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                  }
+                  const base64 = btoa(binary);
+                  const contentType = imgRes.headers.get("content-type") || "image/png";
+
+                  // Multi-part content: image + text
+                  const contentParts: any[] = [
+                    {
+                      type: "image",
+                      source: {
+                        type: "base64",
+                        media_type: contentType,
+                        data: base64,
+                      },
+                    },
+                  ];
+                  if (msg.content) {
+                    contentParts.push({ type: "text", text: msg.content });
+                  }
+                  apiMessages.push({
+                    role: "user",
+                    content: contentParts,
+                  });
+                  continue;
+                } catch (err) {
+                  console.error("Failed to fetch image for Claude:", err);
+                }
+              }
+              // Fallback: image couldn't be loaded, send text only
+              apiMessages.push({
+                role: msg.role as "user" | "assistant",
+                content: msg.content,
+              });
+            } else {
+              apiMessages.push({
+                role: msg.role as "user" | "assistant",
+                content: msg.content,
+              });
+            }
+          }
 
           // ── Inject pending whisper before last user message ──────────
           if (project.pendingWhisper) {

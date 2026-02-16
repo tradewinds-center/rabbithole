@@ -26,6 +26,7 @@ export default defineSchema({
       )
     ),
     readingLevel: v.optional(v.string()),
+    readingLevelSuggestion: v.optional(v.string()), // Observer-inferred level, pending teacher review
     dateOfBirth: v.optional(v.string()), // ISO date string, e.g. "2018-03-15"
     guestToken: v.optional(v.string()),
   })
@@ -75,6 +76,8 @@ export default defineSchema({
     tokensUsed: v.optional(v.number()),
     flagged: v.boolean(),
     flagReason: v.optional(v.string()),
+    // Image attachment (Convex file storage)
+    imageId: v.optional(v.id("_storage")),
     // For persistent-text-streaming: links to active stream
     streamId: v.optional(v.string()),
   })

@@ -13,7 +13,7 @@ import {
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiEdit2, FiMic, FiMicOff, FiSend, FiX } from "react-icons/fi";
+import { FiArrowUp, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiVolume2, FiX } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -71,6 +71,8 @@ export function ProjectInterface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const welcomeSentRef = useRef<string | null>(null);
   const [whisperInput, setWhisperInput] = useState("");
+  const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Convex queries for dimension options (reactive, auto-updating)
   const units = useQuery(api.units.list) ?? [];
@@ -140,6 +142,7 @@ export function ProjectInterface({
     api.artifacts.getByProject,
     { projectId: projectId as Id<"projects"> }
   ) ?? [];
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveArtifact = useMutation(api.artifacts.scholarUpdate);
   const createArtifact = useMutation(api.artifacts.scholarCreate);
   const deleteArtifactMut = useMutation(api.artifacts.deleteArtifact);
@@ -263,10 +266,30 @@ export function ProjectInterface({
 
   // Send message via Convex mutation + HTTP streaming
   const handleSend = async (directText?: string) => {
-    const userMessage = directText?.trim() || input.trim();
+    const rawMessage = directText?.trim() || input.trim();
+    // Allow sending with just an image (use placeholder text)
+    const userMessage = rawMessage || (pendingImage ? "What do you see in this image?" : "");
     if (!userMessage || isStreaming) return;
 
+    // Upload image if attached
+    let imageId: string | null = null;
+    if (pendingImage) {
+      try {
+        const uploadUrl = await generateUploadUrl();
+        const uploadRes = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": pendingImage.file.type },
+          body: pendingImage.file,
+        });
+        const { storageId } = await uploadRes.json();
+        imageId = storageId;
+      } catch (err) {
+        console.error("Image upload failed:", err);
+      }
+    }
+
     setInput("");
+    setPendingImage(null);
     setIsStreaming(true);
     setStreamingContent("");
     setStreamingMsgId(null);
@@ -276,6 +299,7 @@ export function ProjectInterface({
       const result = await sendMsg({
         projectId: projectId as Id<"projects">,
         message: userMessage,
+        ...(imageId ? { imageId: imageId as Id<"_storage"> } : {}),
       });
 
       // Track the placeholder message ID so we can hide it while streaming
@@ -468,6 +492,18 @@ export function ProjectInterface({
           onSendWhisper: handleSendWhisper,
           onClearWhisper: handleClearWhisper,
           observations: projectObservations,
+          pendingImage,
+          onSelectImage: () => fileInputRef.current?.click(),
+          onClearImage: () => setPendingImage(null),
+          fileInputRef,
+          onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file && file.type.startsWith("image/")) {
+              const preview = URL.createObjectURL(file);
+              setPendingImage({ file, preview });
+            }
+            e.target.value = ""; // Reset so same file can be re-selected
+          },
         };
 
         return showRightPanel ? (
@@ -544,6 +580,11 @@ interface ChatColumnProps {
   onSendWhisper?: () => void;
   onClearWhisper?: () => void;
   observations?: ObservationData[];
+  pendingImage?: { file: File; preview: string } | null;
+  onSelectImage?: () => void;
+  onClearImage?: () => void;
+  fileInputRef?: React.RefObject<HTMLInputElement | null>;
+  onFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 function ChatColumn({
@@ -570,6 +611,11 @@ function ChatColumn({
   onSendWhisper,
   onClearWhisper,
   observations = [],
+  pendingImage,
+  onSelectImage,
+  onClearImage,
+  fileInputRef,
+  onFileChange,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -912,6 +958,15 @@ function ChatColumn({
         </Box>
       )}
 
+      {/* Hidden file input for image upload */}
+      <input
+        ref={fileInputRef as React.RefObject<HTMLInputElement>}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={onFileChange}
+      />
+
       {/* Input Area */}
       <Box
         p={4}
@@ -922,6 +977,40 @@ function ChatColumn({
         position="relative"
         zIndex={9999}
       >
+        {/* Pending image preview */}
+        {pendingImage && (
+          <Flex maxW="3xl" mx="auto" mb={2} position="relative" display="inline-flex">
+            <Box
+              borderRadius="lg"
+              overflow="hidden"
+              border="1px solid"
+              borderColor="gray.200"
+              position="relative"
+              maxH="120px"
+            >
+              <img
+                src={pendingImage.preview}
+                alt="Upload preview"
+                style={{ maxHeight: "120px", objectFit: "cover", borderRadius: "8px" }}
+              />
+              <IconButton
+                aria-label="Remove image"
+                size="xs"
+                variant="solid"
+                bg="blackAlpha.600"
+                color="white"
+                _hover={{ bg: "blackAlpha.800" }}
+                position="absolute"
+                top={1}
+                right={1}
+                borderRadius="full"
+                onClick={onClearImage}
+              >
+                <FiX size={12} />
+              </IconButton>
+            </Box>
+          </Flex>
+        )}
         <Flex maxW="3xl" mx="auto" gap={3}>
           <Textarea
             ref={textareaRef}
@@ -952,6 +1041,20 @@ function ChatColumn({
             px={4}
             disabled={isStreaming}
           />
+          <IconButton
+            aria-label="Upload image"
+            bg="gray.200"
+            color="charcoal.500"
+            _hover={{ bg: "gray.300" }}
+            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+            borderRadius="xl"
+            h="auto"
+            minW={12}
+            onClick={onSelectImage}
+            disabled={isStreaming}
+          >
+            <FiImage />
+          </IconButton>
           <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }}>
             <Tooltip.Trigger asChild>
               <IconButton
@@ -1003,7 +1106,7 @@ function ChatColumn({
             h="auto"
             minW={12}
             onClick={() => handleSend()}
-            disabled={!input.trim() || isStreaming}
+            disabled={(!input.trim() && !pendingImage) || isStreaming}
           >
             <FiArrowUp />
           </IconButton>
@@ -1038,6 +1141,7 @@ interface MessageData {
   unitId?: string | null;
   perspectiveId?: string | null;
   toolAction?: string | null;
+  imageId?: string | null;
 }
 
 interface ObservationData {
@@ -1053,6 +1157,20 @@ interface ObservationData {
   observedAt: number;
 }
 
+/** Strip markdown formatting for TTS. */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s/g, "")       // headers
+    .replace(/\*\*(.*?)\*\*/g, "$1") // bold
+    .replace(/\*(.*?)\*/g, "$1")     // italic
+    .replace(/`{1,3}[^`]*`{1,3}/g, "") // code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
+    .replace(/^[-*+]\s/gm, "")      // list bullets
+    .replace(/^\d+\.\s/gm, "")      // numbered lists
+    .replace(/\n{2,}/g, ". ")       // paragraph breaks -> pause
+    .trim();
+}
+
 // Message Bubble Component
 function MessageBubble({
   message,
@@ -1064,6 +1182,7 @@ function MessageBubble({
   isStreaming?: boolean;
 }) {
   const isUser = message.role === "user";
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Look up persona from message snapshot
   const messagePersona = message.personaId
@@ -1074,12 +1193,52 @@ function MessageBubble({
     ? `${messagePersona.emoji} ${messagePersona.title}`
     : "AI";
 
+  const handleSpeak = () => {
+    if (!("speechSynthesis" in window)) return;
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const plainText = stripMarkdown(message.content);
+    if (!plainText) return;
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Cancel speech if component unmounts
+  useEffect(() => {
+    return () => {
+      if (isSpeaking) window.speechSynthesis.cancel();
+    };
+  }, [isSpeaking]);
+
+  // Resolve image URL if message has an image
+  const imageUrl = useQuery(
+    api.files.getUrl,
+    message.imageId ? { storageId: message.imageId as Id<"_storage"> } : "skip"
+  );
+
   if (isUser) {
     return (
       <Box
         className="message-bubble user animate-fade-in"
         alignSelf="flex-end"
       >
+        {imageUrl && (
+          <Box mb={2} borderRadius="lg" overflow="hidden" maxW="300px" ml="auto">
+            <img
+              src={imageUrl}
+              alt="Uploaded image"
+              style={{ maxWidth: "100%", borderRadius: "8px" }}
+            />
+          </Box>
+        )}
         <Box
           bg="navy.500"
           color="white"
@@ -1119,6 +1278,8 @@ function MessageBubble({
         borderBottomLeftRadius="sm"
         maxW="100%"
         shadow="sm"
+        position="relative"
+        css={{ "&:hover .tts-btn": { opacity: 1 } }}
       >
         <Box className="chat-markdown" fontFamily="body" fontSize="lg">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</ReactMarkdown>
@@ -1135,6 +1296,25 @@ function MessageBubble({
             />
           )}
         </Box>
+        {/* TTS button — appears on hover */}
+        {!isStreaming && message.content && (
+          <IconButton
+            className="tts-btn"
+            aria-label={isSpeaking ? "Stop reading" : "Read aloud"}
+            size="xs"
+            variant="ghost"
+            color={isSpeaking ? "violet.500" : "charcoal.300"}
+            _hover={{ color: "violet.600", bg: "violet.50" }}
+            position="absolute"
+            top={2}
+            right={2}
+            opacity={isSpeaking ? 1 : 0}
+            transition="opacity 0.15s"
+            onClick={handleSpeak}
+          >
+            <FiVolume2 size={14} />
+          </IconButton>
+        )}
       </Box>
       <Text
         fontSize="xs"

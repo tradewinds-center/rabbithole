@@ -15,20 +15,20 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [x] **Categorize by Assignment** - Link projects to specific units
 - [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
 - [x] **Reading Level** - Teacher-settable reading level per scholar
-- [ ] **Reading Level Auto-Increase** - Auto-increase reading level over time based on performance
+- [x] **Reading Level Auto-Increase** - Observer infers reading level from scholar messages, suggests to teacher
 - [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
 - [ ] **Teacher Supervision Enhancements** - Expand teacher oversight and intervention tools
 - [x] **Teacher Whispers** - Ephemeral private guidance injected into AI responses via remote view
 - [x] **Focus Mode** - Teacher can "lock" a particular unit so scholars must work in it
 - [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
-- [ ] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.)
+- [x] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.) + observer data flows into system prompt
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
-- [ ] **Text-to-Speech** - Click to have Makawulu read responses aloud (OpenAI TTS or browser SpeechSynthesis)
+- [x] **Text-to-Speech** - Click to have Makawulu read responses aloud (browser SpeechSynthesis, hover to reveal speaker button)
 - [x] **Convex Migration** - Migrated from SQLite/Drizzle/NextAuth to Convex (Feb 2026)
 - [x] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId})
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
-- [ ] **Upload Image** - Scholars can upload images into chat
-- [ ] **Code Artifacts** - Support code blocks as interactive artifacts
+- [x] **Upload Image** - Scholars can upload images into chat (Convex file storage + Claude vision)
+- [x] **Code Artifacts** - Support code blocks as interactive artifacts (create_code tool + live iframe preview)
 - [ ] **Generate Images & Videos** - AI-powered image and video generation within projects (Gemini/DALL-E)
 
 ---

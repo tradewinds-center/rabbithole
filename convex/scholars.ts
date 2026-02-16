@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { internalQuery, internalMutation } from "./_generated/server";
 
 const VALID_READING_LEVELS = [
   "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college",
@@ -49,6 +50,7 @@ export const getProfile = teacherQuery({
         name: scholar.name,
         image: scholar.image,
         readingLevel: scholar.readingLevel ?? null,
+        readingLevelSuggestion: scholar.readingLevelSuggestion ?? null,
         guestToken: scholar.guestToken ?? null,
         createdAt: scholar._creationTime,
       },
@@ -84,6 +86,60 @@ export const updateReadingLevel = teacherMutation({
 
     await ctx.db.patch(args.scholarId, {
       readingLevel: args.readingLevel ?? undefined,
+      // Clear suggestion when teacher explicitly sets level
+      readingLevelSuggestion: undefined,
+    });
+  },
+});
+
+/**
+ * Internal query to get a scholar's user record (for observer).
+ */
+export const getInternal = internalQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.scholarId);
+  },
+});
+
+/**
+ * Internal mutation to set reading level suggestion from observer.
+ */
+export const setReadingLevelSuggestion = internalMutation({
+  args: {
+    scholarId: v.id("users"),
+    suggestion: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.scholarId, {
+      readingLevelSuggestion: args.suggestion,
+    });
+  },
+});
+
+/**
+ * Teacher accepts reading level suggestion — sets readingLevel and clears suggestion.
+ */
+export const acceptReadingLevelSuggestion = teacherMutation({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    if (!scholar || !scholar.readingLevelSuggestion) return;
+    await ctx.db.patch(args.scholarId, {
+      readingLevel: scholar.readingLevelSuggestion,
+      readingLevelSuggestion: undefined,
+    });
+  },
+});
+
+/**
+ * Teacher dismisses reading level suggestion.
+ */
+export const dismissReadingLevelSuggestion = teacherMutation({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.scholarId, {
+      readingLevelSuggestion: undefined,
     });
   },
 });

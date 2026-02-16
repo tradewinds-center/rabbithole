@@ -27,6 +27,7 @@ export const getProjectContext = internalQuery({
       .map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
+        imageId: m.imageId ?? null,
       }));
 
     // Get reading level: project override takes priority, then scholar's level
@@ -105,6 +106,40 @@ export const getProjectContext = internalQuery({
       .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
       .first();
 
+    // Get current mastery observations (non-superseded) for system prompt context
+    const masteryObs = await ctx.db
+      .query("masteryObservations")
+      .withIndex("by_scholar_current", (q) =>
+        q.eq("scholarId", project.userId).eq("isSuperseded", false)
+      )
+      .collect();
+
+    // Get recent session signals (last 20) for learner profile context
+    const recentSignals = await ctx.db
+      .query("sessionSignals")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
+      .order("desc")
+      .take(20);
+
+    // Build mastery context for system prompt
+    const masteryContext = masteryObs.length > 0 ? masteryObs.map((o) => ({
+      concept: o.conceptLabel,
+      domain: o.domain,
+      level: o.masteryLevel,
+      confidence: o.confidenceScore,
+      evidence: o.evidenceSummary,
+      studentInitiated: o.studentInitiated,
+    })) : null;
+
+    // Aggregate signals into a profile
+    const signalProfile: Record<string, { count: number; highCount: number }> = {};
+    for (const s of recentSignals) {
+      if (!signalProfile[s.signalType]) signalProfile[s.signalType] = { count: 0, highCount: 0 };
+      signalProfile[s.signalType].count++;
+      if (s.intensity === "high") signalProfile[s.signalType].highCount++;
+    }
+    const signalContext = Object.keys(signalProfile).length > 0 ? signalProfile : null;
+
     // Get active + pending seeds for this scholar (never dismissed)
     const activeSeeds = await ctx.db
       .query("seeds")
@@ -159,6 +194,8 @@ export const getProjectContext = internalQuery({
       scholarName: scholar?.name ?? null,
       scholarId: project.userId,
       dossierContent: dossier?.content ?? null,
+      masteryContext,
+      signalContext,
       unitContext,
       personaContext,
       perspectiveContext,
@@ -298,7 +335,16 @@ export function buildSystemPrompt(
     approachHint: string | null;
     suggestionType: string;
     approved: boolean;
-  }[] | null = null
+  }[] | null = null,
+  masteryContext: {
+    concept: string;
+    domain: string;
+    level: number;
+    confidence: number;
+    evidence: string;
+    studentInitiated: boolean;
+  }[] | null = null,
+  signalContext: Record<string, { count: number; highCount: number }> | null = null
 ): string {
   const parts: string[] = [];
 
@@ -338,6 +384,41 @@ Keep the profile terse — bullet points grouped by category. Under 500 words.
 Do NOT update the dossier on every message — only when you have a genuine new insight.`);
   } else {
     parts.push(`\nYou have a tool called "update_dossier" to build a persistent scholar profile. Start building it when you notice learning patterns, interests, strengths, or growth areas. Use terse bullet points grouped by category. Under 500 words. Do NOT update on every message — only when you have a genuine new insight.`);
+  }
+
+  // Mastery context from observer (what this scholar has demonstrated)
+  if (masteryContext && masteryContext.length > 0) {
+    const bloomLabel = (level: number) =>
+      level >= 4.5 ? "Create" : level >= 3.5 ? "Evaluate" : level >= 2.5 ? "Analyze"
+        : level >= 1.5 ? "Apply" : level >= 0.5 ? "Understand" : "Remember";
+
+    parts.push(`\nOBSERVER MASTERY CONTEXT (what this scholar has demonstrated — private, do not quiz them on this):`);
+    // Group by domain
+    const byDomain: Record<string, typeof masteryContext> = {};
+    for (const m of masteryContext) {
+      if (!byDomain[m.domain]) byDomain[m.domain] = [];
+      byDomain[m.domain].push(m);
+    }
+    for (const [domain, obs] of Object.entries(byDomain)) {
+      parts.push(`  ${domain}:`);
+      for (const o of obs.sort((a, b) => b.level - a.level)) {
+        parts.push(`  - ${o.concept}: ${bloomLabel(o.level)} (${o.level.toFixed(1)})${o.studentInitiated ? " ★" : ""}`);
+      }
+    }
+    parts.push(`Use this to calibrate your responses — build on demonstrated strengths, don't re-teach what they already know. ★ = student-initiated (strong interest).`);
+  }
+
+  // Learner signal profile (character tendencies)
+  if (signalContext) {
+    const signalEntries = Object.entries(signalContext);
+    if (signalEntries.length > 0) {
+      parts.push(`\nLEARNER PROFILE (observed tendencies — private):`);
+      for (const [type, data] of signalEntries) {
+        const label = type.replace(/_/g, " ");
+        const strength = data.highCount > data.count / 2 ? "strong" : data.count > 3 ? "moderate" : "emerging";
+        parts.push(`- ${label}: ${strength} (${data.highCount}/${data.count} high)`);
+      }
+    }
   }
 
   // Reading level adjustment

@@ -244,6 +244,7 @@ export const sendMessage = authedMutation({
   args: {
     projectId: v.id("projects"),
     message: v.string(),
+    imageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -274,6 +275,7 @@ export const sendMessage = authedMutation({
       perspectiveId,
       processId,
       flagged: false,
+      ...(args.imageId ? { imageId: args.imageId } : {}),
     });
 
     // If there's a pending whisper, record it between user msg and assistant placeholder
@@ -307,6 +309,7 @@ export const sendMessage = authedMutation({
       streamId,
       assistantMsgId,
       projectId: args.projectId,
+      imageId: args.imageId ?? null,
     };
   },
 });

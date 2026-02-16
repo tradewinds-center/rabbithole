@@ -118,6 +118,13 @@ Suggest what this student should explore, in two directions:
 Seeds should excite, not just advance. Think "what would make this kid's eyes light up?"
 1-3 seeds per session is plenty. Only suggest what you're genuinely excited about for this specific kid.
 
+### 7. Inferred Reading/Writing Level
+Based on the scholar's actual messages (not the tutor's), estimate their reading and writing level:
+- Use US grade levels: K, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, college
+- Assess vocabulary complexity, sentence structure, spelling/grammar, and conceptual expression
+- Only provide if you have enough evidence (at least 3+ substantive scholar messages)
+- This helps teachers calibrate the AI's language level to the scholar
+
 ## Response
 
 Call the record_observations tool with your full analysis. All arrays can be empty if nothing notable.
@@ -132,6 +139,10 @@ const OBSERVER_TOOL = {
     type: "object" as const,
     required: ["pulse", "observations", "sessionSignals", "crossDomainConnections", "seeds"],
     properties: {
+      inferredReadingLevel: {
+        type: "string" as const,
+        description: "Estimated reading/writing level based on scholar messages: K, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, or college. Omit if insufficient evidence.",
+      },
       pulse: {
         type: "object" as const,
         required: ["engagementScore", "complexityLevel", "onTaskScore", "topics", "learningIndicators", "concernFlags", "summary", "pulseScore"],
@@ -270,6 +281,7 @@ function buildObserverUserMessage(
 }
 
 interface ObserverResult {
+  inferredReadingLevel?: string;
   pulse: {
     engagementScore: number;
     complexityLevel: number;
@@ -418,6 +430,7 @@ export const analyzeProject = internalAction({
 
       const parsed = toolBlock.input as any;
       result = {
+        inferredReadingLevel: parsed.inferredReadingLevel ?? undefined,
         pulse: {
           engagementScore: parsed.pulse.engagementScore ?? 0.5,
           complexityLevel: parsed.pulse.complexityLevel ?? 0.5,
@@ -528,6 +541,21 @@ export const analyzeProject = internalAction({
         });
       }
       console.log(`[Observer] ${result.seeds.length} seeds written`);
+
+      // 12. Reading level suggestion (if inferred and different from current)
+      if (result.inferredReadingLevel) {
+        const scholar = await ctx.runQuery(internal.scholars.getInternal, {
+          scholarId: context.scholarId,
+        });
+        const currentLevel = scholar?.readingLevel ?? null;
+        if (currentLevel !== result.inferredReadingLevel) {
+          await ctx.runMutation(internal.scholars.setReadingLevelSuggestion, {
+            scholarId: context.scholarId,
+            suggestion: result.inferredReadingLevel,
+          });
+          console.log(`[Observer] 📖 Reading level suggestion: ${result.inferredReadingLevel} (current: ${currentLevel ?? "unset"})`);
+        }
+      }
     } catch (writeErr: any) {
       console.error(`[Observer] WRITE FAILED: ${writeErr.message ?? writeErr}`);
       console.error(`[Observer] Write error details:`, JSON.stringify(writeErr, null, 2).slice(0, 1000));
