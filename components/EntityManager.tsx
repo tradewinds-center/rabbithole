@@ -52,6 +52,7 @@ interface Entity {
 
 interface EntityManagerProps {
   entityType: DimensionType;
+  hideHeader?: boolean;
 }
 
 const CONFIG: Record<DimensionType, {
@@ -66,7 +67,7 @@ const CONFIG: Record<DimensionType, {
   process: { label: "Process", plural: "Processes", icon: FiLayers, color: "blue" },
 };
 
-export function EntityManager({ entityType }: EntityManagerProps) {
+export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
   const config = CONFIG[entityType];
   const Icon = config.icon;
 
@@ -141,47 +142,55 @@ export function EntityManager({ entityType }: EntityManagerProps) {
 
   return (
     <Box>
-      <Flex justify="space-between" align="center" mb={4}>
-        <HStack gap={2}>
-          <Icon color="#AD60BF" size={22} />
-          <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
-            {config.plural}
-          </Text>
-          <Badge bg="gray.100" color="charcoal.500" fontFamily="heading" fontSize="xs">
-            {entities.length}
-          </Badge>
-        </HStack>
-        <Button
-          bg="violet.500"
-          color="white"
-          _hover={{ bg: "violet.600" }}
-          fontFamily="heading"
-          size="sm"
-          onClick={handleCreate}
-        >
-          <FiPlus style={{ marginRight: "6px" }} />
-          Create {config.label}
-        </Button>
-      </Flex>
+      {!hideHeader && (
+        <Flex justify="space-between" align="center" mb={4}>
+          <HStack gap={2}>
+            <Icon color="#AD60BF" size={22} />
+            <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
+              {config.plural}
+            </Text>
+            <Badge bg="gray.100" color="charcoal.500" fontFamily="heading" fontSize="xs">
+              {entities.length}
+            </Badge>
+          </HStack>
+        </Flex>
+      )}
 
-      {entities.length === 0 ? (
-        <VStack py={12} gap={4}>
-          <Icon size={48} color="#c1c1c1" />
-          <Text color="charcoal.400" fontFamily="heading">
-            No {config.plural.toLowerCase()} yet
-          </Text>
-          <Button
-            variant="outline"
-            fontFamily="heading"
-            size="sm"
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+          {/* Dashed "create new" card — always first */}
+          <Box
+            bg="white"
+            borderRadius="xl"
+            p={5}
+            cursor="pointer"
+            border="2px dashed"
+            borderColor="violet.200"
+            _hover={{ borderColor: "violet.400", shadow: "md" }}
+            display="flex"
+            flexDir="column"
+            alignItems="center"
+            justifyContent="center"
+            minH="140px"
+            transition="all 0.15s"
             onClick={handleCreate}
           >
-            <FiPlus style={{ marginRight: "6px" }} />
-            Create your first {config.label.toLowerCase()}
-          </Button>
-        </VStack>
-      ) : (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+            <Box
+              w={12}
+              h={12}
+              borderRadius="full"
+              bg="violet.100"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              mb={2}
+            >
+              <FiPlus size={24} color="#AD60BF" />
+            </Box>
+            <Text fontFamily="heading" fontWeight="500" color="violet.500" fontSize="sm">
+              New {config.label}
+            </Text>
+          </Box>
+
           {entities.map((entity) => (
             <Card.Root
               key={entity.id}
@@ -196,7 +205,7 @@ export function EntityManager({ entityType }: EntityManagerProps) {
               <Card.Body p={4}>
                 <VStack align="stretch" gap={3}>
                   <HStack justify="space-between">
-                    <HStack gap={2} flex={1}>
+                    <HStack gap={4} flex={1}>
                       {entity.emoji && <Text fontSize="xl">{entity.emoji}</Text>}
                       {entity.icon && !entity.emoji && <Text fontSize="xl">{entity.icon}</Text>}
                       <VStack gap={0} align="start">

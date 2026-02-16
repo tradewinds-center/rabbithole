@@ -300,11 +300,11 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
       <Tabs.Root
         value={activeTab}
         onValueChange={(e) => setActiveTab(e.value as TabKey)}
-        variant="enclosed"
+        variant="subtle"
         fitted={false}
         size="sm"
       >
-        <Tabs.List px={5} gap={0} borderBottom="1px solid" borderColor="gray.200">
+        <Tabs.List px={5} gap={0}>
           {TABS.map((tab) => {
             const TabIcon = tab.icon;
             return (

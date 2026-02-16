@@ -170,8 +170,17 @@ export default function TeacherDashboardInner() {
   const [newScholarName, setNewScholarName] = useState("");
   const createScholar = useMutation(api.users.createScholar);
 
-  // Focus mode data
+  // Focus mode data & curriculum counts
   const units = useQuery(api.units.list) ?? [];
+  const personas = useQuery(api.personas.list) ?? [];
+  const perspectives = useQuery(api.perspectives.list) ?? [];
+  const processes = useQuery(api.processes.list) ?? [];
+  const curriculumCounts: Record<CurriculumSubTab, number> = {
+    units: units.length,
+    personas: personas.length,
+    perspectives: perspectives.length,
+    processes: processes.length,
+  };
   const currentFocus = useQuery(api.focus.getCurrent);
   const setFocus = useMutation(api.focus.set);
   const clearFocus = useMutation(api.focus.clear);
@@ -444,17 +453,15 @@ export default function TeacherDashboardInner() {
         {activeTab === "curriculum" && (
           <Flex flex={1} direction="column" overflow="hidden">
             <Tabs.Root
+              mt={3}
               value={curriculumSubTab}
               onValueChange={(e) => setCurriculumSubTab(e.value as CurriculumSubTab)}
-              variant="enclosed"
+              variant="subtle"
               fitted={false}
-              size="sm"
+              size="lg"
             >
               <Tabs.List
                 px={6}
-                bg="white"
-                borderBottom="1px solid"
-                borderColor="gray.200"
                 gap={0}
               >
                 {CURRICULUM_SUB_TABS.map((sub) => {
@@ -472,14 +479,25 @@ export default function TeacherDashboardInner() {
                     >
                       <SubIcon style={{ marginRight: "5px" }} size={14} />
                       {sub.label}
+                      <Badge
+                        ml={1.5}
+                        bg="gray.100"
+                        color="charcoal.500"
+                        fontFamily="heading"
+                        fontSize="2xs"
+                        px={1.5}
+                        minW="20px"
+                        textAlign="center"
+                      >
+                        {curriculumCounts[sub.key]}
+                      </Badge>
                     </Tabs.Trigger>
                   );
                 })}
-                <Tabs.Indicator rounded="none" bg="violet.500" h="2px" bottom="0" />
               </Tabs.List>
             </Tabs.Root>
             <Box flex={1} overflow="auto" px={6} py={4}>
-              <EntityManager entityType={curriculumSubTab === "units" ? "unit" : curriculumSubTab === "personas" ? "persona" : curriculumSubTab === "perspectives" ? "perspective" : "process"} />
+              <EntityManager entityType={curriculumSubTab === "units" ? "unit" : curriculumSubTab === "personas" ? "persona" : curriculumSubTab === "perspectives" ? "perspective" : "process"} hideHeader />
             </Box>
           </Flex>
         )}
