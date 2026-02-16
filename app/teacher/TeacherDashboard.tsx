@@ -101,6 +101,7 @@ interface Scholar {
   lastProjectTitle: string | null;
   processStep: string | null;
   processTitle: string | null;
+  guestToken: string | null;
 }
 
 function computeAge(dob: string): number {
@@ -682,11 +683,16 @@ function RacetrackPanel({
 function ScholarCard({ scholar }: { scholar: Scholar }) {
   const remoteUrl = `/scholar?remote=${scholar.id}`;
   const [linkCopied, setLinkCopied] = useState(false);
+  const generateGuestToken = useMutation(api.users.generateGuestToken);
 
-  const handleCopyTestLink = (e: React.MouseEvent) => {
+  const handleCopyTestLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const guestUrl = `${window.location.origin}/guest?token=${scholar.id}`;
-    navigator.clipboard.writeText(guestUrl);
+    let token = scholar.guestToken;
+    if (!token) {
+      token = await generateGuestToken({ scholarId: scholar.id as Id<"users"> });
+    }
+    const guestUrl = `${window.location.origin}/guest?token=${token}`;
+    await navigator.clipboard.writeText(guestUrl);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   };
@@ -800,18 +806,6 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
           <HStack gap={2} pt={1}>
             <Button
               size="xs"
-              variant="ghost"
-              color="charcoal.400"
-              fontFamily="heading"
-              fontSize="xs"
-              _hover={{ color: "violet.500", bg: "violet.50" }}
-              onClick={handleCopyTestLink}
-            >
-              <FiCopy style={{ marginRight: "4px" }} />
-              {linkCopied ? "Copied!" : "Test Link"}
-            </Button>
-            <Button
-              size="xs"
               bg="violet.500"
               color="white"
               fontFamily="heading"
@@ -821,6 +815,30 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
             >
               <FiPlay style={{ marginRight: "4px" }} />
               Remote
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              color="charcoal.400"
+              fontFamily="heading"
+              fontSize="xs"
+              _hover={{ color: "violet.500", bg: "violet.50" }}
+              onClick={() => window.location.href = `/teacher?tab=scholars&scholar=${scholar.id}`}
+            >
+              <FiUser style={{ marginRight: "4px" }} />
+              Profile
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              color="charcoal.400"
+              fontFamily="heading"
+              fontSize="xs"
+              _hover={{ color: "violet.500", bg: "violet.50" }}
+              onClick={handleCopyTestLink}
+            >
+              <FiLink style={{ marginRight: "4px" }} />
+              {linkCopied ? "Copied!" : "Copy test link"}
             </Button>
           </HStack>
         </VStack>

@@ -145,6 +145,7 @@ export const listScholars = teacherQuery({
           lastProjectTitle: mostRecent?.title ?? null,
           processStep,
           processTitle,
+          guestToken: scholar.guestToken ?? null,
         };
       })
     );

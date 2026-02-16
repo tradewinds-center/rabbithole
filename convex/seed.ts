@@ -905,7 +905,10 @@ The document is plain text only. The document title becomes the story title.`,
     ];
 
     for (const u of testUsers) {
-      await ctx.db.insert("users", u);
+      await ctx.db.insert("users", {
+        ...u,
+        ...(u.role === "scholar" ? { guestToken: crypto.randomUUID() } : {}),
+      });
     }
 
     // ── Seed Processes ─────────────────────────────────────────────
