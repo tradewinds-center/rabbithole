@@ -8,12 +8,13 @@ import {
   Text,
   Textarea,
   IconButton,
+  Menu,
   Spinner,
   Splitter,
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiClock, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiVolume2, FiX } from "react-icons/fi";
+import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiUpload, FiVolume2, FiX } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import { useTTS } from "@/hooks/useTTS";
 import { useTimeLimit } from "@/hooks/useTimeLimit";
@@ -500,6 +501,7 @@ export function ProjectInterface({
           isTimeLimitModalOpen,
           onToggleTimeLimitModal: () => setIsTimeLimitModalOpen((v) => !v),
           pendingImage,
+          setPendingImage,
           onSelectImage: () => fileInputRef.current?.click(),
           onClearImage: () => setPendingImage(null),
           fileInputRef,
@@ -600,6 +602,7 @@ interface ChatColumnProps {
   isTimeLimitModalOpen?: boolean;
   onToggleTimeLimitModal?: () => void;
   pendingImage?: { file: File; preview: string } | null;
+  setPendingImage?: (img: { file: File; preview: string } | null) => void;
   onSelectImage?: () => void;
   onClearImage?: () => void;
   fileInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -635,6 +638,7 @@ function ChatColumn({
   isTimeLimitModalOpen = false,
   onToggleTimeLimitModal,
   pendingImage,
+  setPendingImage,
   onSelectImage,
   onClearImage,
   fileInputRef,
@@ -643,6 +647,48 @@ function ChatColumn({
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
   const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Camera capture state
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const openCamera = useCallback(async () => {
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch {
+      setShowCamera(false);
+    }
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setShowCamera(false);
+  }, []);
+
+  const capturePhoto = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")!.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const preview = URL.createObjectURL(file);
+      setPendingImage?.({ file, preview });
+      closeCamera();
+    }, "image/jpeg", 0.92);
+  }, [closeCamera, setPendingImage]);
 
   // Walkie-talkie: Tab hold → record, Tab release → stop & send
   // Quick tap (<200ms) is a no-op so normal Tab usage isn't hijacked
@@ -1023,6 +1069,60 @@ function ChatColumn({
         onChange={onFileChange}
       />
 
+      {/* Camera capture overlay */}
+      {showCamera && (
+        <Flex
+          position="absolute"
+          inset={0}
+          zIndex={10000}
+          bg="black"
+          flexDir="column"
+          align="center"
+          justify="center"
+        >
+          <Box position="relative" maxW="100%" maxH="100%" flex={1} display="flex" alignItems="center" justifyContent="center">
+            <video
+              ref={(el) => {
+                (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                if (el && streamRef.current) el.srcObject = streamRef.current;
+              }}
+              autoPlay
+              playsInline
+              muted
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", transform: "scaleX(-1)" }}
+            />
+          </Box>
+          <Flex gap={4} py={4}>
+            <IconButton
+              aria-label="Cancel"
+              onClick={closeCamera}
+              bg="whiteAlpha.200"
+              color="white"
+              _hover={{ bg: "whiteAlpha.400" }}
+              borderRadius="full"
+              size="lg"
+              w={14}
+              h={14}
+            >
+              <FiX size={24} />
+            </IconButton>
+            <IconButton
+              aria-label="Take photo"
+              onClick={capturePhoto}
+              bg="white"
+              color="gray.800"
+              _hover={{ bg: "gray.200" }}
+              borderRadius="full"
+              size="lg"
+              w={16}
+              h={16}
+            >
+              <FiCamera size={28} />
+            </IconButton>
+          </Flex>
+        </Flex>
+      )}
+
       {/* Time Limit Modal */}
       {timeLimit && (
         <TimeLimitModal
@@ -1155,20 +1255,35 @@ function ChatColumn({
           >
             <FiClock />
           </IconButton>
-          <IconButton
-            aria-label="Upload image"
-            bg="gray.200"
-            color="charcoal.500"
-            _hover={{ bg: "gray.300" }}
-            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-            borderRadius="xl"
-            h="auto"
-            minW={12}
-            onClick={onSelectImage}
-            disabled={isStreaming || timeLimit?.isExpired}
-          >
-            <FiImage />
-          </IconButton>
+          <Menu.Root positioning={{ placement: "top" }}>
+            <Menu.Trigger asChild>
+              <IconButton
+                aria-label="Add image"
+                bg="gray.200"
+                color="charcoal.500"
+                _hover={{ bg: "gray.300" }}
+                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                borderRadius="xl"
+                h="auto"
+                minW={12}
+                disabled={isStreaming || timeLimit?.isExpired}
+              >
+                <FiImage />
+              </IconButton>
+            </Menu.Trigger>
+            <Menu.Positioner>
+              <Menu.Content minW="160px">
+                <Menu.Item value="camera" cursor="pointer" onClick={openCamera}>
+                  <FiCamera />
+                  Take Photo
+                </Menu.Item>
+                <Menu.Item value="upload" cursor="pointer" onClick={onSelectImage}>
+                  <FiUpload />
+                  Upload File
+                </Menu.Item>
+              </Menu.Content>
+            </Menu.Positioner>
+          </Menu.Root>
           <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }}>
             <Tooltip.Trigger asChild>
               <IconButton
