@@ -1237,8 +1237,7 @@ function ChatColumn({
           mt={2}
           fontFamily="heading"
         >
-          AI can make mistakes. Verify important information with your
-          teachers.
+          Conversations may be inspected for debugging and product improvement. Do not enter personal information. AI can make mistakes.
         </Text>
       </Box>
     </Flex>
