@@ -1127,7 +1127,23 @@ http.route({
       });
     }
 
-    return new Response(openaiRes.body, {
+    // Manually pump the OpenAI stream into a new ReadableStream so the
+    // Convex HTTP action stays alive until all audio data is forwarded.
+    // Direct passthrough via `new Response(openaiRes.body)` doesn't work
+    // because Convex closes the external fetch when the handler returns.
+    const reader = openaiRes.body!.getReader();
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+        } else {
+          controller.enqueue(value);
+        }
+      },
+    });
+
+    return new Response(stream, {
       headers: {
         "Content-Type": "audio/mpeg",
         "Access-Control-Allow-Origin": "*",

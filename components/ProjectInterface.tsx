@@ -1391,11 +1391,14 @@ function stripMarkdown(text: string): string {
     .replace(/#{1,6}\s/g, "")       // headers
     .replace(/\*\*(.*?)\*\*/g, "$1") // bold
     .replace(/\*(.*?)\*/g, "$1")     // italic
-    .replace(/`{1,3}[^`]*`{1,3}/g, "") // code
+    .replace(/```[a-z]*\n[\s\S]*?```/g, "") // fenced code blocks (keep inline code)
+    .replace(/`([^`]+)`/g, "$1")     // inline code → keep text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
     .replace(/^[-*+]\s/gm, "")      // list bullets
     .replace(/^\d+\.\s/gm, "")      // numbered lists
-    .replace(/\n{2,}/g, ". ")       // paragraph breaks -> pause
+    .replace(/\n{2,}/g, "\n")       // collapse multiple newlines
+    .replace(/\n/g, ". ")           // newlines -> sentence pause
+    .replace(/\.\.\s/g, ". ")       // collapse double periods
     .trim();
 }
 
@@ -1513,7 +1516,11 @@ function MessageBubble({
             right={2}
             opacity={tts.state !== "idle" ? 1 : 0}
             transition="opacity 0.15s"
-            onClick={() => tts.toggle(stripMarkdown(message.content))}
+            onClick={() => {
+              const stripped = stripMarkdown(message.content);
+              console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
+              tts.toggle(stripped);
+            }}
           >
             {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
           </IconButton>
