@@ -39,10 +39,11 @@ export default function LoginPage() {
           console.log("Sign-up failed (expected if account exists):", signUpErr);
           await signIn("password", { email, password, flow: "signIn" });
         }
+        window.location.href = "/";
       } else {
         await signIn("password", { email, password, flow: "signUp" });
+        window.location.href = "/scholar/account?setup=true";
       }
-      window.location.href = "/";
     } catch (err) {
       console.error("Auth failed:", err);
       setError(

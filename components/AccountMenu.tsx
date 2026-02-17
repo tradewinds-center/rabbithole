@@ -1,7 +1,7 @@
 "use client";
 
 import { HStack, Text, Button, Menu } from "@chakra-ui/react";
-import { FiLogOut, FiChevronDown, FiSettings } from "react-icons/fi";
+import { FiLogOut, FiChevronDown, FiSettings, FiUser } from "react-icons/fi";
 import { Avatar } from "./Avatar";
 import { StatusOrb } from "./StatusOrb";
 
@@ -70,6 +70,14 @@ export function AccountMenu({
               Admin Tools
             </Menu.Item>
           )}
+          <Menu.Item
+            value="account"
+            cursor="pointer"
+            onClick={() => { window.location.href = "/scholar/account"; }}
+          >
+            <FiUser />
+            Account Details
+          </Menu.Item>
           <Menu.Item
             value="sign-out"
             cursor="pointer"

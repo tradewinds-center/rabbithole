@@ -59,11 +59,11 @@ function ScholarHome() {
 
   const projects = useQuery(
     api.projects.list,
-    isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
+    user ? (isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}) : "skip"
   );
 
-  const units = useQuery(api.units.list) ?? [];
-  const currentFocus = useQuery(api.focus.getCurrent);
+  const units = useQuery(api.units.list, user ? {} : "skip") ?? [];
+  const currentFocus = useQuery(api.focus.getCurrent, user ? {} : "skip");
   const focusLock = !isTestMode && currentFocus?.isActive
     ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
     : null;

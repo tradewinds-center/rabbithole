@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { authedQuery, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
 import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -352,6 +352,41 @@ export const deleteUser = adminMutation({
     await ctx.db.delete(args.userId);
 
     return { deleted: true, name: targetUser.name ?? targetUser.email ?? "Unknown" };
+  },
+});
+
+/**
+ * Update the current user's profile.
+ * Scholars can update their own name, email, dateOfBirth, readingLevel, image.
+ */
+export const updateProfile = authedMutation({
+  args: {
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    dateOfBirth: v.optional(v.string()),
+    readingLevel: v.optional(v.string()),
+    imageStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const patch: Record<string, string | undefined | null> = {};
+    if (args.name !== undefined) patch.name = args.name.trim();
+    if (args.email !== undefined) patch.email = args.email.trim();
+    if (args.dateOfBirth !== undefined) patch.dateOfBirth = args.dateOfBirth;
+    if (args.readingLevel !== undefined) {
+      const allowed = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];
+      if (!allowed.includes(args.readingLevel)) {
+        throw new Error("Invalid reading level");
+      }
+      patch.readingLevel = args.readingLevel;
+    }
+    if (args.imageStorageId !== undefined) {
+      const url = await ctx.storage.getUrl(args.imageStorageId);
+      if (url) patch.image = url;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(ctx.user._id, patch);
+    }
   },
 });
 
