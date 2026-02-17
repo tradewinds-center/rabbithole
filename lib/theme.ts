@@ -125,7 +125,7 @@ const config = defineConfig({
       },
       fonts: {
         heading: { value: "'Hanken Grotesk', sans-serif" },
-        body: { value: "'Playfair', serif" },
+        body: { value: "'Hanken Grotesk', sans-serif" },
         mono: { value: "ui-monospace, monospace" },
       },
       fontSizes: {
