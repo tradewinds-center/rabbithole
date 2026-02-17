@@ -19,6 +19,7 @@ import {
 import { AppLogo } from "@/components/AppLogo";
 import { AccountMenu } from "@/components/AccountMenu";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
+import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { FiPlus, FiMessageSquare, FiClock, FiLock } from "react-icons/fi";
 
 function timeAgo(timestamp: number): string {
@@ -74,6 +75,10 @@ function ScholarHome() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Profile edit modal state
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const needsSetup = !!(user && user.role === "scholar" && !user.profileSetupComplete);
+
   // Auth redirects
   useEffect(() => {
     if (isUserLoading) return;
@@ -83,11 +88,6 @@ function ScholarHome() {
     }
     if ((user.role === "teacher" || user.role === "admin") && !remoteUserId) {
       router.replace("/teacher");
-      return;
-    }
-    // New account → setup flow
-    if (user.role === "scholar" && !user.profileSetupComplete) {
-      router.replace("/scholar/account?setup=true");
       return;
     }
   }, [user, isUserLoading, router, remoteUserId]);
@@ -148,6 +148,7 @@ function ScholarHome() {
         isRemoteMode={isRemoteMode}
         isAdmin={user?.role === "admin"}
         onSignOut={() => signOut()}
+        onOpenProfile={() => setProfileModalOpen(true)}
         pulseScore={pulseScore}
         lastMessageAt={lastMessageAt}
       />
@@ -296,6 +297,16 @@ function ScholarHome() {
         focusLock={focusLock}
         isCreating={isCreating}
       />
+
+      {/* Profile setup / edit modal */}
+      {user && (
+        <ProfileEditModal
+          open={needsSetup || profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          isSetup={needsSetup}
+          user={user}
+        />
+      )}
     </Flex>
   );
 }
@@ -306,6 +317,7 @@ function TopBar({
   isRemoteMode,
   isAdmin,
   onSignOut,
+  onOpenProfile,
   pulseScore,
   lastMessageAt,
 }: {
@@ -314,6 +326,7 @@ function TopBar({
   isRemoteMode: boolean;
   isAdmin?: boolean;
   onSignOut: () => void;
+  onOpenProfile: () => void;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
 }) {
@@ -334,6 +347,7 @@ function TopBar({
           userName={displayName}
           userImage={displayImage}
           onSignOut={onSignOut}
+          onOpenProfile={onOpenProfile}
           pulseScore={pulseScore}
           lastMessageAt={lastMessageAt}
           isAdmin={isAdmin}

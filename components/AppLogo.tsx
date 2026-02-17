@@ -10,18 +10,18 @@ interface AppLogoProps {
 }
 
 export function AppLogo({ variant = "dark", size = 40 }: AppLogoProps) {
-  const textColor = variant === "light" ? "gray.100" : "charcoal.400";
+  const textColor = variant === "light" ? "gray.100" : "gray.800";
 
   return (
     <HStack gap={3}>
       <img
         src="/tradewinds-seal.svg"
-        alt="Tradewinds"
+        alt="Rabbithole"
         style={{ width: size, height: size, flexShrink: 0 }}
       />
       <Text
         color={textColor}
-        fontSize="xs"
+        fontSize="md"
         fontFamily="heading"
         lineHeight="1.3"
       >

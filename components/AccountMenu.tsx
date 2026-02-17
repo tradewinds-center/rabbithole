@@ -9,6 +9,7 @@ interface AccountMenuProps {
   userName: string;
   userImage?: string;
   onSignOut: () => void;
+  onOpenProfile?: () => void;
   /** Optional StatusOrb data (scholar view) */
   pulseScore?: number | null;
   lastMessageAt?: number | null;
@@ -20,6 +21,7 @@ export function AccountMenu({
   userName,
   userImage,
   onSignOut,
+  onOpenProfile,
   pulseScore,
   lastMessageAt,
   isAdmin,
@@ -73,7 +75,10 @@ export function AccountMenu({
           <Menu.Item
             value="account"
             cursor="pointer"
-            onClick={() => { window.location.href = "/scholar/account"; }}
+            onClick={() => {
+              if (onOpenProfile) onOpenProfile();
+              else window.location.href = "/scholar/account";
+            }}
           >
             <FiUser />
             Account Details

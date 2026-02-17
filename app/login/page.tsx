@@ -64,7 +64,7 @@ export default function LoginPage() {
       justifyContent="center"
       p={4}
     >
-      <Container maxW="sm">
+      <Container maxW="lg">
         <VStack
           gap={6}
           bg="white"
@@ -77,7 +77,7 @@ export default function LoginPage() {
             <Box w={20} h={20}>
               <img
                 src="/tradewinds-seal.svg"
-                alt="Tradewinds"
+                alt="Rabbithole"
                 style={{ width: "100%", height: "100%" }}
               />
             </Box>
@@ -88,13 +88,16 @@ export default function LoginPage() {
               color="navy.500"
               letterSpacing="tight"
             >
-              Tradewinds Learn
+              Rabbithole
             </Heading>
+            <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
+              {mode === "signIn" ? "Sign in to continue" : "Create your account to get started"}
+            </Text>
           </VStack>
 
           <VStack gap={3} w="full">
             <Input
-              placeholder="Username"
+              placeholder={mode === "signIn" ? "Username" : "Choose a username"}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -111,7 +114,7 @@ export default function LoginPage() {
             />
             <Input
               type="password"
-              placeholder="Password"
+              placeholder={mode === "signIn" ? "Password" : "Choose a password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -123,7 +126,7 @@ export default function LoginPage() {
               h={12}
               _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
               _focusVisible={{ boxShadow: "none", outline: "none" }}
-              autoComplete="current-password"
+              autoComplete={mode === "signIn" ? "current-password" : "new-password"}
             />
 
             {error && (
