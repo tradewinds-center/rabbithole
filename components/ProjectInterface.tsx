@@ -1504,26 +1504,39 @@ function MessageBubble({
         </Box>
         {/* TTS button — appears on hover */}
         {!isStreaming && message.content && (
-          <IconButton
-            className="tts-btn"
-            aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
-            size="xs"
-            variant="ghost"
-            color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
-            _hover={{ color: "violet.600", bg: "violet.50" }}
-            position="absolute"
-            top={2}
-            right={2}
-            opacity={tts.state !== "idle" ? 1 : 0}
-            transition="opacity 0.15s"
-            onClick={() => {
-              const stripped = stripMarkdown(message.content);
-              console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
-              tts.toggle(stripped);
-            }}
-          >
-            {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
-          </IconButton>
+          <Tooltip.Root openDelay={400} closeDelay={0} positioning={{ placement: "right" }}>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                className="tts-btn"
+                aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
+                size="xs"
+                variant="ghost"
+                color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
+                _hover={{ color: "violet.600", bg: "violet.50" }}
+                position="absolute"
+                left="100%"
+                ml={3}
+                top={0}
+                mt={3}
+                opacity={tts.state !== "idle" ? 1 : 0}
+                transition="opacity 0.15s"
+                onClick={() => {
+                  const stripped = stripMarkdown(message.content);
+                  console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
+                  tts.toggle(stripped);
+                }}
+              >
+                {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
+              </IconButton>
+            </Tooltip.Trigger>
+            <Portal>
+              <Tooltip.Positioner>
+                <Tooltip.Content fontSize="xs">
+                  {tts.state !== "idle" ? "Stop reading" : "Read aloud"}
+                </Tooltip.Content>
+              </Tooltip.Positioner>
+            </Portal>
+          </Tooltip.Root>
         )}
       </Box>
       <Text
