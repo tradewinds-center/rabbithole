@@ -704,4 +704,82 @@ http.route({
   }),
 });
 
+// ── Text-to-Speech (OpenAI TTS) ──────────────────────────────────────────────
+
+http.route({
+  path: "/tts",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    const body = await request.json();
+    const { text, voice } = body as { text?: string; voice?: string };
+
+    if (!text || text.trim().length === 0) {
+      return new Response(JSON.stringify({ error: "text is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+    if (text.length > 4096) {
+      return new Response(JSON.stringify({ error: "text must be 4096 chars or fewer" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    const openaiRes = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "tts-1",
+        voice: voice || "nova",
+        input: text,
+        response_format: "mp3",
+      }),
+    });
+
+    if (!openaiRes.ok) {
+      const err = await openaiRes.text();
+      console.error("OpenAI TTS error:", err);
+      return new Response(JSON.stringify({ error: "TTS generation failed" }), {
+        status: 502,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    return new Response(openaiRes.body, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }),
+});
+
+// CORS preflight for tts
+http.route({
+  path: "/tts",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }),
+});
+
 export default http;

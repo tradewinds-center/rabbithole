@@ -15,6 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { FiArrowUp, FiClock, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiVolume2, FiX } from "react-icons/fi";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
+import { useTTS } from "@/hooks/useTTS";
 import { useTimeLimit } from "@/hooks/useTimeLimit";
 import { TimeLimitModal } from "./TimeLimitModal";
 import ReactMarkdown from "react-markdown";
@@ -1295,7 +1296,7 @@ function MessageBubble({
   isStreaming?: boolean;
 }) {
   const isUser = message.role === "user";
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const tts = useTTS();
 
   // Look up persona from message snapshot
   const messagePersona = message.personaId
@@ -1305,31 +1306,6 @@ function MessageBubble({
   const assistantLabel = messagePersona
     ? `${messagePersona.emoji} ${messagePersona.title}`
     : "AI";
-
-  const handleSpeak = () => {
-    if (!("speechSynthesis" in window)) return;
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      return;
-    }
-    const plainText = stripMarkdown(message.content);
-    if (!plainText) return;
-    const utterance = new SpeechSynthesisUtterance(plainText);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    setIsSpeaking(true);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // Cancel speech if component unmounts
-  useEffect(() => {
-    return () => {
-      if (isSpeaking) window.speechSynthesis.cancel();
-    };
-  }, [isSpeaking]);
 
   // Resolve image URL if message has an image
   const imageUrl = useQuery(
@@ -1413,19 +1389,19 @@ function MessageBubble({
         {!isStreaming && message.content && (
           <IconButton
             className="tts-btn"
-            aria-label={isSpeaking ? "Stop reading" : "Read aloud"}
+            aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
             size="xs"
             variant="ghost"
-            color={isSpeaking ? "violet.500" : "charcoal.300"}
+            color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
             _hover={{ color: "violet.600", bg: "violet.50" }}
             position="absolute"
             top={2}
             right={2}
-            opacity={isSpeaking ? 1 : 0}
+            opacity={tts.state !== "idle" ? 1 : 0}
             transition="opacity 0.15s"
-            onClick={handleSpeak}
+            onClick={() => tts.toggle(stripMarkdown(message.content))}
           >
-            <FiVolume2 size={14} />
+            {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
           </IconButton>
         )}
       </Box>

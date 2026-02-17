@@ -38,11 +38,11 @@ import {
   FiX,
   FiCheck,
   FiLink,
+  FiLock,
   FiPlus,
   FiCopy,
   FiPlay,
 } from "react-icons/fi";
-import { TbFocusCentered } from "react-icons/tb";
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 import type { ScholarTabKey } from "@/components";
@@ -868,9 +868,6 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
   const perspectivesList = useQuery(api.perspectives.list) ?? [];
   const processesList = useQuery(api.processes.list) ?? [];
 
-  // Get the focused unit's building block info
-  const focusedUnit = focusUnitId ? units.find((u) => u._id === focusUnitId) : null;
-
   const handleCopyLink = () => {
     const dimParams = buildDimensionParams(
       { unitId: focusUnitId },
@@ -906,12 +903,6 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
 
   const unitOptions = units.map((p) => ({ id: p._id, title: p.title, emoji: p.emoji }));
 
-  // Build building-block chips for display
-  const buildingBlocks: { label: string; emoji: string }[] = [];
-  if (focusedUnit?.personaTitle) buildingBlocks.push({ label: focusedUnit.personaTitle, emoji: focusedUnit.personaEmoji || "🤖" });
-  if (focusedUnit?.perspectiveTitle) buildingBlocks.push({ label: focusedUnit.perspectiveTitle, emoji: focusedUnit.perspectiveIcon || "🔍" });
-  if (focusedUnit?.processTitle) buildingBlocks.push({ label: focusedUnit.processTitle, emoji: focusedUnit.processEmoji || "📋" });
-
   return (
     <Flex
       px={6}
@@ -926,64 +917,45 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
       transition="all 0.15s"
     >
       <HStack gap={2} color="violet.600" flexShrink={0}>
-        <TbFocusCentered size={18} />
+        <FiLock size={14} />
         <Text fontFamily="heading" fontSize="sm" fontWeight="600" whiteSpace="nowrap">
-          Focus:
+          Current Unit:
         </Text>
       </HStack>
 
-      <DimensionPicker
-        label="Unit"
-        defaultLabel="Independent Study"
-        activeId={focusUnitId}
-        options={unitOptions}
-        onChange={(id) => onSet({ unitId: (id as Id<"units">) ?? undefined })}
-        renderOption={(p) => `${p.emoji || "📚"} ${p.title}`}
-        renderActive={() => {
-          const active = units.find((p) => p._id === focusUnitId);
-          return active ? `${active.emoji || "📚"} ${active.title}` : null;
-        }}
-        onEdit={(id) => openEdit(id)}
-      />
+      <HStack gap={0}>
+        <DimensionPicker
+          label=""
+          defaultLabel="None"
+          activeId={focusUnitId}
+          options={unitOptions}
+          onChange={(id) => onSet({ unitId: (id as Id<"units">) ?? undefined })}
+          renderOption={(p) => `${p.emoji || "📚"} ${p.title}`}
+          renderActive={() => {
+            const active = units.find((p) => p._id === focusUnitId);
+            return active ? `${active.emoji || "📚"} ${active.title}` : null;
+          }}
+          onEdit={(id) => openEdit(id)}
+        />
 
-      {/* Read-only building block chips from focused unit */}
-      {buildingBlocks.length > 0 && (
-        <HStack gap={2} flexWrap="wrap">
-          {buildingBlocks.map((bb) => (
-            <HStack
-              key={bb.label}
-              gap={1}
-              px={2}
-              py={0.5}
-              bg="violet.100"
-              borderRadius="md"
-              fontSize="xs"
-              fontFamily="heading"
-              color="violet.700"
-            >
-              <Text>{bb.emoji}</Text>
-              <Text>{bb.label}</Text>
-            </HStack>
-          ))}
-        </HStack>
-      )}
-
-      {/* Clear Focus button */}
-      {hasFocus && (
-        <Button
-          size="xs"
-          variant="ghost"
-          color="charcoal.400"
-          fontFamily="heading"
-          fontSize="xs"
-          _hover={{ color: "red.500", bg: "red.50" }}
+        <Box
+          as="button"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          color="charcoal.300"
+          _hover={hasFocus ? { color: "red.500" } : undefined}
+          ml={-1}
+          p={1}
+          borderRadius="full"
+          transition="color 0.15s, opacity 0.15s"
           onClick={() => onClear()}
-          flexShrink={0}
+          opacity={hasFocus ? 1 : 0}
+          pointerEvents={hasFocus ? "auto" : "none"}
         >
-          <FiX style={{ marginRight: "4px" }} />
-          Clear
-        </Button>
-      )}
+          <FiX size={14} />
+        </Box>
+      </HStack>
 
       <Box flex={1} />
 

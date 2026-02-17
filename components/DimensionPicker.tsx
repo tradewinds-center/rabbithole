@@ -102,7 +102,7 @@ export function DimensionPicker({
   if (locked) {
     return (
       <HStack gap={1.5}>
-        <Text fontSize="xs" fontFamily="heading" color="charcoal.500">{label}</Text>
+        {label && <Text fontSize="xs" fontFamily="heading" color="charcoal.500">{label}</Text>}
         {chipContent}
       </HStack>
     );
@@ -110,7 +110,7 @@ export function DimensionPicker({
 
   return (
     <HStack gap={1.5}>
-      <Text fontSize="xs" fontFamily="heading" color="charcoal.500">{label}</Text>
+      {label && <Text fontSize="xs" fontFamily="heading" color="charcoal.500">{label}</Text>}
       <Menu.Root
         onSelect={({ value }) => onChange(value === "none" ? null : value)}
       >
