@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { authedQuery, authedMutation, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
 import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -175,6 +175,43 @@ export const updateRole = adminMutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, { role: args.role });
+  },
+});
+
+/**
+ * Fix role for a user (no auth required — run via CLI).
+ * Usage: npx convex run users:fixRole '{"userId":"<id>","role":"admin"}'
+ */
+export const fixRole = internalMutation({
+  args: {
+    userId: v.id("users"),
+    role: v.union(v.literal("scholar"), v.literal("teacher"), v.literal("admin")),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error(`No user found with id: ${args.userId}`);
+    await ctx.db.patch(args.userId, { role: args.role });
+    return { updated: args.userId, name: user.name, role: args.role };
+  },
+});
+
+/** Internal: delete a user by ID (CLI only). */
+export const internalDeleteUser = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error(`No user found with id: ${args.userId}`);
+    await ctx.db.delete(args.userId);
+    return { deleted: args.userId, name: user.name, email: user.email };
+  },
+});
+
+/** Internal: list users (for CLI debugging). */
+export const internalListUsers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map((u) => ({ _id: u._id, name: u.name, email: u.email, username: u.username, role: u.role }));
   },
 });
 

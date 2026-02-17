@@ -1,6 +1,11 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 
+// Usernames that should get admin role
+const ADMIN_USERNAMES = ["andyszy", "andy", "carl"];
+// Usernames that should get teacher role
+const TEACHER_USERNAMES = ["test-teacher-001"];
+
 export const { auth, signIn, signOut, store } = convexAuth({
   providers: [Password],
   callbacks: {
@@ -11,7 +16,8 @@ export const { auth, signIn, signOut, store } = convexAuth({
 
       // New sign-up: extract username from synthetic email
       const email = args.profile.email as string | undefined;
-      const username = email?.replace("@makawulu.local", "") ?? "";
+      const username = email?.replace("@makawulu.local", "")
+        .replace("@test.makawulu.dev", "") ?? "";
 
       // Check if a seeded user with this email already exists
       // (seeded users have email = username@makawulu.local)
@@ -23,12 +29,18 @@ export const { auth, signIn, signOut, store } = convexAuth({
         return existing._id;
       }
 
-      // Create new user — default to scholar role
+      // Assign role based on known usernames
+      const role = ADMIN_USERNAMES.includes(username)
+        ? "admin" as const
+        : TEACHER_USERNAMES.includes(username)
+          ? "teacher" as const
+          : "scholar" as const;
+
       return await ctx.db.insert("users", {
         email,
         username,
         name: username,
-        role: "scholar",
+        role,
       });
     },
   },
