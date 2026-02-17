@@ -42,7 +42,7 @@ export default function LoginPage() {
         window.location.href = "/";
       } else {
         await signIn("password", { email, password, flow: "signUp" });
-        window.location.href = "/scholar/account?setup=true";
+        window.location.href = "/";
       }
     } catch (err) {
       console.error("Auth failed:", err);

@@ -42,6 +42,7 @@ export const seedAll = internalMutation({
       email: "guest@makawulu.local",
       name: "Guest",
       role: "scholar",
+      profileSetupComplete: true,
     });
 
     // ── Seed Personas ──────────────────────────────────────────────
@@ -920,6 +921,7 @@ The document is plain text only. The document title becomes the story title.`,
     for (const u of testUsers) {
       await ctx.db.insert("users", {
         ...u,
+        profileSetupComplete: true,
       });
     }
 
@@ -1588,11 +1590,11 @@ export const patchSlugs = internalMutation({
  */
 export const patchTestUsers = internalMutation({
   handler: async (ctx) => {
-    const testUserMap: Record<string, { name: string; image: string; role: "teacher" | "scholar"; readingLevel?: string }> = {
+    const testUserMap: Record<string, { name: string; image: string; role: "teacher" | "scholar"; readingLevel?: string; profileSetupComplete?: boolean }> = {
       "test-teacher-001@test.makawulu.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: "teacher" },
-      "test-scholar-001@test.makawulu.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3" },
-      "test-scholar-002@test.makawulu.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2" },
-      "test-scholar-003@test.makawulu.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5" },
+      "test-scholar-001@test.makawulu.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3", profileSetupComplete: true },
+      "test-scholar-002@test.makawulu.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2", profileSetupComplete: true },
+      "test-scholar-003@test.makawulu.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5", profileSetupComplete: true },
     };
 
     let patched = 0;

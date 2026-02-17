@@ -115,12 +115,14 @@ function AccountForm() {
         dateOfBirth?: string;
         readingLevel?: string;
         imageStorageId?: Id<"_storage">;
+        profileSetupComplete?: boolean;
       } = {};
       if (name) args.name = name;
       if (email) args.email = email;
       if (dateOfBirth) args.dateOfBirth = dateOfBirth;
       if (readingLevel) args.readingLevel = readingLevel;
       if (pendingStorageId) args.imageStorageId = pendingStorageId;
+      if (isSetup) args.profileSetupComplete = true;
 
       await updateProfile(args);
       setPendingStorageId(null);
@@ -154,7 +156,7 @@ function AccountForm() {
       justifyContent="center"
       p={4}
     >
-      <Container maxW="sm">
+      <Container maxW="lg">
         <VStack
           gap={6}
           bg="white"
@@ -331,8 +333,9 @@ function AccountForm() {
               color="charcoal.400"
               fontFamily="heading"
               _hover={{ color: "violet.500" }}
-              onClick={() => {
+              onClick={async () => {
                 if (isSetup) {
+                  await updateProfile({ profileSetupComplete: true });
                   router.push("/scholar");
                 } else {
                   router.back();

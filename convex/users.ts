@@ -366,9 +366,10 @@ export const updateProfile = authedMutation({
     dateOfBirth: v.optional(v.string()),
     readingLevel: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
+    profileSetupComplete: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const patch: Record<string, string | undefined | null> = {};
+    const patch: Record<string, string | boolean | undefined | null> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.email !== undefined) patch.email = args.email.trim();
     if (args.dateOfBirth !== undefined) patch.dateOfBirth = args.dateOfBirth;
@@ -382,6 +383,9 @@ export const updateProfile = authedMutation({
     if (args.imageStorageId !== undefined) {
       const url = await ctx.storage.getUrl(args.imageStorageId);
       if (url) patch.image = url;
+    }
+    if (args.profileSetupComplete !== undefined) {
+      patch.profileSetupComplete = args.profileSetupComplete;
     }
 
     if (Object.keys(patch).length > 0) {

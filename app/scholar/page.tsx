@@ -85,6 +85,11 @@ function ScholarHome() {
       router.replace("/teacher");
       return;
     }
+    // New account → setup flow
+    if (user.role === "scholar" && !user.profileSetupComplete) {
+      router.replace("/scholar/account?setup=true");
+      return;
+    }
   }, [user, isUserLoading, router, remoteUserId]);
 
   const handleUnitSelected = useCallback(async (unitId: string | null) => {

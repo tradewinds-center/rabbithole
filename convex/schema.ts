@@ -29,6 +29,7 @@ export default defineSchema({
     readingLevel: v.optional(v.string()),
     readingLevelSuggestion: v.optional(v.string()), // Observer-inferred level, pending teacher review
     dateOfBirth: v.optional(v.string()), // ISO date string, e.g. "2018-03-15"
+    profileSetupComplete: v.optional(v.boolean()),
   })
     .index("by_email", ["email"])
     .index("by_username", ["username"])
