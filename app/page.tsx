@@ -1,19 +1,27 @@
 "use client";
 
+import { useConvexAuth } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Box, Spinner, VStack, Text } from "@chakra-ui/react";
 
 export default function Home() {
-  const { user, isLoading } = useCurrentUser();
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { user, isLoading: userLoading } = useCurrentUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+
+    if (userLoading) return;
 
     if (!user) {
-      // No user even with dev fallback — go to login
       router.push("/login");
       return;
     }
@@ -24,7 +32,7 @@ export default function Home() {
     } else {
       router.push("/scholar");
     }
-  }, [user, isLoading, router]);
+  }, [authLoading, isAuthenticated, user, userLoading, router]);
 
   return (
     <Box
