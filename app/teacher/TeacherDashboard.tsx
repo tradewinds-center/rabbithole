@@ -730,11 +730,6 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
                   )}
                 </HStack>
               </VStack>
-              {scholar.processTitle && scholar.processStep && (
-                <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="xs" flexShrink={0}>
-                  {scholar.processTitle}: {scholar.processStep}
-                </Badge>
-              )}
           </HStack>
 
           {scholar.lastMessage ? (
@@ -748,6 +743,11 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
                       <Text as="span" color="charcoal.300"> · {timeAgo(scholar.lastMessageAt)}</Text>
                     )}
                   </Text>
+                  {scholar.processTitle && scholar.processStep && (
+                    <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="xs" flexShrink={0}>
+                      {scholar.processTitle}: {scholar.processStep}
+                    </Badge>
+                  )}
                 </HStack>
               )}
               <Text

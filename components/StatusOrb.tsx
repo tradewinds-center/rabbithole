@@ -168,11 +168,17 @@ export function StatusOrb({
           cursor="default"
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
+          transition="filter 0.2s ease"
           css={{
             animation: `statusOrbBreathe ${breatheDuration}s ease-in-out infinite`,
             "@keyframes statusOrbBreathe": {
               "0%, 100%": { transform: "scale(1)" },
               "50%": { transform: `scale(${breatheScale})` },
+            },
+            "&:hover": {
+              filter: "brightness(1.25)",
+              animation: "none",
+              transform: `scale(${breatheScale + 0.06})`,
             },
           }}
           _after={{
