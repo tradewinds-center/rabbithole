@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
@@ -18,7 +18,8 @@ import {
 } from "@chakra-ui/react";
 import { AppLogo } from "@/components/AppLogo";
 import { AccountMenu } from "@/components/AccountMenu";
-import { FiPlus, FiMessageSquare, FiClock } from "react-icons/fi";
+import { UnitPickerDialog } from "@/components/UnitPickerDialog";
+import { FiPlus, FiMessageSquare, FiClock, FiLock } from "react-icons/fi";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -54,13 +55,24 @@ function ScholarHome() {
 
   const remoteUserId = searchParams.get("remote");
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
+  const isTestMode = !!(user && (user.role === "teacher" || user.role === "admin"));
 
   const projects = useQuery(
     api.projects.list,
     isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}
   );
 
+  const units = useQuery(api.units.list) ?? [];
+  const currentFocus = useQuery(api.focus.getCurrent);
+  const focusLock = !isTestMode && currentFocus?.isActive
+    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    : null;
+
   const createProject = useMutation(api.projects.create);
+
+  // Unit picker dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Auth redirects
   useEffect(() => {
@@ -75,10 +87,14 @@ function ScholarHome() {
     }
   }, [user, isUserLoading, router, remoteUserId]);
 
-  const handleNewProject = useCallback(async () => {
+  const handleUnitSelected = useCallback(async (unitId: string | null) => {
+    setIsCreating(true);
     const createArgs: Record<string, unknown> = {};
     if (isRemoteMode && remoteUserId) {
       createArgs.userId = remoteUserId as Id<"users">;
+    }
+    if (unitId) {
+      createArgs.unitId = unitId as Id<"units">;
     }
     try {
       const result = await createProject(createArgs as Parameters<typeof createProject>[0]);
@@ -88,6 +104,9 @@ function ScholarHome() {
       }
     } catch (error) {
       console.error("Error creating project:", error);
+    } finally {
+      setIsCreating(false);
+      setDialogOpen(false);
     }
   }, [createProject, router, remoteUserId, isRemoteMode]);
 
@@ -113,12 +132,16 @@ function ScholarHome() {
   // Get last user message time from the most recent project
   const lastMessageAt = mostRecent?._creationTime ?? null;
 
+  // Focus lock: which unitId is locked (if any)
+  const lockedUnitId = focusLock?.unitId ?? null;
+
   return (
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       <TopBar
         displayName={displayName}
         displayImage={displayImage}
         isRemoteMode={isRemoteMode}
+        isAdmin={user?.role === "admin"}
         onSignOut={() => signOut()}
         pulseScore={pulseScore}
         lastMessageAt={lastMessageAt}
@@ -141,7 +164,7 @@ function ScholarHome() {
             justifyContent="center"
             minH="140px"
             transition="all 0.15s"
-            onClick={handleNewProject}
+            onClick={() => setDialogOpen(true)}
           >
             <Box
               w={12}
@@ -161,84 +184,113 @@ function ScholarHome() {
           </Box>
 
           {/* Project cards */}
-          {projects.map((project) => (
-            <Box
-              key={project._id}
-              bg="white"
-              borderRadius="xl"
-              p={5}
-              shadow="xs"
-              cursor="pointer"
-              _hover={{ shadow: "md" }}
-              transition="all 0.15s"
-              minH="140px"
-              display="flex"
-              flexDir="column"
-              onClick={() => handleOpenProject(project._id)}
-            >
-              <HStack mb={2} gap={2}>
-                {project.personaEmoji && (
-                  <Text fontSize="lg">{project.personaEmoji}</Text>
+          {projects.map((project) => {
+            // Gray out projects that don't match the focus-locked unit
+            const isMismatch = lockedUnitId != null &&
+              String(project.unitId ?? "") !== lockedUnitId;
+
+            return (
+              <Box
+                key={project._id}
+                bg="white"
+                borderRadius="xl"
+                p={5}
+                shadow="xs"
+                cursor={isMismatch ? "default" : "pointer"}
+                opacity={isMismatch ? 0.4 : 1}
+                pointerEvents={isMismatch ? "none" : "auto"}
+                _hover={isMismatch ? undefined : { shadow: "md" }}
+                transition="all 0.15s"
+                minH="140px"
+                display="flex"
+                flexDir="column"
+                position="relative"
+                onClick={isMismatch ? undefined : () => handleOpenProject(project._id)}
+              >
+                {isMismatch && (
+                  <Box position="absolute" top={3} right={3} color="charcoal.300">
+                    <FiLock size={14} />
+                  </Box>
                 )}
-                <Text
-                  fontFamily="heading"
-                  fontWeight="600"
-                  color="navy.500"
-                  fontSize="sm"
-                  overflow="hidden"
-                  textOverflow="ellipsis"
-                  whiteSpace="nowrap"
-                  flex={1}
-                >
-                  {project.title}
-                </Text>
-              </HStack>
-
-              {project.unitTitle && (
-                <HStack gap={1} mb={2}>
-                  {project.unitEmoji && <Text fontSize="xs">{project.unitEmoji}</Text>}
-                  <Text fontSize="xs" color="violet.600" fontFamily="heading" fontWeight="500">
-                    {project.unitTitle}
+                <HStack mb={2} gap={2}>
+                  {project.personaEmoji && (
+                    <Text fontSize="lg">{project.personaEmoji}</Text>
+                  )}
+                  <Text
+                    fontFamily="heading"
+                    fontWeight="600"
+                    color="navy.500"
+                    fontSize="sm"
+                    overflow="hidden"
+                    textOverflow="ellipsis"
+                    whiteSpace="nowrap"
+                    flex={1}
+                  >
+                    {project.title}
                   </Text>
                 </HStack>
-              )}
 
-              {project.analysisSummary && (
-                <Text
-                  fontSize="xs"
-                  color="charcoal.400"
-                  fontFamily="body"
-                  lineHeight="1.4"
-                  mb={2}
-                  overflow="hidden"
-                  css={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                  }}
-                >
-                  {project.analysisSummary}
-                </Text>
-              )}
+                {project.unitTitle && (
+                  <HStack gap={1} mb={2}>
+                    {project.unitEmoji && <Text fontSize="xs">{project.unitEmoji}</Text>}
+                    <Text fontSize="xs" color="violet.600" fontFamily="heading" fontWeight="500">
+                      {project.unitTitle}
+                    </Text>
+                  </HStack>
+                )}
 
-              <HStack mt="auto" gap={3} pt={2}>
-                <HStack gap={1} color="charcoal.300">
-                  <FiMessageSquare size={12} />
-                  <Text fontSize="xs" fontFamily="heading">
-                    {project.messageCount}
+                {project.analysisSummary && (
+                  <Text
+                    fontSize="xs"
+                    color="charcoal.400"
+                    fontFamily="body"
+                    lineHeight="1.4"
+                    mb={2}
+                    overflow="hidden"
+                    css={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    {project.analysisSummary}
                   </Text>
+                )}
+
+                <HStack mt="auto" gap={3} pt={2}>
+                  <HStack gap={1} color="charcoal.300">
+                    <FiMessageSquare size={12} />
+                    <Text fontSize="xs" fontFamily="heading">
+                      {project.messageCount}
+                    </Text>
+                  </HStack>
+                  <HStack gap={1} color="charcoal.300">
+                    <FiClock size={12} />
+                    <Text fontSize="xs" fontFamily="heading">
+                      {timeAgo(project.updatedAt)}
+                    </Text>
+                  </HStack>
                 </HStack>
-                <HStack gap={1} color="charcoal.300">
-                  <FiClock size={12} />
-                  <Text fontSize="xs" fontFamily="heading">
-                    {timeAgo(project.updatedAt)}
-                  </Text>
-                </HStack>
-              </HStack>
-            </Box>
-          ))}
+              </Box>
+            );
+          })}
         </SimpleGrid>
       </Box>
+
+      {/* Unit Picker Dialog */}
+      <UnitPickerDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSelect={handleUnitSelected}
+        units={units.map((u) => ({
+          id: u._id,
+          title: u.title,
+          emoji: u.emoji,
+          description: u.description,
+        }))}
+        focusLock={focusLock}
+        isCreating={isCreating}
+      />
     </Flex>
   );
 }
@@ -247,6 +299,7 @@ function TopBar({
   displayName,
   displayImage,
   isRemoteMode,
+  isAdmin,
   onSignOut,
   pulseScore,
   lastMessageAt,
@@ -254,6 +307,7 @@ function TopBar({
   displayName: string;
   displayImage?: string;
   isRemoteMode: boolean;
+  isAdmin?: boolean;
   onSignOut: () => void;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
@@ -277,6 +331,7 @@ function TopBar({
           onSignOut={onSignOut}
           pulseScore={pulseScore}
           lastMessageAt={lastMessageAt}
+          isAdmin={isAdmin}
         />
       )}
     </Flex>

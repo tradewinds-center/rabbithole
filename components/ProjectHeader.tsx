@@ -48,12 +48,15 @@ interface ProjectHeaderProps {
   userName?: string;
   userImage?: string;
   isTestMode?: boolean;
+  isAdmin?: boolean;
   // Current process step key (e.g. "C", "R", "A") for badge display
   currentStepKey?: string | null;
   // Sign out
   onSignOut?: () => void;
   // Project rename
   onProjectRename?: (title: string) => void;
+  // When true, unit picker is always locked (scholar can't change mid-project)
+  readOnly?: boolean;
   // Right panel toggle
   showRightPanel?: boolean;
   onToggleRightPanel?: () => void;
@@ -75,11 +78,13 @@ export function ProjectHeader({
   unitData,
   onUnitChange,
   focusLock,
+  readOnly,
   onMenuClick,
   isSynced,
   userName,
   userImage,
   isTestMode,
+  isAdmin,
   onSignOut,
   currentStepKey,
   onProjectRename,
@@ -90,7 +95,8 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
   // In test mode, ignore focus lock — the teacher IS the teacher
   const effectiveLock = isTestMode ? null : focusLock;
-  const unitLocked = effectiveLock?.unitId != null;
+  // Lock the unit picker if focus-locked OR if readOnly (scholar can't switch mid-project)
+  const unitLocked = readOnly || effectiveLock?.unitId != null;
 
   // Inline title editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -247,6 +253,7 @@ export function ProjectHeader({
             pulseScore={pulseScore}
             lastMessageAt={lastMessageAt}
             onSignOut={onSignOut}
+            isAdmin={isAdmin}
           />
         )}
       </Flex>

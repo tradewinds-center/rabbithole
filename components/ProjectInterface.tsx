@@ -52,6 +52,7 @@ interface ProjectInterfaceProps {
   userName?: string;
   userImage?: string;
   isTestMode?: boolean;
+  isAdmin?: boolean;
   isRemoteMode?: boolean;
 }
 
@@ -63,6 +64,7 @@ export function ProjectInterface({
   userName,
   userImage,
   isTestMode,
+  isAdmin,
   isRemoteMode,
 }: ProjectInterfaceProps) {
   const [input, setInput] = useState("");
@@ -464,11 +466,13 @@ export function ProjectInterface({
         unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, personaId: u.personaId ? String(u.personaId) : undefined, perspectiveId: u.perspectiveId ? String(u.perspectiveId) : undefined, processId: u.processId ? String(u.processId) : undefined })) : undefined}
         onUnitChange={handleUnitChange}
         focusLock={focusLock}
+        readOnly={!isTestMode}
         onMenuClick={onOpenSidebar}
         isSynced={hasArtifacts ? artifactSynced : undefined}
         userName={userName}
         userImage={userImage}
         isTestMode={isTestMode}
+        isAdmin={isAdmin}
         onSignOut={onSignOut}
         currentStepKey={processState?.currentStep ?? null}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}

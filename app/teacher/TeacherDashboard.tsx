@@ -101,7 +101,6 @@ interface Scholar {
   lastProjectTitle: string | null;
   processStep: string | null;
   processTitle: string | null;
-  guestToken: string | null;
 }
 
 function computeAge(dob: string): number {
@@ -253,6 +252,7 @@ export default function TeacherDashboardInner() {
           <AccountMenu
             userName={user?.name || "Teacher"}
             userImage={user?.image || undefined}
+            isAdmin={user?.role === "admin"}
             onSignOut={() => {
               signOut();
               router.push("/login");
@@ -682,20 +682,6 @@ function RacetrackPanel({
 // Scholar Card Component
 function ScholarCard({ scholar }: { scholar: Scholar }) {
   const remoteUrl = `/scholar?remote=${scholar.id}`;
-  const [linkCopied, setLinkCopied] = useState(false);
-  const generateGuestToken = useMutation(api.users.generateGuestToken);
-
-  const handleCopyTestLink = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    let token = scholar.guestToken;
-    if (!token) {
-      token = await generateGuestToken({ scholarId: scholar.id as Id<"users"> });
-    }
-    const guestUrl = `${window.location.origin}/guest?token=${token}`;
-    await navigator.clipboard.writeText(guestUrl);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
-  };
 
   return (
     <Card.Root
@@ -827,18 +813,6 @@ function ScholarCard({ scholar }: { scholar: Scholar }) {
             >
               <FiUser style={{ marginRight: "4px" }} />
               Profile
-            </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              color="charcoal.400"
-              fontFamily="heading"
-              fontSize="xs"
-              _hover={{ color: "violet.500", bg: "violet.50" }}
-              onClick={handleCopyTestLink}
-            >
-              <FiLink style={{ marginRight: "4px" }} />
-              {linkCopied ? "Copied!" : "Copy test link"}
             </Button>
           </HStack>
         </VStack>

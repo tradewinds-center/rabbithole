@@ -1,7 +1,7 @@
 "use client";
 
 import { HStack, Text, Button, Menu } from "@chakra-ui/react";
-import { FiLogOut, FiChevronDown } from "react-icons/fi";
+import { FiLogOut, FiChevronDown, FiSettings } from "react-icons/fi";
 import { Avatar } from "./Avatar";
 import { StatusOrb } from "./StatusOrb";
 
@@ -12,6 +12,8 @@ interface AccountMenuProps {
   /** Optional StatusOrb data (scholar view) */
   pulseScore?: number | null;
   lastMessageAt?: number | null;
+  /** Show "Admin Tools" link when true */
+  isAdmin?: boolean;
 }
 
 export function AccountMenu({
@@ -20,6 +22,7 @@ export function AccountMenu({
   onSignOut,
   pulseScore,
   lastMessageAt,
+  isAdmin,
 }: AccountMenuProps) {
   const showOrb = pulseScore !== undefined;
 
@@ -57,6 +60,16 @@ export function AccountMenu({
       </Menu.Trigger>
       <Menu.Positioner>
         <Menu.Content minW="160px">
+          {isAdmin && (
+            <Menu.Item
+              value="admin"
+              cursor="pointer"
+              onClick={() => { window.location.href = "/admin"; }}
+            >
+              <FiSettings />
+              Admin Tools
+            </Menu.Item>
+          )}
           <Menu.Item
             value="sign-out"
             cursor="pointer"

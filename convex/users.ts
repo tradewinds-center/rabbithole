@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
-import { authedQuery, teacherQuery, teacherMutation, adminMutation } from "./lib/customFunctions";
-import { roleFromEmail, getCurrentUser } from "./lib/auth";
+import { query, mutation } from "./_generated/server";
+import { authedQuery, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
+import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
@@ -29,7 +29,6 @@ export const storeUser = mutation({
 
     const existing = await ctx.db.get(userId);
     if (existing) {
-      // Update existing user
       await ctx.db.patch(userId, {
         name: args.name,
         image: args.image,
@@ -37,14 +36,10 @@ export const storeUser = mutation({
       return userId;
     }
 
-    // This shouldn't happen with @convex-dev/auth (it creates the user),
-    // but in case we need to set role after creation:
-    const role = roleFromEmail(args.email);
     await ctx.db.patch(userId, {
       email: args.email,
       name: args.name,
       image: args.image,
-      role,
     });
     return userId;
   },
@@ -131,6 +126,7 @@ export const listScholars = teacherQuery({
           _id: scholar._id,
           id: scholar._id,
           email: scholar.email,
+          username: scholar.username ?? null,
           name: scholar.name,
           image: scholar.image,
           readingLevel: scholar.readingLevel ?? null,
@@ -145,7 +141,6 @@ export const listScholars = teacherQuery({
           lastProjectTitle: mostRecent?.title ?? null,
           processStep,
           processTitle,
-          guestToken: scholar.guestToken ?? null,
         };
       })
     );
@@ -183,100 +178,197 @@ export const updateRole = adminMutation({
   },
 });
 
-// ── Guest Access ─────────────────────────────────────────────────────
+/**
+ * List all users (admin only).
+ */
+export const listAllUsers = adminQuery({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map((u) => ({
+      _id: u._id,
+      username: u.username ?? null,
+      name: u.name ?? null,
+      email: u.email ?? null,
+      role: u.role ?? "scholar",
+      _creationTime: u._creationTime,
+    }));
+  },
+});
 
 /**
- * Generate a guest access token for a scholar (teacher only).
- * If the scholar already has a token, returns the existing one.
+ * Delete a user and all associated data (admin only).
+ * Cascading delete: projects (with messages, artifacts, analyses, processState),
+ * observations, mastery, seeds, signals, connections, dossiers, reports,
+ * focus settings, and auth sessions/accounts.
  */
-export const generateGuestToken = teacherMutation({
-  args: { scholarId: v.id("users") },
+export const deleteUser = adminMutation({
+  args: {
+    userId: v.id("users"),
+  },
   handler: async (ctx, args) => {
-    const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
-      throw new Error("Scholar not found");
+    // Prevent self-deletion
+    if (args.userId === ctx.user._id) {
+      throw new Error("Cannot delete yourself");
     }
-    if (scholar.guestToken) {
-      return scholar.guestToken;
+
+    const targetUser = await ctx.db.get(args.userId);
+    if (!targetUser) throw new Error("User not found");
+
+    // 1. Delete all projects and their children (messages, artifacts, analyses, processState)
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    for (const project of projects) {
+      const messages = await ctx.db
+        .query("messages")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .collect();
+      for (const msg of messages) await ctx.db.delete(msg._id);
+
+      const artifacts = await ctx.db
+        .query("artifacts")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .collect();
+      for (const a of artifacts) await ctx.db.delete(a._id);
+
+      const analyses = await ctx.db
+        .query("analyses")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .collect();
+      for (const a of analyses) await ctx.db.delete(a._id);
+
+      const processStates = await ctx.db
+        .query("processState")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .collect();
+      for (const ps of processStates) await ctx.db.delete(ps._id);
+
+      await ctx.db.delete(project._id);
     }
-    const token = crypto.randomUUID();
-    await ctx.db.patch(args.scholarId, { guestToken: token });
-    return token;
-  },
-});
 
-/**
- * Revoke a scholar's guest access token (teacher only).
- */
-export const revokeGuestToken = teacherMutation({
-  args: { scholarId: v.id("users") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.scholarId, { guestToken: undefined });
-  },
-});
+    // 2. Delete observations (as scholar or teacher)
+    const obsAsScholar = await ctx.db
+      .query("observations")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const o of obsAsScholar) await ctx.db.delete(o._id);
 
-/**
- * Validate a guest token and return scholar info (public query — no auth required).
- */
-export const resolveGuestToken = query({
-  args: { token: v.string() },
-  handler: async (ctx, args) => {
-    const scholar = await ctx.db
-      .query("users")
-      .withIndex("by_guestToken", (q) => q.eq("guestToken", args.token))
-      .unique();
-    if (!scholar) return null;
-    return { name: scholar.name ?? "Scholar", image: scholar.image ?? null };
-  },
-});
+    const obsAsTeacher = await ctx.db
+      .query("observations")
+      .withIndex("by_teacher", (q) => q.eq("teacherId", args.userId))
+      .collect();
+    for (const o of obsAsTeacher) await ctx.db.delete(o._id);
 
-/**
- * Get existing guest token for a scholar (teacher only).
- */
-export const getGuestToken = teacherQuery({
-  args: { scholarId: v.id("users") },
-  handler: async (ctx, args) => {
-    const scholar = await ctx.db.get(args.scholarId);
-    return scholar?.guestToken ?? null;
-  },
-});
-
-/**
- * Self-serve guest registration (public — no auth required).
- * Visitor enters their name, gets a scholar account + guest token.
- */
-export const createSelfServeGuest = mutation({
-  args: { name: v.string() },
-  handler: async (ctx, args) => {
-    const trimmed = args.name.trim();
-    if (!trimmed || trimmed.length < 1) {
-      throw new Error("Name is required");
+    // 3. Delete mastery observations + teacher overrides
+    const mastery = await ctx.db
+      .query("masteryObservations")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const m of mastery) {
+      // Delete any teacher overrides for this observation
+      const overrides = await ctx.db
+        .query("teacherMasteryOverrides")
+        .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+        .collect();
+      for (const ov of overrides) await ctx.db.delete(ov._id);
+      await ctx.db.delete(m._id);
     }
-    const token = crypto.randomUUID();
-    await ctx.db.insert("users", {
-      name: trimmed,
-      role: "scholar",
-      guestToken: token,
-    });
-    return { guestToken: token };
+
+    // 4. Delete seeds
+    const seeds = await ctx.db
+      .query("seeds")
+      .withIndex("by_scholar_status", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const s of seeds) await ctx.db.delete(s._id);
+
+    // 5. Delete session signals
+    const signals = await ctx.db
+      .query("sessionSignals")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const s of signals) await ctx.db.delete(s._id);
+
+    // 6. Delete cross-domain connections
+    const connections = await ctx.db
+      .query("crossDomainConnections")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const c of connections) await ctx.db.delete(c._id);
+
+    // 7. Delete scholar dossiers
+    const dossiers = await ctx.db
+      .query("scholarDossiers")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const d of dossiers) await ctx.db.delete(d._id);
+
+    // 8. Delete reports (as scholar or teacher)
+    const reportsAsScholar = await ctx.db
+      .query("reports")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.userId))
+      .collect();
+    for (const r of reportsAsScholar) await ctx.db.delete(r._id);
+
+    // 9. Delete focus settings (if teacher)
+    const focusSettings = await ctx.db
+      .query("focusSettings")
+      .filter((q) => q.eq(q.field("teacherId"), args.userId))
+      .collect();
+    for (const f of focusSettings) await ctx.db.delete(f._id);
+
+    // 10. Delete auth sessions and accounts
+    const sessions = await ctx.db
+      .query("authSessions")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .collect();
+    for (const s of sessions) {
+      // Delete refresh tokens for this session
+      const refreshTokens = await ctx.db
+        .query("authRefreshTokens")
+        .filter((q) => q.eq(q.field("sessionId"), s._id))
+        .collect();
+      for (const rt of refreshTokens) await ctx.db.delete(rt._id);
+      await ctx.db.delete(s._id);
+    }
+
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .collect();
+    for (const a of accounts) {
+      // Delete verification codes for this account
+      const codes = await ctx.db
+        .query("authVerificationCodes")
+        .filter((q) => q.eq(q.field("accountId"), a._id))
+        .collect();
+      for (const c of codes) await ctx.db.delete(c._id);
+      await ctx.db.delete(a._id);
+    }
+
+    // 11. Finally, delete the user
+    await ctx.db.delete(args.userId);
+
+    return { deleted: true, name: targetUser.name ?? targetUser.email ?? "Unknown" };
   },
 });
 
 /**
  * Create a new scholar user (teacher only).
- * Automatically generates a guest token.
  */
 export const createScholar = teacherMutation({
   args: {
     name: v.string(),
+    username: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const token = crypto.randomUUID();
     const userId = await ctx.db.insert("users", {
       name: args.name.trim(),
+      username: args.username?.trim(),
       role: "scholar",
-      guestToken: token,
     });
-    return { userId, guestToken: token };
+    return { userId };
   },
 });

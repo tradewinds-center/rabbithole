@@ -24,14 +24,13 @@ import { Avatar } from "@/components/Avatar";
 import {
   FiPlus,
   FiLogOut,
-  FiMessageSquare,
   FiTrash2,
   FiX,
   FiHome,
 } from "react-icons/fi";
 import { ProjectInterface } from "@/components/ProjectInterface";
 import { AppLogo } from "@/components/AppLogo";
-import { buildDimensionParams } from "@/lib/dimensions";
+import { UnitPickerDialog } from "@/components/UnitPickerDialog";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -93,6 +92,9 @@ function ScholarProjectInner() {
   const createProject = useMutation(api.projects.create);
   const archiveProject = useMutation(api.projects.archive);
 
+  // Focus lock from teacher
+  const currentFocus = useQuery(api.focus.getCurrent);
+
   // Resolve URL param slug to unit ID
   const resolvedUnitId = (() => {
     if (urlUnit) {
@@ -103,6 +105,20 @@ function ScholarProjectInner() {
   })();
 
   const isDemoMode = searchParams.get("demo") === "1";
+
+  // Test mode: any time a teacher is using the scholar interface
+  const isTestMode = !!(
+    user &&
+    (user.role === "teacher" || user.role === "admin")
+  );
+
+  const focusLock = !isTestMode && currentFocus?.isActive
+    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    : null;
+
+  // Unit picker dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isCreatingViaDialog, setIsCreatingViaDialog] = useState(false);
 
   // Redirect logic
   useEffect(() => {
@@ -118,7 +134,7 @@ function ScholarProjectInner() {
     }
   }, [user, isUserLoading, router, remoteUserId, hasDimensionParams, isDemoMode]);
 
-  // Auto-create project when projectId is "new"
+  // Auto-create project when projectId is "new" (URL-based creation from teacher links)
   useEffect(() => {
     if (!isNewProject || newProjectCreatedRef.current) return;
     // Wait for unit list to load if we have a unit param
@@ -148,21 +164,34 @@ function ScholarProjectInner() {
       });
   }, [isNewProject, hasDimensionParams, units, resolvedUnitId, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Navigate to /scholar/new, carrying forward current unit
+  // Open unit picker dialog for new project
   const handleNewProject = useCallback(() => {
-    const currentProject = projects.find((p) => p._id === projectId);
-    const queryParts: string[] = [];
-    if (remoteUserId) queryParts.push(`remote=${remoteUserId}`);
-    const dimParams = buildDimensionParams(
-      currentProject ?? {},
-      { units }
-    );
-    if (dimParams) queryParts.push(dimParams);
-    if (isDemoMode || dimParams) queryParts.push("demo=1");
-    const query = queryParts.length ? `?${queryParts.join("&")}` : "";
-    newProjectCreatedRef.current = false;
-    router.push(`/scholar/new${query}`);
-  }, [router, remoteUserId, projectId, projects, units, isDemoMode]);
+    setDialogOpen(true);
+  }, []);
+
+  // Create project after unit selection from dialog
+  const handleUnitSelected = useCallback(async (unitId: string | null) => {
+    setIsCreatingViaDialog(true);
+    const createArgs: Record<string, unknown> = {};
+    if (isRemoteMode && remoteUserId) {
+      createArgs.userId = remoteUserId as Id<"users">;
+    }
+    if (unitId) {
+      createArgs.unitId = unitId as Id<"units">;
+    }
+    try {
+      const result = await createProject(createArgs as Parameters<typeof createProject>[0]);
+      if (result) {
+        const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+        router.push(`/scholar/${result.id}${remoteParam}`);
+      }
+    } catch (error) {
+      console.error("Error creating project:", error);
+    } finally {
+      setIsCreatingViaDialog(false);
+      setDialogOpen(false);
+    }
+  }, [createProject, router, remoteUserId, isRemoteMode]);
 
   // Archive project
   const handleArchiveProject = async (id: string) => {
@@ -194,12 +223,6 @@ function ScholarProjectInner() {
   // Header always shows the logged-in user, not the remote scholar
   const displayName = user?.name || "Scholar";
   const displayImage = user?.image || undefined;
-
-  // Test mode: any time a teacher is using the scholar interface
-  const isTestMode = !!(
-    user &&
-    (user.role === "teacher" || user.role === "admin")
-  );
 
   // Show spinner while "new" project is being created
   const showProject = !isNewProject && projectId;
@@ -407,6 +430,7 @@ function ScholarProjectInner() {
             userName={displayName}
             userImage={displayImage}
             isTestMode={isTestMode}
+            isAdmin={user?.role === "admin"}
             isRemoteMode={isRemoteMode}
           />
         ) : (
@@ -477,6 +501,21 @@ function ScholarProjectInner() {
           </Flex>
         )}
       </Flex>
+
+      {/* Unit Picker Dialog */}
+      <UnitPickerDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSelect={handleUnitSelected}
+        units={units.map((u) => ({
+          id: u._id,
+          title: u.title,
+          emoji: u.emoji,
+          description: u.description,
+        }))}
+        focusLock={focusLock}
+        isCreating={isCreatingViaDialog}
+      />
     </Flex>
   );
 }
