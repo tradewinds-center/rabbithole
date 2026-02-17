@@ -109,6 +109,22 @@ export function UnitPickerDialog({
               )}
 
               <VStack gap={2} align="stretch" maxH="360px" overflowY="auto">
+                {/* Focused unit first when focus lock is active */}
+                {lockedUnitId && (() => {
+                  const focusedUnit = units.find((u) => u.id === lockedUnitId);
+                  return focusedUnit ? (
+                    <UnitCard
+                      key={focusedUnit.id}
+                      emoji={focusedUnit.emoji || "📚"}
+                      title={focusedUnit.title}
+                      description={focusedUnit.description ?? undefined}
+                      isSelected={selected === focusedUnit.id}
+                      isDisabled={false}
+                      onClick={() => setSelected(focusedUnit.id)}
+                    />
+                  ) : null;
+                })()}
+
                 {/* Independent Study option */}
                 <UnitCard
                   emoji="📓"
@@ -119,18 +135,20 @@ export function UnitPickerDialog({
                   onClick={() => setSelected(null)}
                 />
 
-                {/* Unit cards */}
-                {units.map((unit) => (
-                  <UnitCard
-                    key={unit.id}
-                    emoji={unit.emoji || "📚"}
-                    title={unit.title}
-                    description={unit.description ?? undefined}
-                    isSelected={selected === unit.id}
-                    isDisabled={!!lockedUnitId && lockedUnitId !== unit.id}
-                    onClick={() => setSelected(unit.id)}
-                  />
-                ))}
+                {/* Remaining unit cards (skip focused unit if already shown) */}
+                {units
+                  .filter((unit) => !lockedUnitId || unit.id !== lockedUnitId)
+                  .map((unit) => (
+                    <UnitCard
+                      key={unit.id}
+                      emoji={unit.emoji || "📚"}
+                      title={unit.title}
+                      description={unit.description ?? undefined}
+                      isSelected={selected === unit.id}
+                      isDisabled={!!lockedUnitId && lockedUnitId !== unit.id}
+                      onClick={() => setSelected(unit.id)}
+                    />
+                  ))}
               </VStack>
             </Dialog.Body>
 
