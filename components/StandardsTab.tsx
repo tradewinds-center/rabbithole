@@ -513,7 +513,7 @@ function EvidenceOnlyView({
       <Box bg="white" borderRadius="lg" shadow="xs" p={6} textAlign="center">
         <Text fontSize="sm" color="charcoal.400" fontFamily="body" lineHeight="1.5">
           No standards-linked evidence yet. As the scholar works with the AI tutor,
-          observations will automatically map to Common Core standards.
+          observations will automatically map to curriculum standards.
         </Text>
       </Box>
     );
@@ -690,7 +690,7 @@ export function StandardsTab({ scholarId, readingLevel }: StandardsTabProps) {
   if (documents.length === 0) {
     return (
       <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={8}>
-        No standards imported yet. Run the import commands to load Common Core standards.
+        No standards imported yet. Run the import commands to load curriculum standards.
       </Text>
     );
   }

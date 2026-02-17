@@ -15,4 +15,8 @@ npx convex run standardsImport:importCommonCoreMath $FLAG
 npx convex run standardsImport:importCommonCoreELA $FLAG
 
 echo ""
+echo "=== Importing UCLA Historical Thinking Standards ==="
+npx convex run standardsImport:importUCLAHistoricalThinking $FLAG
+
+echo ""
 echo "Done. Seed data and standards imported."
