@@ -51,7 +51,6 @@ export const getProfile = teacherQuery({
         image: scholar.image,
         readingLevel: scholar.readingLevel ?? null,
         readingLevelSuggestion: scholar.readingLevelSuggestion ?? null,
-        guestToken: scholar.guestToken ?? null,
         createdAt: scholar._creationTime,
       },
       stats: {

@@ -2,64 +2,55 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
-import { useRouter } from "next/navigation";
-import { Box, Button, Container, Heading, Text, VStack, HStack } from "@chakra-ui/react";
-import { FiUser } from "react-icons/fi";
+import { Box, Button, Container, Heading, Input, Text, VStack } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
-
-// Test users for dev sign-in
-const TEST_USERS = [
-  { id: "test-teacher-001", name: "Test Teacher", role: "teacher" },
-  { id: "test-scholar-001", name: "Kai Nakamura", role: "scholar" },
-  { id: "test-scholar-002", name: "Lani Kealoha", role: "scholar" },
-  { id: "test-scholar-003", name: "Noah Takahashi", role: "scholar" },
-];
 
 export default function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
-  const router = useRouter();
-  const [isSigningIn, setIsSigningIn] = useState(false);
 
-  // Redirect to home when authenticated (home page routes by role)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated) {
       window.location.href = "/";
     }
   }, [isAuthenticated]);
 
-  const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
-    try {
-      await signIn("google");
-    } catch (error) {
-      console.error("Google sign-in error:", error);
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
+  const handleSubmit = async () => {
+    const trimmed = username.trim();
+    if (!trimmed || !password) return;
+    setIsSubmitting(true);
+    setError("");
 
-  const handleTestSignIn = async (testUser: (typeof TEST_USERS)[number]) => {
-    setIsSigningIn(true);
+    const email = `${trimmed}@makawulu.local`;
+
     try {
-      await signIn("password", {
-        email: `${testUser.id}@test.makawulu.dev`,
-        password: testUser.id,
-        flow: "signUp",
-      }).catch(() => {
-        // If signup fails (already exists), try sign in
-        return signIn("password", {
-          email: `${testUser.id}@test.makawulu.dev`,
-          password: testUser.id,
-          flow: "signIn",
-        });
-      });
-      // signIn resolved — token stored. Hard navigate so ConvexAuthProvider
-      // initializes fresh with the stored token on page load.
+      if (mode === "signIn") {
+        // Try sign-up first (creates auth account if none exists, links to seeded user);
+        // if account already exists, fall back to sign-in
+        try {
+          await signIn("password", { email, password, flow: "signUp" });
+        } catch (signUpErr) {
+          console.log("Sign-up failed (expected if account exists):", signUpErr);
+          await signIn("password", { email, password, flow: "signIn" });
+        }
+      } else {
+        await signIn("password", { email, password, flow: "signUp" });
+      }
       window.location.href = "/";
-    } catch (error) {
-      console.error("Test sign-in error:", error);
-      setIsSigningIn(false);
+    } catch (err) {
+      console.error("Auth failed:", err);
+      setError(
+        mode === "signIn"
+          ? "Invalid username or password"
+          : "Username already taken"
+      );
+      setIsSubmitting(false);
     }
   };
 
@@ -72,35 +63,22 @@ export default function LoginPage() {
       justifyContent="center"
       p={4}
     >
-      <Container maxW="md">
+      <Container maxW="sm">
         <VStack
-          gap={8}
+          gap={6}
           bg="white"
           p={{ base: 8, md: 12 }}
           borderRadius="2xl"
           shadow="2xl"
           textAlign="center"
         >
-          {/* Logo / Brand */}
           <VStack gap={2}>
-            <Box
-              w={20}
-              h={20}
-              borderRadius="full"
-              bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              shadow="lg"
-            >
-              <Text
-                fontSize="3xl"
-                fontWeight="bold"
-                color="white"
-                fontFamily="heading"
-              >
-                M
-              </Text>
+            <Box w={20} h={20}>
+              <img
+                src="/tradewinds-seal.svg"
+                alt="Tradewinds"
+                style={{ width: "100%", height: "100%" }}
+              />
             </Box>
             <Heading
               as="h1"
@@ -109,57 +87,80 @@ export default function LoginPage() {
               color="navy.500"
               letterSpacing="tight"
             >
-              AI Learning Companion
+              Tradewinds Learn
             </Heading>
           </VStack>
 
-          {/* Primary CTA */}
-          <Button
-            size="lg"
-            w="full"
-            bg="violet.500"
-            color="white"
-            _hover={{ bg: "violet.600" }}
-            fontFamily="heading"
-            fontWeight="500"
-            h={14}
-            disabled={isSigningIn}
-            onClick={() => handleTestSignIn(TEST_USERS[0])}
-          >
-            <FiUser style={{ marginRight: "8px" }} />
-            Sign in as Teacher
-          </Button>
+          <VStack gap={3} w="full">
+            <Input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              bg="gray.50"
+              border="1px solid"
+              borderColor="gray.300"
+              borderRadius="lg"
+              fontFamily="body"
+              h={12}
+              _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+              _focusVisible={{ boxShadow: "none", outline: "none" }}
+              autoFocus
+              autoComplete="username"
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              bg="gray.50"
+              border="1px solid"
+              borderColor="gray.300"
+              borderRadius="lg"
+              fontFamily="body"
+              h={12}
+              _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+              _focusVisible={{ boxShadow: "none", outline: "none" }}
+              autoComplete="current-password"
+            />
 
-          {/* Footer links */}
-          <VStack gap={2} pt={2}>
-            <HStack gap={4} flexWrap="wrap" justifyContent="center">
-              {TEST_USERS.slice(1).map((scholar) => (
-                <Text
-                  key={scholar.id}
-                  as="button"
-                  color="charcoal.400"
-                  fontSize="xs"
-                  fontFamily="heading"
-                  cursor="pointer"
-                  _hover={{ color: "charcoal.500", textDecoration: "underline" }}
-                  onClick={() => !isSigningIn && handleTestSignIn(scholar)}
-                >
-                  {scholar.name}
-                </Text>
-              ))}
-            </HStack>
-            <Text
-              as="button"
-              color="charcoal.400"
-              fontSize="xs"
+            {error && (
+              <Text fontSize="sm" color="red.500" fontFamily="body">
+                {error}
+              </Text>
+            )}
+
+            <Button
+              size="lg"
+              w="full"
+              bg="violet.500"
+              color="white"
+              _hover={{ bg: "violet.600" }}
               fontFamily="heading"
-              cursor="pointer"
-              _hover={{ color: "charcoal.500", textDecoration: "underline" }}
-              onClick={() => !isSigningIn && handleGoogleSignIn()}
+              fontWeight="500"
+              h={14}
+              disabled={!username.trim() || !password || isSubmitting}
+              onClick={handleSubmit}
             >
-              Sign in with Google
-            </Text>
+              {mode === "signIn" ? "Sign In" : "Create Account"}
+            </Button>
           </VStack>
+
+          <Text
+            as="button"
+            color="charcoal.400"
+            fontSize="sm"
+            fontFamily="heading"
+            cursor="pointer"
+            _hover={{ color: "violet.500", textDecoration: "underline" }}
+            onClick={() => {
+              setMode(mode === "signIn" ? "signUp" : "signIn");
+              setError("");
+            }}
+          >
+            {mode === "signIn" ? "Need an account? Create one" : "Already have an account? Sign in"}
+          </Text>
         </VStack>
       </Container>
     </Box>

@@ -17,6 +17,7 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     // Our custom fields
+    username: v.optional(v.string()),
     externalId: v.optional(v.string()),
     role: v.optional(
       v.union(
@@ -28,12 +29,11 @@ export default defineSchema({
     readingLevel: v.optional(v.string()),
     readingLevelSuggestion: v.optional(v.string()), // Observer-inferred level, pending teacher review
     dateOfBirth: v.optional(v.string()), // ISO date string, e.g. "2018-03-15"
-    guestToken: v.optional(v.string()),
   })
     .index("by_email", ["email"])
+    .index("by_username", ["username"])
     .index("by_externalId", ["externalId"])
-    .index("by_role", ["role"])
-    .index("by_guestToken", ["guestToken"]),
+    .index("by_role", ["role"]),
 
   projects: defineTable({
     userId: v.id("users"),

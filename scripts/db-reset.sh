@@ -12,6 +12,8 @@ TABLES=(
   standardsDocuments standards
   focusSettings processState artifacts messages projects
   personas perspectives units processes users scholarDossiers
+  authAccounts authSessions authRefreshTokens
+  authVerificationCodes authVerifiers authRateLimits
 )
 
 echo "=== Wiping ${#TABLES[@]} tables ${FLAG:+(${FLAG})} ==="
