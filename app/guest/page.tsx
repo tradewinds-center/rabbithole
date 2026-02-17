@@ -156,7 +156,7 @@ function SelfServeGuestForm() {
   return (
     <>
       <Heading as="h1" size="xl" fontFamily="heading" color="navy.500">
-        Try Makawulu
+        Try Tradewinds Learn
       </Heading>
       <Text color="charcoal.500" fontFamily="body" textAlign="center">
         Enter your name to get started with your own AI learning companion.
@@ -225,19 +225,12 @@ function GuestLoginInner() {
           shadow="2xl"
           textAlign="center"
         >
-          <Box
-            w={20}
-            h={20}
-            borderRadius="full"
-            bg="linear-gradient(135deg, #AD60BF 0%, #222656 100%)"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            shadow="lg"
-          >
-            <Text fontSize="3xl" fontWeight="bold" color="white" fontFamily="heading">
-              M
-            </Text>
+          <Box w={20} h={20}>
+            <img
+              src="/tradewinds-seal.svg"
+              alt="Tradewinds"
+              style={{ width: "100%", height: "100%" }}
+            />
           </Box>
 
           {token ? (
