@@ -503,6 +503,9 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
     parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the unit involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
   }
 
+  // Code artifacts guidance
+  parts.push(`\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script> — no external files or CDN links. It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.`);
+
   // Exploration seeds (teacher-approved + pending ideas to weave in)
   if (seedsData && seedsData.length > 0) {
     const approvedSeeds = seedsData.filter((s) => s.approved);
