@@ -14,6 +14,7 @@ import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
 import type * as crossDomainConnections from "../crossDomainConnections.js";
+import type * as curriculumAssistant from "../curriculumAssistant.js";
 import type * as dossier from "../dossier.js";
 import type * as files from "../files.js";
 import type * as focus from "../focus.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   audioActions: typeof audioActions;
   auth: typeof auth;
   crossDomainConnections: typeof crossDomainConnections;
+  curriculumAssistant: typeof curriculumAssistant;
   dossier: typeof dossier;
   files: typeof files;
   focus: typeof focus;

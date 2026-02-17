@@ -42,7 +42,11 @@ import {
   FiPlus,
   FiCopy,
   FiPlay,
+  FiCpu,
 } from "react-icons/fi";
+import dynamic from "next/dynamic";
+
+const CurriculumAssistant = dynamic(() => import("@/components/CurriculumAssistant"), { ssr: false });
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 import type { ScholarTabKey } from "@/components";
@@ -53,12 +57,13 @@ import { AppLogo } from "@/components/AppLogo";
 import { StatusOrb } from "@/components/StatusOrb";
 import { buildDimensionParams } from "@/lib/dimensions";
 
-type Tab = "scholars" | "live" | "curriculum";
+type Tab = "scholars" | "live" | "curriculum" | "assistant";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
   { key: "live", label: "Conductor", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
   { key: "curriculum", label: "Curriculum", icon: FiBook },
+  { key: "assistant", label: "Assistant", icon: FiCpu },
 ];
 
 type CurriculumSubTab = "units" | "personas" | "perspectives" | "processes";
@@ -122,7 +127,7 @@ export default function TeacherDashboardInner() {
   const searchParams = useSearchParams();
 
   // Derive tab state from URL
-  const VALID_TABS: Tab[] = ["live", "scholars", "curriculum"];
+  const VALID_TABS: Tab[] = ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
   const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["dossier", "mastery", "standards", "seeds", "strengths", "documents", "observations", "reports", "reading"];
   const rawTab = searchParams.get("tab");
@@ -501,6 +506,11 @@ export default function TeacherDashboardInner() {
               <EntityManager entityType={curriculumSubTab === "units" ? "unit" : curriculumSubTab === "personas" ? "persona" : curriculumSubTab === "perspectives" ? "perspective" : "process"} hideHeader />
             </Box>
           </Flex>
+        )}
+
+        {/* Assistant tab — AI curriculum design chat */}
+        {activeTab === "assistant" && (
+          <CurriculumAssistant />
         )}
       </Flex>
     </Flex>

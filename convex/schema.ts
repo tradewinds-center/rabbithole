@@ -329,6 +329,17 @@ export default defineSchema({
     content: v.string(),
   }).index("by_scholar", ["scholarId"]),
 
+  curriculumMessages: defineTable({
+    teacherId: v.id("users"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    model: v.optional(v.string()),
+    tokensUsed: v.optional(v.number()),
+    streamId: v.optional(v.string()),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_stream", ["streamId"]),
+
   processState: defineTable({
     projectId: v.id("projects"),
     processId: v.id("processes"),
