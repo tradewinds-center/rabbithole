@@ -29,8 +29,6 @@ import {
   FiFolder,
   FiEdit3,
   FiCpu,
-  FiLink,
-  FiCheck,
   FiClipboard,
 } from "react-icons/fi";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -104,10 +102,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
-  const generateGuestToken = useMutation(api.users.generateGuestToken);
-
-  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
-
   const { scholar, stats } = profile ?? {
     scholar: null,
     stats: { projectCount: 0, messageCount: 0, observationCount: 0 },
@@ -254,32 +248,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         </HStack>
 
         <HStack ml="auto" gap={1}>
-          <Button
-            size="sm"
-            variant="ghost"
-            color="violet.500"
-            fontFamily="heading"
-            fontSize="xs"
-            _hover={{ bg: "violet.50" }}
-            onClick={async () => {
-              try {
-                const token = scholar?.guestToken
-                  ?? await generateGuestToken({ scholarId: scholarId as Id<"users"> });
-                const url = `${window.location.origin}/guest?token=${token}`;
-                await navigator.clipboard.writeText(url);
-                setGuestLinkCopied(true);
-                setTimeout(() => setGuestLinkCopied(false), 2000);
-              } catch (err) {
-                console.error("Error generating guest link:", err);
-              }
-            }}
-          >
-            {guestLinkCopied ? (
-              <><FiCheck style={{ marginRight: "4px" }} />Copied!</>
-            ) : (
-              <><FiLink style={{ marginRight: "4px" }} />Copy Guest Link</>
-            )}
-          </Button>
           <Button
             size="sm"
             variant="ghost"
