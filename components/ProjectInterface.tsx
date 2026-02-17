@@ -21,7 +21,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ProjectHeader } from "./ProjectHeader";
-import type { DimensionEditData } from "./DimensionEditModal";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -451,22 +450,12 @@ export function ProjectInterface({
       <ProjectHeader
         projectTitle={activeProject.title}
         unitId={activeProject.unitId}
+        unitOptions={unitOptions}
         pulseScore={projectData?.project?.pulseScore ?? null}
         lastMessageAt={(() => {
           const userMsgs = messages.filter((m) => m.role === "user");
           return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].createdAt : null;
         })()}
-        unitOptions={unitOptions}
-        unitPersonaEmoji={activeUnit?.personaEmoji}
-        unitPersonaTitle={activeUnit?.personaTitle}
-        unitPerspectiveIcon={activeUnit?.perspectiveIcon}
-        unitPerspectiveTitle={activeUnit?.perspectiveTitle}
-        unitProcessEmoji={activeUnit?.processEmoji}
-        unitProcessTitle={activeUnit?.processTitle}
-        unitData={isTestMode ? units.map((u): DimensionEditData => ({ _id: u._id, title: u.title, emoji: u.emoji ?? undefined, description: u.description, systemPrompt: u.systemPrompt, rubric: u.rubric, personaId: u.personaId ? String(u.personaId) : undefined, perspectiveId: u.perspectiveId ? String(u.perspectiveId) : undefined, processId: u.processId ? String(u.processId) : undefined })) : undefined}
-        onUnitChange={handleUnitChange}
-        focusLock={focusLock}
-        readOnly={!isTestMode}
         onMenuClick={onOpenSidebar}
         isSynced={hasArtifacts ? artifactSynced : undefined}
         userName={userName}
@@ -474,7 +463,6 @@ export function ProjectInterface({
         isTestMode={isTestMode}
         isAdmin={isAdmin}
         onSignOut={onSignOut}
-        currentStepKey={processState?.currentStep ?? null}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}
         showRightPanel={showRightPanel}
         onToggleRightPanel={hasRightPanelContent ? () => setRightPanelOpen((v) => !v) : undefined}
