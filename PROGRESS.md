@@ -46,7 +46,7 @@
 ---
 
 ## 3. Text-to-Speech
-**Goal:** Click to have Makawulu read responses aloud
+**Goal:** Click to have Tradewinds Learn read responses aloud
 
 ### What was done:
 - [x] TTS button (speaker icon) on assistant message bubbles — appears on hover

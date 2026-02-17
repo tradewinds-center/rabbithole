@@ -1,4 +1,4 @@
-# Makawulu Visual Style
+# Tradewinds Learn Visual Style
 
 ## Core Concept: Refraction & Lenses
 
@@ -34,7 +34,7 @@ Capturing "Multiple Paths," "No Speed Limits," and Hawaiian complexity. Makawalu
 | Light Flare Yellow | C:5 M:10 Y:90 K:0 | Highlight / attention |
 | Optic White | C:1 M:1 Y:1 K:0 | Backgrounds / clean space |
 
-## Application to Makawulu UI
+## Application to Tradewinds Learn UI
 
 - Use prismatic/refraction effects subtly in gradients and hover states
 - The persona avatar circle can incorporate subtle light-spectrum edges
