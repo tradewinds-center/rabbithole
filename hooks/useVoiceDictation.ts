@@ -6,8 +6,8 @@ import { api } from "@/convex/_generated/api";
 
 type DictationState = "idle" | "recording" | "transcribing";
 
-/** RMS dB threshold for "too loud" warning. -20 dBFS is modest speaking; above that triggers warning. */
-const LOUD_THRESHOLD_DB = -20;
+/** RMS dB threshold for "too loud" warning. -10 dBFS = noticeably loud / near-shouting. */
+const LOUD_THRESHOLD_DB = -10;
 
 function getSupportedMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
