@@ -55,6 +55,7 @@ export default defineSchema({
     status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))),
     progressScore: v.optional(v.number()),
     activityId: v.optional(v.id("focusSettings")),
+    activityCompletedAt: v.optional(v.number()), // timestamp ms — scholar finished this activity
   })
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])

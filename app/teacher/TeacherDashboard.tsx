@@ -582,6 +582,7 @@ type ScholarInActivity = {
   projectTitle: string;
   analysisSummary: string | null;
   activityId?: string | null;
+  activityCompletedAt?: number | null;
 };
 
 type UnitInfo = {
@@ -640,6 +641,7 @@ function ActivityView({
   const createProject = useMutation(api.projects.create);
   const updateProject = useMutation(api.projects.update);
   const moveStep = useMutation(api.processState.teacherMoveStep);
+  const markComplete = useMutation(api.projects.markActivityComplete);
 
   // The focused unit's data (if any), filtered to only scholars assigned to this activity
   const currentFocusId = currentFocus?._id ?? null;
@@ -770,6 +772,18 @@ function ActivityView({
     // Dragging between process steps
     else if (dropTarget.startsWith("step-")) {
       const stepKey = dropTarget.slice(5);
+      // Determine scholar's current effective step to avoid no-op drops
+      let currentStep: string;
+      if (scholar.activityCompletedAt) {
+        currentStep = "__complete";
+      } else if (scholar.processStep) {
+        currentStep = scholar.processStep;
+      } else if (!focusedGroup?.process && scholar.lastMessageAt) {
+        currentStep = "__in_progress";
+      } else {
+        currentStep = "__not_started";
+      }
+      if (stepKey === currentStep) return; // same step — no-op
       setDroppedIds((prev) => new Set(prev).add(String(scholar.scholarId)));
       await moveStep({
         projectId: scholar.projectId,
@@ -843,20 +857,14 @@ function ActivityView({
                 }}
               />
               {selectedGroup.data.scholars.length > 0 ? (
-                <>
-                  {selectedGroup.data.process ? (
-                    <RacetrackPanel
-                      process={selectedGroup.data.process}
-                      scholars={selectedGroup.data.scholars}
-                      source={String(selectedGroup.data.unitId)}
-                      droppedIds={droppedIds}
-                      onRelease={undefined}
-                      fullWidth
-                    />
-                  ) : (
-                    <ScholarCardGrid scholars={selectedGroup.data.scholars} source={String(selectedGroup.data.unitId)} droppedIds={droppedIds} />
-                  )}
-                </>
+                <RacetrackPanel
+                  process={selectedGroup.data.process}
+                  scholars={selectedGroup.data.scholars}
+                  source={String(selectedGroup.data.unitId)}
+                  droppedIds={droppedIds}
+                  onRelease={undefined}
+                  fullWidth
+                />
               ) : (
                 <Flex align="center" justify="center" py={12} color="charcoal.300">
                   <Text fontFamily="heading" fontSize="sm">
@@ -1787,23 +1795,15 @@ function CompletedActivityDetail({ focusId }: { focusId: Id<"focusSettings"> }) 
 
       {/* Scholar cards (read-only, no drag) */}
       {data.scholars.length > 0 ? (
-        data.process ? (
-          <RacetrackPanel
-            process={data.process}
-            scholars={data.scholars}
-            source={`completed-${focusId}`}
-            droppedIds={new Set()}
-            onRelease={undefined}
-            fullWidth
-            readOnly
-          />
-        ) : (
-          <Flex wrap="wrap" gap={3} mb={2}>
-            {data.scholars.map((s) => (
-              <ScholarCard key={String(s.projectId)} scholar={s} />
-            ))}
-          </Flex>
-        )
+        <RacetrackPanel
+          process={data.process}
+          scholars={data.scholars}
+          source={`completed-${focusId}`}
+          droppedIds={new Set()}
+          onRelease={undefined}
+          fullWidth
+          readOnly
+        />
       ) : (
         <Flex align="center" justify="center" py={12} color="charcoal.300">
           <Text fontFamily="heading" fontSize="sm">
@@ -1829,18 +1829,20 @@ function ScholarCardGrid({ scholars, source, droppedIds, onRelease }: { scholars
   );
 }
 
-function DraggableScholarCard({ scholar, source, onRelease }: { scholar: ScholarInActivity; source: string; onRelease?: (scholar: ScholarInActivity) => void }) {
+function DraggableScholarCard({ scholar, source, onRelease, disabled }: { scholar: ScholarInActivity; source: string; onRelease?: (scholar: ScholarInActivity) => void; disabled?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `scholar-${String(scholar.scholarId)}-${source}`,
     data: { scholar, source },
+    disabled,
   });
 
   return (
     <Box
       ref={setNodeRef}
-      {...listeners}
+      {...(disabled ? {} : listeners)}
       {...attributes}
       opacity={isDragging ? 0.4 : 1}
+      cursor={disabled ? "default" : "grab"}
       transition="opacity 0.15s"
     >
       <ScholarCard scholar={scholar} />
@@ -1850,16 +1852,18 @@ function DraggableScholarCard({ scholar, source, onRelease }: { scholar: Scholar
 
 function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
   const firstName = (s.name ?? "Scholar").split(" ")[0];
+  const isComplete = !!s.activityCompletedAt;
+  const markComplete = useMutation(api.projects.markActivityComplete);
 
   return (
     <Box
-      bg="white"
+      bg={isComplete ? "green.50" : "white"}
       border="1px solid"
-      borderColor="gray.200"
+      borderColor={isComplete ? "green.200" : "gray.200"}
       borderRadius="lg"
       w="280px"
       cursor="grab"
-      _hover={{ borderColor: "violet.300", shadow: "sm" }}
+      _hover={{ borderColor: isComplete ? "green.300" : "violet.300", shadow: "sm" }}
       transition="all 0.1s"
       p={3}
     >
@@ -1872,7 +1876,7 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
         />
         <VStack gap={0} align="start" flex={1} minW={0}>
           <HStack gap={1.5}>
-            <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+            <Text fontFamily="heading" fontSize="sm" fontWeight="600" color={isComplete ? "green.700" : "navy.500"}>
               {firstName}
             </Text>
             <StatusOrb pulseScore={s.pulseScore} lastMessageAt={s.lastMessageAt} size="sm" />
@@ -1927,7 +1931,33 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
       )}
 
       {/* Footer: action buttons */}
-      <HStack gap={1} mt={1.5} borderTop="1px solid" borderColor="gray.100" pt={1.5}>
+      <HStack gap={1} mt={1.5} borderTop="1px solid" borderColor={isComplete ? "green.100" : "gray.100"} pt={1.5}>
+        {/* Mark Complete / Undo */}
+        {s.activityId && (
+          <Tooltip.Root openDelay={200} closeDelay={0}>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                aria-label={isComplete ? "Undo complete" : "Mark complete"}
+                size="2xs"
+                variant="ghost"
+                color={isComplete ? "green.500" : "charcoal.300"}
+                _hover={{ color: isComplete ? "charcoal.400" : "green.500", bg: isComplete ? "gray.100" : "green.50" }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markComplete({ projectId: s.projectId, complete: !isComplete });
+                }}
+              >
+                <FiCheck />
+              </IconButton>
+            </Tooltip.Trigger>
+            <Portal>
+              <Tooltip.Positioner>
+                <Tooltip.Content>{isComplete ? "Undo complete" : "Mark complete"}</Tooltip.Content>
+              </Tooltip.Positioner>
+            </Portal>
+          </Tooltip.Root>
+        )}
         <Box flex={1} />
         <Tooltip.Root openDelay={200} closeDelay={0}>
           <Tooltip.Trigger asChild>
@@ -1984,15 +2014,18 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
 
 function DroppableTimelineContent({ stepKey, children, ...rest }: { stepKey: string; children: React.ReactNode; [key: string]: unknown }) {
   const { setNodeRef, isOver } = useDroppable({ id: `step-${stepKey}` });
+  const isCompleteStep = stepKey === "__complete";
+  const hoverColor = isCompleteStep ? "green.50" : "violet.50";
+  const outlineClr = isCompleteStep ? "green.400" : "violet.400";
   return (
     <Timeline.Content
       ref={setNodeRef}
-      bg={isOver ? "violet.50" : undefined}
+      bg={isOver ? hoverColor : undefined}
       borderRadius="md"
       transition="background 0.15s"
       minH="32px"
       outline={isOver ? "2px dashed" : undefined}
-      outlineColor={isOver ? "violet.400" : undefined}
+      outlineColor={isOver ? outlineClr : undefined}
       outlineOffset="-2px"
       mx={-2}
       px={2}
@@ -2015,11 +2048,11 @@ function RacetrackPanel({
   fullWidth,
   readOnly,
 }: {
-  process: {
+  process?: {
     title: string;
     emoji: string | null;
     steps: { key: string; title: string; description?: string }[];
-  };
+  } | null;
   scholars: ScholarInActivity[];
   source: string;
   droppedIds: Set<string>;
@@ -2027,42 +2060,69 @@ function RacetrackPanel({
   fullWidth?: boolean;
   readOnly?: boolean;
 }) {
+  // Build the unified step list: Not Started → [process steps] → Complete
+  const processSteps = process?.steps ?? [];
+  const allSteps: { key: string; title: string; description?: string; indicator?: string }[] = [
+    { key: "__not_started", title: "Not Started", indicator: "—" },
+    // For process-less activities, add a single "In Progress" step
+    ...(processSteps.length === 0
+      ? [{ key: "__in_progress", title: "In Progress", indicator: "●" }]
+      : processSteps),
+    { key: "__complete", title: "Complete", indicator: "✓" },
+  ];
+
   // Group scholars by their current step
+  const hasProcess = processSteps.length > 0;
   const scholarsByStep: Record<string, ScholarInActivity[]> = {};
-  const noStep: ScholarInActivity[] = [];
   for (const s of scholars) {
     if (droppedIds.has(String(s.scholarId))) continue;
+    // Completed scholars go to __complete
+    if (s.activityCompletedAt) {
+      if (!scholarsByStep["__complete"]) scholarsByStep["__complete"] = [];
+      scholarsByStep["__complete"].push(s);
+      continue;
+    }
     const step = s.processStep;
-    if (step && process.steps.some((ps) => ps.key === step)) {
+    if (step && allSteps.some((ps) => ps.key === step)) {
       if (!scholarsByStep[step]) scholarsByStep[step] = [];
       scholarsByStep[step].push(s);
+    } else if (!hasProcess && s.lastMessageAt) {
+      // Process-less: scholars with messages are "In Progress"
+      if (!scholarsByStep["__in_progress"]) scholarsByStep["__in_progress"] = [];
+      scholarsByStep["__in_progress"].push(s);
     } else {
-      noStep.push(s);
+      // No step or unrecognized step → Not Started
+      if (!scholarsByStep["__not_started"]) scholarsByStep["__not_started"] = [];
+      scholarsByStep["__not_started"].push(s);
     }
   }
 
   return (
     <Box>
-      {/* Header */}
-      <HStack gap={2} mb={4}>
-        <Text fontSize="lg">{process.emoji || "📋"}</Text>
-        <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500">
-          {process.title}
-        </Text>
-      </HStack>
+      {/* Header (only for processes) */}
+      {process && (
+        <HStack gap={2} mb={4}>
+          <Text fontSize="lg">{process.emoji || "📋"}</Text>
+          <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500">
+            {process.title}
+          </Text>
+        </HStack>
+      )}
 
       {/* Steps as timeline with embedded scholar cards */}
       <Timeline.Root size="md">
-        {process.steps.map((step) => {
+        {allSteps.map((step) => {
           const scholarsAtStep = scholarsByStep[step.key] || [];
           const hasScholars = scholarsAtStep.length > 0;
+          const isComplete = step.key === "__complete";
+          const isNotStarted = step.key === "__not_started";
           const stepContent = (
             <>
               <Timeline.Title
                 fontFamily="heading"
                 fontSize="sm"
                 fontWeight={hasScholars ? "600" : "400"}
-                color={hasScholars ? "navy.500" : "charcoal.300"}
+                color={hasScholars ? (isComplete ? "green.600" : "navy.500") : "charcoal.300"}
               >
                 {step.title}
               </Timeline.Title>
@@ -2077,20 +2137,25 @@ function RacetrackPanel({
                     readOnly ? (
                       <ScholarCard key={String(s.projectId)} scholar={s} />
                     ) : (
-                      <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
+                      <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} disabled={isNotStarted} />
                     )
                   )}
                 </Flex>
               )}
             </>
           );
+
+          const indicatorBg = isComplete && hasScholars
+            ? "green.500"
+            : hasScholars ? "violet.500" : "gray.200";
+
           return (
             <Timeline.Item key={step.key}>
               <Timeline.Connector>
                 <Timeline.Separator />
                 <Timeline.Indicator
-                  bg={hasScholars ? "violet.500" : "gray.200"}
-                  borderColor={hasScholars ? "violet.500" : "gray.200"}
+                  bg={indicatorBg}
+                  borderColor={indicatorBg}
                   color={hasScholars ? "white" : "charcoal.400"}
                 >
                   <Text
@@ -2100,7 +2165,7 @@ function RacetrackPanel({
                     lineHeight="1"
                     color={hasScholars ? "white" : "charcoal.400"}
                   >
-                    {step.key}
+                    {step.indicator ?? step.key}
                   </Text>
                 </Timeline.Indicator>
               </Timeline.Connector>
@@ -2117,24 +2182,6 @@ function RacetrackPanel({
           );
         })}
       </Timeline.Root>
-
-      {/* Scholars with no matching step */}
-      {noStep.length > 0 && (
-        <Box mt={4} pt={3} borderTop="1px solid" borderColor="gray.100">
-          <Text fontSize="xs" fontFamily="heading" color="charcoal.400" mb={2}>
-            Not started
-          </Text>
-          <Flex wrap="wrap" gap={3}>
-            {noStep.map((s) =>
-              readOnly ? (
-                <ScholarCard key={String(s.projectId)} scholar={s} />
-              ) : (
-                <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
-              )
-            )}
-          </Flex>
-        </Box>
-      )}
     </Box>
   );
 }

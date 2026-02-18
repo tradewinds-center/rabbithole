@@ -225,6 +225,24 @@ export const update = authedMutation({
 });
 
 /**
+ * Mark a scholar's project as complete/incomplete within an activity.
+ * Setting complete=true stamps activityCompletedAt; false clears it.
+ */
+export const markActivityComplete = teacherMutation({
+  args: {
+    projectId: v.id("projects"),
+    complete: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    await ctx.db.patch(args.projectId, {
+      activityCompletedAt: args.complete ? Date.now() : undefined,
+    });
+  },
+});
+
+/**
  * Archive a project (soft delete).
  */
 export const archive = authedMutation({
@@ -402,6 +420,7 @@ export const listActiveByUnit = teacherQuery({
               projectTitle: proj.title,
               analysisSummary: proj.analysisSummary ?? null,
               activityId: proj.activityId ? String(proj.activityId) : null,
+              activityCompletedAt: proj.activityCompletedAt ?? null,
             };
           })
         );
@@ -450,6 +469,7 @@ export const listActiveByUnit = teacherQuery({
           projectTitle: proj.title,
           analysisSummary: proj.analysisSummary ?? null,
           activityId: proj.activityId ? String(proj.activityId) : null,
+          activityCompletedAt: proj.activityCompletedAt ?? null,
         };
       })
     );
@@ -478,6 +498,7 @@ export const listActiveByUnit = teacherQuery({
         projectTitle: "",
         analysisSummary: null,
         activityId: null,
+        activityCompletedAt: null,
       }));
 
     return {

@@ -215,6 +215,7 @@ export const getWithProjects = teacherQuery({
           processStep: procState?.currentStep ?? null,
           projectTitle: proj.title,
           analysisSummary: proj.analysisSummary ?? null,
+          activityCompletedAt: proj.activityCompletedAt ?? null,
         };
       })
     );

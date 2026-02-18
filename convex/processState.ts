@@ -96,6 +96,10 @@ export const updateStep = internalMutation({
 
 /**
  * Teacher moves a scholar to a different process step (drag-and-drop in Activity View).
+ * Special pseudo-steps:
+ *   "__not_started" — clears currentStep (scholar hasn't started the process)
+ *   "__complete"    — stamps activityCompletedAt on the project
+ * Any real step key clears activityCompletedAt and sets currentStep normally.
  */
 export const teacherMoveStep = teacherMutation({
   args: {
@@ -103,11 +107,39 @@ export const teacherMoveStep = teacherMutation({
     stepKey: v.string(),
   },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return;
+
+    // Handle pseudo-steps
+    if (args.stepKey === "__complete") {
+      await ctx.db.patch(args.projectId, { activityCompletedAt: Date.now() });
+      return;
+    }
+
+    // Moving to any non-complete step clears completion
+    if (project.activityCompletedAt) {
+      await ctx.db.patch(args.projectId, { activityCompletedAt: undefined });
+    }
+
+    if (args.stepKey === "__not_started") {
+      // Clear process state currentStep
+      const state = await ctx.db
+        .query("processState")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .first();
+      if (state) {
+        await ctx.db.patch(state._id, {
+          currentStep: "",
+          steps: state.steps.map((s) => ({ ...s, status: "not_started" as const })),
+        });
+      }
+      return;
+    }
+
+    // Normal step move
     const state = await ctx.db
       .query("processState")
-      .withIndex("by_project", (q) =>
-        q.eq("projectId", args.projectId)
-      )
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .first();
     if (!state) return;
 
