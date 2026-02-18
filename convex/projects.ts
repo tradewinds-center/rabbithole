@@ -384,6 +384,7 @@ export const listActiveByUnit = teacherQuery({
             return {
               scholarId: proj.userId,
               projectId: proj._id,
+              projectCreatedAt: proj._creationTime,
               name: scholar?.name ?? null,
               image: scholar?.image ?? null,
               readingLevel: scholar?.readingLevel ?? null,
@@ -430,6 +431,7 @@ export const listActiveByUnit = teacherQuery({
         return {
           scholarId: proj.userId,
           projectId: proj._id,
+          projectCreatedAt: proj._creationTime,
           name: scholar?.name ?? null,
           image: scholar?.image ?? null,
           readingLevel: scholar?.readingLevel ?? null,

@@ -566,6 +566,7 @@ type ActivityData = {
 type ScholarInActivity = {
   scholarId: Id<"users">;
   projectId: Id<"projects">;
+  projectCreatedAt: number;
   name: string | null;
   image: string | null;
   readingLevel: string | null;
@@ -620,13 +621,22 @@ function ActivityView({
   const updateProject = useMutation(api.projects.update);
   const moveStep = useMutation(api.processState.teacherMoveStep);
 
-  // The focused unit's data (if any)
+  // The focused unit's data (if any), filtered to only scholars assigned during this activity
+  const activityStartedAt = currentFocus?._creationTime ?? 0;
   const focusedGroup = useMemo(() => {
     if (!activityData || !focusUnitId) return null;
-    return activityData.unitGroups.find(
+    const group = activityData.unitGroups.find(
       (g) => String(g.unitId) === focusUnitId
-    ) ?? null;
-  }, [activityData, focusUnitId]);
+    );
+    if (!group) return null;
+    // Only include scholars whose projects were created after the activity started
+    return {
+      ...group,
+      scholars: group.scholars.filter(
+        (s) => s.projectCreatedAt >= activityStartedAt
+      ),
+    };
+  }, [activityData, focusUnitId, activityStartedAt]);
 
   // "Unassigned" = all active scholars NOT in the focused unit
   const unassignedScholars = useMemo(() => {
@@ -1519,15 +1529,20 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
         </Text>
       )}
 
-      {/* Analysis summary */}
+      {/* AI status commentary */}
       {s.analysisSummary && (
         <Text
           fontSize="xs"
-          color="violet.600"
+          color="charcoal.400"
           fontFamily="heading"
+          fontStyle="italic"
+          lineHeight="1.3"
           overflow="hidden"
-          textOverflow="ellipsis"
-          whiteSpace="nowrap"
+          css={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
           mb={0.5}
         >
           {s.analysisSummary}
@@ -1571,7 +1586,7 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                window.open(`/scholar?remote=${String(s.scholarId)}`, "_blank");
+                window.open(`/scholar/${String(s.projectId)}?remote=${String(s.scholarId)}`, "_blank");
               }}
             >
               <FiExternalLink />
@@ -1588,12 +1603,12 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
   );
 }
 
-// ── Droppable Timeline Step ──────────────────────────────────────────
+// ── Droppable Timeline Content ───────────────────────────────────────
 
-function DroppableTimelineStep({ stepKey, children }: { stepKey: string; children: React.ReactNode }) {
+function DroppableTimelineContent({ stepKey, children, ...rest }: { stepKey: string; children: React.ReactNode; [key: string]: unknown }) {
   const { setNodeRef, isOver } = useDroppable({ id: `step-${stepKey}` });
   return (
-    <Box
+    <Timeline.Content
       ref={setNodeRef}
       bg={isOver ? "violet.50" : undefined}
       borderRadius="md"
@@ -1602,9 +1617,13 @@ function DroppableTimelineStep({ stepKey, children }: { stepKey: string; childre
       outline={isOver ? "2px dashed" : undefined}
       outlineColor={isOver ? "violet.400" : undefined}
       outlineOffset="-2px"
+      mx={-2}
+      px={2}
+      py={2}
+      {...rest}
     >
       {children}
-    </Box>
+    </Timeline.Content>
   );
 }
 
@@ -1659,50 +1678,48 @@ function RacetrackPanel({
           const scholarsAtStep = scholarsByStep[step.key] || [];
           const hasScholars = scholarsAtStep.length > 0;
           return (
-            <DroppableTimelineStep key={step.key} stepKey={step.key}>
-              <Timeline.Item>
-                <Timeline.Connector>
-                  <Timeline.Separator />
-                  <Timeline.Indicator
-                    bg={hasScholars ? "violet.500" : "gray.200"}
-                    borderColor={hasScholars ? "violet.500" : "gray.200"}
+            <Timeline.Item key={step.key}>
+              <Timeline.Connector>
+                <Timeline.Separator />
+                <Timeline.Indicator
+                  bg={hasScholars ? "violet.500" : "gray.200"}
+                  borderColor={hasScholars ? "violet.500" : "gray.200"}
+                  color={hasScholars ? "white" : "charcoal.400"}
+                >
+                  <Text
+                    fontSize="10px"
+                    fontWeight="700"
+                    fontFamily="heading"
+                    lineHeight="1"
                     color={hasScholars ? "white" : "charcoal.400"}
                   >
-                    <Text
-                      fontSize="10px"
-                      fontWeight="700"
-                      fontFamily="heading"
-                      lineHeight="1"
-                      color={hasScholars ? "white" : "charcoal.400"}
-                    >
-                      {step.key}
-                    </Text>
-                  </Timeline.Indicator>
-                </Timeline.Connector>
-                <Timeline.Content pb={hasScholars ? 4 : 2}>
-                  <Timeline.Title
-                    fontFamily="heading"
-                    fontSize="sm"
-                    fontWeight={hasScholars ? "600" : "400"}
-                    color={hasScholars ? "navy.500" : "charcoal.300"}
-                  >
-                    {step.title}
-                  </Timeline.Title>
-                  {step.description && (
-                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mt={0.5}>
-                      {step.description}
-                    </Text>
-                  )}
-                  {hasScholars && (
-                    <Flex wrap="wrap" gap={3} mt={2}>
-                      {scholarsAtStep.map((s) => (
-                        <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
-                      ))}
-                    </Flex>
-                  )}
-                </Timeline.Content>
-              </Timeline.Item>
-            </DroppableTimelineStep>
+                    {step.key}
+                  </Text>
+                </Timeline.Indicator>
+              </Timeline.Connector>
+              <DroppableTimelineContent stepKey={step.key} pb={hasScholars ? 4 : 2}>
+                <Timeline.Title
+                  fontFamily="heading"
+                  fontSize="sm"
+                  fontWeight={hasScholars ? "600" : "400"}
+                  color={hasScholars ? "navy.500" : "charcoal.300"}
+                >
+                  {step.title}
+                </Timeline.Title>
+                {step.description && (
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mt={0.5}>
+                    {step.description}
+                  </Text>
+                )}
+                {hasScholars && (
+                  <Flex wrap="wrap" gap={3} mt={2}>
+                    {scholarsAtStep.map((s) => (
+                      <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
+                    ))}
+                  </Flex>
+                )}
+              </DroppableTimelineContent>
+            </Timeline.Item>
           );
         })}
       </Timeline.Root>

@@ -199,8 +199,9 @@ export function ArtifactPanel({
             </Flex>
             {/* Document content — white card */}
             {isExpanded && (
-              <Box
+              <Flex
                 flex={1}
+                flexDir="column"
                 overflow="hidden"
                 bg="white"
                 borderRadius="lg"
@@ -223,7 +224,7 @@ export function ArtifactPanel({
                     onSyncChange={onSyncChange}
                   />
                 )}
-              </Box>
+              </Flex>
             )}
           </Flex>
         );

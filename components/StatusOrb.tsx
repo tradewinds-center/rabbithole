@@ -219,7 +219,7 @@ export function StatusOrb({
                   lineHeight="1"
                   style={{ color: heroHex }}
                 >
-                  {effectiveScore.toFixed(2)}
+                  {effectiveScore.toFixed(1)}
                 </Text>
                 <Text
                   fontSize="xs"

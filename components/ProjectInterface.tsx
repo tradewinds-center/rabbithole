@@ -555,7 +555,7 @@ export function ProjectInterface({
           <Splitter.Root
             flex={1}
             overflow="hidden"
-            defaultSize={[55, 45]}
+            defaultSize={[70, 30]}
             panels={[
               { id: "chat", minSize: 40 },
               { id: "side", minSize: 25 },
