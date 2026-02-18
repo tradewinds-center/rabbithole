@@ -57,6 +57,8 @@ export const create = teacherMutation({
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
     durationMinutes: v.optional(v.number()),
+    youtubeUrl: v.optional(v.string()),
+    videoTranscript: v.optional(v.string()),
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
@@ -70,6 +72,8 @@ export const create = teacherMutation({
       systemPrompt: args.systemPrompt?.trim() || undefined,
       rubric: args.rubric?.trim() || undefined,
       durationMinutes: args.durationMinutes,
+      youtubeUrl: args.youtubeUrl?.trim() || undefined,
+      videoTranscript: args.videoTranscript?.trim() || undefined,
       personaId: args.personaId,
       perspectiveId: args.perspectiveId,
       processId: args.processId,
@@ -87,6 +91,8 @@ export const update = teacherMutation({
     systemPrompt: v.optional(v.string()),
     rubric: v.optional(v.string()),
     durationMinutes: v.optional(v.union(v.number(), v.null())),
+    youtubeUrl: v.optional(v.union(v.string(), v.null())),
+    videoTranscript: v.optional(v.union(v.string(), v.null())),
     personaId: v.optional(v.union(v.id("personas"), v.null())),
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
     processId: v.optional(v.union(v.id("processes"), v.null())),
@@ -105,6 +111,10 @@ export const update = teacherMutation({
       cleaned.rubric = updates.rubric.trim() || undefined;
     if (updates.durationMinutes !== undefined)
       cleaned.durationMinutes = updates.durationMinutes ?? undefined;
+    if (updates.youtubeUrl !== undefined)
+      cleaned.youtubeUrl = updates.youtubeUrl?.trim() || undefined;
+    if (updates.videoTranscript !== undefined)
+      cleaned.videoTranscript = updates.videoTranscript?.trim() || undefined;
     if (updates.personaId !== undefined)
       cleaned.personaId = updates.personaId ?? undefined;
     if (updates.perspectiveId !== undefined)

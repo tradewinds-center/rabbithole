@@ -276,6 +276,8 @@ export default defineSchema({
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
     durationMinutes: v.optional(v.number()),
+    youtubeUrl: v.optional(v.string()),
+    videoTranscript: v.optional(v.string()),
     // null = teacher-created; set = scholar-created independent study unit
     scholarId: v.optional(v.id("users")),
     isActive: v.boolean(),

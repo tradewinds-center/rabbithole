@@ -24,6 +24,7 @@ interface ArtifactPanelProps {
   onCreateArtifact: () => void;
   onDeleteArtifact: (id: string) => void;
   onSyncChange?: (synced: boolean) => void;
+  youtubeUrl?: string | null;
   process?: ProcessDefinition | null;
   processCurrentStep?: string;
   processSteps?: ProcessStep[];
@@ -37,6 +38,7 @@ export function ArtifactPanel({
   onCreateArtifact,
   onDeleteArtifact,
   onSyncChange,
+  youtubeUrl,
   process,
   processCurrentStep,
   processSteps,
@@ -85,8 +87,11 @@ export function ArtifactPanel({
     onSelectArtifact(id);
   };
 
+  // Extract YouTube video ID for embed
+  const youtubeVideoId = youtubeUrl ? extractYouTubeId(youtubeUrl) : null;
+
   // Neither section has content
-  if (!hasProcess && !hasArtifacts) {
+  if (!hasProcess && !hasArtifacts && !youtubeVideoId) {
     return (
       <Flex flex={1} flexDir="column" align="center" justify="center" bg="gray.50" gap={3} p={6}>
         <Text fontSize="sm" fontFamily="heading" color="charcoal.300">
@@ -107,6 +112,29 @@ export function ArtifactPanel({
 
   return (
     <Flex flex={1} flexDir="column" overflow="hidden" bg="gray.50" gap={4} px={4} pt={1} pb={3}>
+      {/* ── YouTube video embed ── */}
+      {youtubeVideoId && (
+        <Box flexShrink={0} pt={2}>
+          <Box
+            borderRadius="lg"
+            overflow="hidden"
+            shadow="0 1px 3px rgba(0,0,0,0.08)"
+            bg="black"
+            css={{ aspectRatio: "16 / 9" }}
+          >
+            <iframe
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${youtubeVideoId}`}
+              title="Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ border: "none", display: "block" }}
+            />
+          </Box>
+        </Box>
+      )}
+
       {/* ── Process section ── */}
       {hasProcess && (
         <Flex flexDir="column" overflow="hidden" flexShrink={0}>
@@ -425,4 +453,14 @@ function ArtifactEditor({
       </Text>
     </Flex>
   );
+}
+
+function extractYouTubeId(url: string): string | null {
+  const watchMatch = url.match(/(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) return watchMatch[1];
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+  const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+  if (embedMatch) return embedMatch[1];
+  return null;
 }

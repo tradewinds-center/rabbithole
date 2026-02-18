@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -51,6 +51,8 @@ export interface DimensionEditData {
   icon?: string;
   rubric?: string;
   durationMinutes?: number;
+  youtubeUrl?: string;
+  videoTranscript?: string;
   steps?: { key: string; title: string; description?: string }[];
   personaId?: string;
   perspectiveId?: string;
@@ -290,13 +292,19 @@ export function DimensionEditModal({
   const createProcess = useMutation(api.processes.create);
   const updateProcess = useMutation(api.processes.update);
 
+  const fetchYoutubeTranscript = useAction(api.youtubeActions.fetchTranscript);
+
   const [isSaving, setIsSaving] = useState(false);
+  const [isFetchingTranscript, setIsFetchingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({
     title: "",
     description: "",
     systemPrompt: "",
     rubric: "",
     durationMinutes: "",
+    youtubeUrl: "",
+    videoTranscript: "",
     emoji: "",
     icon: "",
     personaId: "",
@@ -321,12 +329,15 @@ export function DimensionEditModal({
         systemPrompt: data?.systemPrompt ?? "",
         rubric: data?.rubric ?? "",
         durationMinutes: data?.durationMinutes?.toString() ?? "",
+        youtubeUrl: data?.youtubeUrl ?? "",
+        videoTranscript: data?.videoTranscript ?? "",
         emoji: data?.emoji ?? "",
         icon: data?.icon ?? "",
         personaId: data?.personaId ?? "",
         perspectiveId: data?.perspectiveId ?? "",
         processId: data?.processId ?? "",
       });
+      setTranscriptError(null);
       setStepsData(
         data?.steps?.map((s) => ({
           _id: `step-${nextIdRef.current++}`,
@@ -373,6 +384,8 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
             durationMinutes: dur > 0 ? dur : null,
+            youtubeUrl: formData.youtubeUrl || null,
+            videoTranscript: formData.videoTranscript || null,
             personaId: formData.personaId ? formData.personaId as Id<"personas"> : null,
             perspectiveId: formData.perspectiveId ? formData.perspectiveId as Id<"perspectives"> : null,
             processId: formData.processId ? formData.processId as Id<"processes"> : null,
@@ -412,6 +425,8 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
             ...(dur > 0 ? { durationMinutes: dur } : {}),
+            ...(formData.youtubeUrl ? { youtubeUrl: formData.youtubeUrl } : {}),
+            ...(formData.videoTranscript ? { videoTranscript: formData.videoTranscript } : {}),
             ...(formData.personaId ? { personaId: formData.personaId as Id<"personas"> } : {}),
             ...(formData.perspectiveId ? { perspectiveId: formData.perspectiveId as Id<"perspectives"> } : {}),
             ...(formData.processId ? { processId: formData.processId as Id<"processes"> } : {}),
@@ -564,6 +579,65 @@ export function DimensionEditModal({
                         />
                         <Text fontSize="sm" color="charcoal.400" fontFamily="body">minutes</Text>
                       </HStack>
+                    </FieldRow>
+                    <FieldRow
+                      label="YouTube Video"
+                      hint="Paste a YouTube URL to fetch the transcript for video reflection units."
+                    >
+                      <VStack gap={2} align="stretch">
+                        <HStack gap={2}>
+                          <Input
+                            value={formData.youtubeUrl}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
+                            placeholder="https://youtube.com/watch?v=..."
+                            fontFamily="body"
+                            fontSize="md"
+                            bg="white"
+                            flex={1}
+                          />
+                          <Button
+                            size="md"
+                            fontFamily="heading"
+                            colorPalette="violet"
+                            variant="outline"
+                            disabled={!formData.youtubeUrl.trim() || isFetchingTranscript}
+                            onClick={async () => {
+                              setIsFetchingTranscript(true);
+                              setTranscriptError(null);
+                              try {
+                                const result = await fetchYoutubeTranscript({ youtubeUrl: formData.youtubeUrl.trim() });
+                                setFormData((prev) => ({ ...prev, videoTranscript: result.transcript }));
+                              } catch (err: unknown) {
+                                const msg = err instanceof Error ? err.message : "Failed to fetch transcript";
+                                setTranscriptError(msg);
+                              } finally {
+                                setIsFetchingTranscript(false);
+                              }
+                            }}
+                          >
+                            {isFetchingTranscript ? <Spinner size="sm" /> : "Fetch"}
+                          </Button>
+                        </HStack>
+                        {transcriptError && (
+                          <Text fontSize="sm" color="red.500" fontFamily="body">{transcriptError}</Text>
+                        )}
+                        {formData.videoTranscript && (
+                          <>
+                            <Textarea
+                              value={formData.videoTranscript}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, videoTranscript: e.target.value }))}
+                              rows={8}
+                              fontFamily="body"
+                              fontSize="sm"
+                              bg="white"
+                              css={{ maxHeight: "300px", overflow: "auto" }}
+                            />
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                              {formData.videoTranscript.length.toLocaleString()} characters — editable
+                            </Text>
+                          </>
+                        )}
+                      </VStack>
                     </FieldRow>
                     {(personas?.length || perspectives?.length || processes?.length) ? (
                       <FieldRow

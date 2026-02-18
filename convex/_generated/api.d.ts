@@ -44,6 +44,7 @@ import type * as standardsTree from "../standardsTree.js";
 import type * as teacherMasteryOverrides from "../teacherMasteryOverrides.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as youtubeActions from "../youtubeActions.js";
 
 import type {
   ApiFromModules,
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   teacherMasteryOverrides: typeof teacherMasteryOverrides;
   units: typeof units;
   users: typeof users;
+  youtubeActions: typeof youtubeActions;
 }>;
 
 /**

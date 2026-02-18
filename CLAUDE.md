@@ -29,7 +29,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
 - [x] **Upload Image** - Scholars can upload images into chat (Convex file storage + Claude vision)
 - [x] **Code Artifacts** - Support code blocks as interactive artifacts (create_code tool + live iframe preview)
-- [ ] **Generate Images & Videos** - AI-powered image and video generation within projects (Gemini/DALL-E)
+- [x] **Generate Images** - AI image generation via Gemini 3 Pro (generate_image tool, inline in chat). **TODO:** "Generating image..." loading indicator may not be working — needs verification and debugging.
 - [ ] **Volume Control** - Monitor microphone input levels during voice dictation. Show a big "TOO LOUD!" warning overlay when decibels exceed modest speaking volume. Uses Web Audio API AnalyserNode alongside existing MediaRecorder.
   - **Test:** Hold Tab to record voice. Speak normally — no warning. Yell or hold mic close — red warning overlay appears. Warning disappears when volume drops.
 - [ ] **Self-Serve Guest Mode** - Visitors can enter their own name at `/guest` (no token needed) and get a unique bookmarkable link they can save and return to. Creates a scholar account automatically.

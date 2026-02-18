@@ -44,6 +44,8 @@ export const getProjectContext = internalQuery({
         description: unit.description ?? null,
         systemPrompt: unit.systemPrompt ?? null,
         rubric: unit.rubric ?? null,
+        youtubeUrl: unit.youtubeUrl ?? null,
+        videoTranscript: unit.videoTranscript ?? null,
       };
     }
 
@@ -327,6 +329,8 @@ export function buildSystemPrompt(
     description: string | null;
     systemPrompt: string | null;
     rubric: string | null;
+    youtubeUrl: string | null;
+    videoTranscript: string | null;
   } | null,
   personaContext: {
     title: string;
@@ -487,6 +491,14 @@ Do NOT update the dossier on every message — only when you have a genuine new 
     }
     if (unitContext.rubric) {
       parts.push(`Rubric: ${unitContext.rubric}`);
+    }
+    if (unitContext.videoTranscript) {
+      parts.push(`\nVIDEO TRANSCRIPT:
+The scholar is reflecting on a video. Below is the transcript with timestamps.
+Use this as the basis for discussion. Reference specific moments by timestamp.
+Do NOT summarize — engage the scholar: ask what they noticed, what surprised them, what they agree/disagree with, what connections they see.
+
+${unitContext.videoTranscript}`);
     }
   }
 

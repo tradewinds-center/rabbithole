@@ -174,7 +174,7 @@ export function ProjectInterface({
   // Right panel state
   const hasProcess = !!(activeProcessDef && processState);
   const hasArtifacts = artifacts.length > 0;
-  const hasRightPanelContent = hasProcess || hasArtifacts;
+  const hasRightPanelContent = hasProcess || hasArtifacts || !!activeUnit?.youtubeUrl;
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
   // Auto-open when content appears
@@ -589,6 +589,7 @@ export function ProjectInterface({
                   onCreateArtifact={handleCreateArtifact}
                   onDeleteArtifact={handleDeleteArtifact}
                   onSyncChange={setArtifactSynced}
+                  youtubeUrl={activeUnit?.youtubeUrl}
                   process={hasProcess ? {
                     title: activeProcessDef!.title,
                     emoji: activeProcessDef!.emoji ?? null,

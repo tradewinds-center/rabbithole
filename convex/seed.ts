@@ -1,4 +1,5 @@
 import { internalMutation, mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 export const clearAll = internalMutation({
   handler: async (ctx) => {
@@ -1555,6 +1556,136 @@ When the scholar discusses any topic through this lens, help them see the civic 
     }
 
     console.log("Democracy education seed complete.");
+  },
+});
+
+/**
+ * Seed the Video Reflection process (WRDC steps) and two test video units.
+ * Run: npx convex run seed:seedVideoReflection
+ */
+export const seedVideoReflection = internalMutation({
+  handler: async (ctx) => {
+    // Find a teacher to own these entities
+    const systemTeacher = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .first();
+    const teacher = systemTeacher ?? await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed video reflection.");
+      return;
+    }
+
+    // ── Process: Video Reflection (WRDC) ─────────────────────────
+    let processId;
+    const existingProcess = await ctx.db
+      .query("processes")
+      .filter((q) => q.eq(q.field("title"), "Video Reflection"))
+      .first();
+    if (!existingProcess) {
+      processId = await ctx.db.insert("processes", {
+        teacherId: teacher._id,
+        title: "Video Reflection",
+        slug: "video-reflection",
+        emoji: "🎬",
+        description: "A 4-step process for reflecting on educational videos: Watch, React, Dig Deeper, Connect.",
+        systemPrompt: `Guide the scholar through the WRDC video reflection process. The unit has a VIDEO TRANSCRIPT with timestamps — use it! Reference specific moments and timestamps throughout.
+
+- W (Watch): The scholar has just watched the video. Ask what stood out to them. What was the most interesting, surprising, or confusing part? Reference a specific timestamp and ask about it. Get their raw reactions first — don't analyze yet.
+- R (React): Dig into their reactions. Why did that surprise them? What did they expect instead? Do they agree or disagree with what was said at a particular moment? Push them to articulate their thinking beyond "it was cool."
+- D (Dig Deeper): Now analyze. What's the deeper question behind this video? What assumptions does the video make? What would happen if one thing were different? Use timestamps to point to specific claims and ask the scholar to evaluate them.
+- C (Connect): Help the scholar connect the video to their own life, other things they've learned, or bigger ideas. What does this remind them of? How could they use this knowledge? What question would they want to explore next?
+
+Use the update_process_step tool to track progress. Move naturally — don't announce steps mechanically.`,
+        steps: [
+          { key: "W", title: "Watch", description: "What stood out? First reactions." },
+          { key: "R", title: "React", description: "Why? Agree or disagree? Push past surface." },
+          { key: "D", title: "Dig Deeper", description: "Analyze claims, assumptions, what-ifs." },
+          { key: "C", title: "Connect", description: "Link to life, other learning, big ideas." },
+        ],
+        isActive: true,
+      });
+      console.log("Seeded Video Reflection (WRDC) process.");
+    } else {
+      processId = existingProcess._id;
+      console.log("Video Reflection process already exists, skipping.");
+    }
+
+    console.log("Video reflection seed complete.");
+  },
+});
+
+/**
+ * Seed two test video units with pre-fetched YouTube transcripts.
+ * Transcripts must be provided as args (YouTube blocks server-side fetches).
+ *
+ * Usage: node scripts/seed-video-units.js
+ * (fetches transcripts locally via yt-dlp, then calls this mutation)
+ */
+export const seedVideoUnits = internalMutation({
+  args: {
+    units: v.array(
+      v.object({
+        title: v.string(),
+        slug: v.string(),
+        emoji: v.string(),
+        description: v.string(),
+        youtubeUrl: v.string(),
+        videoTranscript: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    // Ensure the Video Reflection process exists
+    const existingProcess = await ctx.db
+      .query("processes")
+      .filter((q) => q.eq(q.field("title"), "Video Reflection"))
+      .first();
+
+    const teacher =
+      (await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+        .first()) ??
+      (await ctx.db
+        .query("users")
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("role"), "teacher"),
+            q.eq(q.field("role"), "admin")
+          )
+        )
+        .first());
+    if (!teacher) {
+      console.log("No teacher found, cannot insert video units.");
+      return;
+    }
+
+    for (const unit of args.units) {
+      const existing = await ctx.db
+        .query("units")
+        .filter((q) => q.eq(q.field("title"), unit.title))
+        .first();
+      if (existing) {
+        console.log(`Unit "${unit.title}" already exists, skipping.`);
+        continue;
+      }
+      await ctx.db.insert("units", {
+        teacherId: teacher._id,
+        title: unit.title,
+        slug: unit.slug,
+        emoji: unit.emoji,
+        description: unit.description,
+        youtubeUrl: unit.youtubeUrl,
+        videoTranscript: unit.videoTranscript,
+        ...(existingProcess ? { processId: existingProcess._id } : {}),
+        isActive: true,
+      });
+      console.log(`Seeded unit: ${unit.title} (${unit.videoTranscript.length} chars transcript)`);
+    }
   },
 });
 
