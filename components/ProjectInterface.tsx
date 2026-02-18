@@ -942,16 +942,17 @@ function ChatColumn({
                   );
                 }
                 return (
-                  <Text
-                    key={message.id}
-                    fontSize="xs"
-                    color="charcoal.300"
-                    fontFamily="heading"
-                    textAlign="center"
-                    py={1}
-                  >
-                    {message.toolAction}
-                  </Text>
+                  <Box key={message.id} textAlign="center" py={1}>
+                    {message.imageId && <GeneratedImage imageId={message.imageId} />}
+                    <Text
+                      fontSize="xs"
+                      color="charcoal.300"
+                      fontFamily="heading"
+                      textAlign="center"
+                    >
+                      {message.toolAction}
+                    </Text>
+                  </Box>
                 );
               }
 
@@ -1438,6 +1439,17 @@ function stripMarkdown(text: string): string {
     .replace(/\n/g, ". ")           // newlines -> sentence pause
     .replace(/\.\.\s/g, ". ")       // collapse double periods
     .trim();
+}
+
+// Generated Image Component (for AI-generated illustrations in tool messages)
+function GeneratedImage({ imageId }: { imageId: string }) {
+  const url = useQuery(api.files.getUrl, { storageId: imageId as Id<"_storage"> });
+  if (!url) return null;
+  return (
+    <Box my={2} mx="auto" maxW="400px" borderRadius="xl" overflow="hidden">
+      <img src={url} alt="AI-generated illustration" style={{ width: "100%", borderRadius: "12px" }} />
+    </Box>
+  );
 }
 
 // Message Bubble Component

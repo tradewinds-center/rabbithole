@@ -453,11 +453,107 @@ http.route({
             },
           });
 
+          const generateImageTool = betaTool({
+            name: "generate_image",
+            description: "Generate an educational illustration or visualization using AI image generation. Use this to create diagrams, scientific illustrations, historical scenes, maps, or any visual that helps explain a concept.",
+            inputSchema: {
+              type: "object" as const,
+              properties: {
+                prompt: {
+                  type: "string" as const,
+                  description: "Detailed description of the image to generate. Be specific about subject, composition, labels, colors, and educational content.",
+                },
+                alt_text: {
+                  type: "string" as const,
+                  description: "Brief alt text describing the image for accessibility.",
+                },
+              },
+              required: ["prompt", "alt_text"] as const,
+            },
+            run: async (input) => {
+              try {
+                const apiKey = process.env.GEMINI_API_KEY;
+                if (!apiKey) {
+                  return "Image generation is not available right now. I'll describe the concept in words instead.";
+                }
+
+                const geminiRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      contents: [{ parts: [{ text: input.prompt }] }],
+                      generationConfig: {
+                        responseModalities: ["IMAGE", "TEXT"],
+                      },
+                    }),
+                  }
+                );
+
+                if (!geminiRes.ok) {
+                  console.error("Gemini API error:", geminiRes.status, await geminiRes.text());
+                  return "Image generation failed. I'll describe the concept in words instead.";
+                }
+
+                const geminiData = await geminiRes.json();
+                const parts = geminiData?.candidates?.[0]?.content?.parts;
+                if (!parts) {
+                  return "Image generation returned no results. I'll describe the concept in words instead.";
+                }
+
+                // Find the image part
+                const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+                if (!imagePart?.inlineData?.data) {
+                  return "Image generation returned no image. I'll describe the concept in words instead.";
+                }
+
+                // Decode base64 to binary
+                const base64 = imagePart.inlineData.data;
+                const mimeType = imagePart.inlineData.mimeType || "image/png";
+                const binaryString = atob(base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: mimeType });
+
+                // Store in Convex file storage
+                const storageId = await ctx.storage.store(blob);
+
+                // Split the stream with imageId on the tool message
+                const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
+                  currentMessageId: assistantMsgId as Id<"messages">,
+                  projectId: projId,
+                  contentSoFar: fullContent,
+                  toolAction: "Generated image",
+                  imageId: storageId,
+                });
+
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ generatedImage: true, newAssistantMsg: String(newId) })}\n\n`
+                  )
+                );
+
+                assistantMsgId = newId;
+                fullContent = "";
+                lastPersistLength = 0;
+
+                return `Image generated successfully. Now describe what the image shows to the scholar.`;
+              } catch (err) {
+                console.error("Image generation error:", err);
+                return "Image generation encountered an error. I'll describe the concept in words instead.";
+              }
+            },
+          });
+
           // Build tools array based on active features
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
           tools.push(updateDossierTool); // Always enabled
           tools.push(createCodeTool); // Always enabled — scholars can build interactive code
           tools.push(editDocumentTool); // Always enabled — needed to edit code artifacts and create/edit documents
+          tools.push(generateImageTool); // Always enabled — AI image generation
           if (hasProcess) tools.push(processStepTool);
 
           // ── Stream with tool runner ──────────────────────────────────

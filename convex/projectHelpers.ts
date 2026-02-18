@@ -561,6 +561,16 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
   // Code artifacts guidance
   parts.push(`\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script>. Prefer vanilla JS — external libraries via CDN are allowed if needed (e.g. p5.js, Three.js). It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.`);
 
+  // Image generation guidance
+  parts.push(`\n\nIMAGE GENERATION: You have a tool called "generate_image" to create educational illustrations and visualizations. Use it when:
+- A concept would be significantly clearer with a visual (cell structure, solar system, water cycle, geometric proof, historical scene, map)
+- The scholar asks you to draw, illustrate, or show something
+- A diagram or visual would deepen understanding beyond what words can convey
+
+Do NOT generate images for decoration, greetings, or when text suffices.
+
+Write a detailed prompt describing exactly what to illustrate — be specific about subject, composition, labels, colors, and educational content. Prefer clean, labeled diagram styles for scientific/mathematical concepts. For historical or creative topics, use a warm illustrative style appropriate for elementary students. Always describe the image to the scholar after generating it.`);
+
   // Exploration seeds (teacher-approved + pending ideas to weave in)
   if (seedsData && seedsData.length > 0) {
     const approvedSeeds = seedsData.filter((s) => s.approved);
@@ -619,6 +629,7 @@ export const splitStream = internalMutation({
     projectId: v.id("projects"),
     contentSoFar: v.string(),
     toolAction: v.string(),
+    imageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     // 1. Finalize current assistant message with content accumulated so far
@@ -641,6 +652,7 @@ export const splitStream = internalMutation({
       perspectiveId: currentMsg?.perspectiveId,
       processId: currentMsg?.processId,
       flagged: false,
+      ...(args.imageId ? { imageId: args.imageId } : {}),
     });
 
     // 4. Insert new assistant placeholder
