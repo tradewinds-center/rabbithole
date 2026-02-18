@@ -79,6 +79,7 @@ export function ProjectInterface({
   const welcomeSentRef = useRef<string | null>(null);
   const [whisperInput, setWhisperInput] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Convex queries for dimension options (reactive, auto-updating)
@@ -343,6 +344,12 @@ export function ProjectInterface({
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
+                if (data.generatingImage === "started") {
+                  setGeneratingImage(true);
+                }
+                if (data.generatedImage) {
+                  setGeneratingImage(false);
+                }
                 if (data.text) {
                   fullContent += data.text;
                   setStreamingContent(fullContent);
@@ -350,7 +357,8 @@ export function ProjectInterface({
                   // AI created a new document — select it and open panel
                   setActiveArtifactId(data.newArtifactId);
                   setRightPanelOpen(true);
-                } else if (data.newAssistantMsg) {
+                }
+                if (data.newAssistantMsg) {
                   // Tool fired — server split the message. Switch streaming target.
                   setStreamingMsgId(data.newAssistantMsg);
                   fullContent = "";
@@ -360,6 +368,7 @@ export function ProjectInterface({
                   // Convex reactive query will auto-update messages.
                   setStreamingContent("");
                   setStreamingMsgId(null);
+                  setGeneratingImage(false);
                   onProjectUpdate?.();
                 }
               } catch {
@@ -532,6 +541,7 @@ export function ProjectInterface({
           onClearWhisper: handleClearWhisper,
           observations: projectObservations,
           isTooLoud,
+          generatingImage,
           timeLimit,
           isTimeLimitModalOpen,
           onToggleTimeLimitModal: () => setIsTimeLimitModalOpen((v) => !v),
@@ -626,6 +636,7 @@ interface ChatColumnProps {
   onClearWhisper?: () => void;
   observations?: ObservationData[];
   isTooLoud?: boolean;
+  generatingImage?: boolean;
   timeLimit?: {
     isActive: boolean;
     secondsRemaining: number;
@@ -671,6 +682,7 @@ function ChatColumn({
   onClearWhisper,
   observations = [],
   isTooLoud = false,
+  generatingImage = false,
   timeLimit,
   isTimeLimitModalOpen = false,
   onToggleTimeLimitModal,
@@ -963,13 +975,14 @@ function ChatColumn({
                   message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
                   personaOptions={personaOptions}
                   isStreaming={!!isActiveStream && !!streamingContent}
+                  generatingImage={!!isActiveStream && generatingImage}
                 />
               );
             });
           })()}
 
           {/* Typing indicator */}
-          {isStreaming && !streamingContent && (
+          {isStreaming && !streamingContent && !generatingImage && (
             <Box
               alignSelf="flex-start"
               bg="gray.100"
@@ -1457,10 +1470,12 @@ function MessageBubble({
   message,
   personaOptions = [],
   isStreaming = false,
+  generatingImage = false,
 }: {
   message: MessageData;
   personaOptions?: DimensionOption[];
   isStreaming?: boolean;
+  generatingImage?: boolean;
 }) {
   const isUser = message.role === "user";
   const tts = useTTS();
@@ -1539,7 +1554,15 @@ function MessageBubble({
       >
         <Box className="chat-markdown" fontFamily="body" fontSize="lg">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</ReactMarkdown>
-          {isStreaming && (
+          {generatingImage && (
+            <Flex align="center" gap={2} mt={2}>
+              <Spinner size="xs" color="violet.500" />
+              <Text fontSize="sm" fontFamily="heading" color="violet.500" fontWeight="600">
+                Generating image...
+              </Text>
+            </Flex>
+          )}
+          {isStreaming && !generatingImage && (
             <Box
               as="span"
               display="inline-block"

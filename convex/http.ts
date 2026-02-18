@@ -477,6 +477,13 @@ http.route({
                   return "Image generation is not available right now. I'll describe the concept in words instead.";
                 }
 
+                // Notify client that image generation has started
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ generatingImage: "started" })}\n\n`
+                  )
+                );
+
                 const geminiRes = await fetch(
                   `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
                   {
