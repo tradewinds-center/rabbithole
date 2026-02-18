@@ -26,6 +26,7 @@ import {
   ProgressCircle,
   AbsoluteCenter,
   Popover,
+  Checkbox,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -39,13 +40,13 @@ import {
   FiX,
   FiCheck,
   FiLink,
-  FiLock,
   FiUnlock,
   FiPlus,
   FiCopy,
   FiCpu,
   FiCompass,
   FiExternalLink,
+  FiUserPlus,
 } from "react-icons/fi";
 import dynamic from "next/dynamic";
 
@@ -70,7 +71,7 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 type Tab = "scholars" | "live" | "curriculum" | "assistant";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
-  { key: "live", label: "Classroom", icon: Lectern },
+  { key: "live", label: "Activities", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
   { key: "curriculum", label: "Curriculum", icon: FiBook },
   { key: "assistant", label: "Assistant", icon: FiCpu },
@@ -213,6 +214,7 @@ export default function TeacherDashboardInner() {
 
   // Activity view data
   const activityData = useQuery(api.projects.listActiveByUnit);
+  const completedActivities = useQuery(api.focus.listCompleted) ?? [];
 
   // Auth redirect
   useEffect(() => {
@@ -479,6 +481,7 @@ export default function TeacherDashboardInner() {
             currentFocus={currentFocus ?? null}
             onSetFocus={async (args) => { await setFocus(args); }}
             onClearFocus={async () => { await clearFocus(); }}
+            completedActivities={completedActivities}
           />
         )}
 
@@ -578,6 +581,7 @@ type ScholarInActivity = {
   processStep: string | null;
   projectTitle: string;
   analysisSummary: string | null;
+  activityId?: string | null;
 };
 
 type UnitInfo = {
@@ -590,6 +594,26 @@ type UnitInfo = {
   durationMinutes?: number;
 };
 
+type CompletedActivity = {
+  _id: string;
+  unitId?: string | null;
+  unitTitle: string;
+  unitEmoji: string | null;
+  startedAt: number;
+  completedAt: number;
+  endsAt?: number | null;
+  scholarCount: number;
+};
+
+type FocusInfo = {
+  _id?: string;
+  unitId?: string | null;
+  scholarIds?: string[] | null;
+  endsAt?: number | null;
+  _creationTime?: number;
+  isActive: boolean;
+};
+
 function ActivityView({
   activityData,
   units,
@@ -598,20 +622,16 @@ function ActivityView({
   currentFocus,
   onSetFocus,
   onClearFocus,
+  completedActivities,
 }: {
   activityData: ActivityData | null;
   units: UnitInfo[];
   selectedUnitId: string | null;
   onSelectUnit: (id: string | null) => void;
-  currentFocus: {
-    unitId?: string | null;
-    scholarIds?: string[] | null;
-    endsAt?: number | null;
-    _creationTime?: number;
-    isActive: boolean;
-  } | null;
+  currentFocus: FocusInfo | null;
   onSetFocus: (args: { unitId?: Id<"units">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
   onClearFocus: () => void;
+  completedActivities: CompletedActivity[];
 }) {
   const isActive = currentFocus?.isActive ?? false;
   const focusUnitId = isActive ? currentFocus?.unitId ?? null : null;
@@ -621,22 +641,24 @@ function ActivityView({
   const updateProject = useMutation(api.projects.update);
   const moveStep = useMutation(api.processState.teacherMoveStep);
 
-  // The focused unit's data (if any), filtered to only scholars assigned during this activity
-  const activityStartedAt = currentFocus?._creationTime ?? 0;
+  // The focused unit's data (if any), filtered to only scholars assigned to this activity
+  const currentFocusId = currentFocus?._id ?? null;
   const focusedGroup = useMemo(() => {
     if (!activityData || !focusUnitId) return null;
     const group = activityData.unitGroups.find(
       (g) => String(g.unitId) === focusUnitId
     );
     if (!group) return null;
-    // Only include scholars whose projects were created after the activity started
+    // Only include scholars whose projects are linked to the current activity
     return {
       ...group,
-      scholars: group.scholars.filter(
-        (s) => s.projectCreatedAt >= activityStartedAt
-      ),
+      scholars: currentFocusId
+        ? group.scholars.filter(
+            (s) => s.activityId === currentFocusId
+          )
+        : group.scholars,
     };
-  }, [activityData, focusUnitId, activityStartedAt]);
+  }, [activityData, focusUnitId, currentFocusId]);
 
   // "Unassigned" = all active scholars NOT in the focused unit
   const unassignedScholars = useMemo(() => {
@@ -662,14 +684,34 @@ function ActivityView({
   // Find selected group for detail panel
   const selectedGroup = useMemo(() => {
     if (!selectedUnitId) return null;
-    if (selectedUnitId === "__unassigned") {
-      return { type: "unassigned" as const, scholars: unassignedScholars };
+    if (selectedUnitId.startsWith("completed-")) {
+      const focusId = selectedUnitId.slice("completed-".length);
+      return { type: "completed" as const, focusId };
     }
-    if (focusedGroup && selectedUnitId === focusUnitId) {
-      return { type: "unit" as const, data: focusedGroup };
+    if (selectedUnitId === focusUnitId) {
+      if (focusedGroup) {
+        return { type: "unit" as const, data: focusedGroup };
+      }
+      // No scholars assigned yet — build a synthetic group from unit metadata
+      const unit = units.find((u) => u._id === focusUnitId);
+      if (unit) {
+        return {
+          type: "unit" as const,
+          data: {
+            unitId: unit._id as Id<"units">,
+            unitTitle: unit.title,
+            unitEmoji: unit.emoji ?? null,
+            unitDescription: unit.description ?? null,
+            processId: (unit.processId ?? null) as Id<"processes"> | null,
+            process: null,
+            durationMinutes: unit.durationMinutes ?? null,
+            scholars: [] as ScholarInActivity[],
+          },
+        };
+      }
     }
     return null;
-  }, [selectedUnitId, focusedGroup, focusUnitId, unassignedScholars]);
+  }, [selectedUnitId, focusedGroup, focusUnitId, unassignedScholars, units]);
 
   // ── Drag and Drop ──
   const [activeScholar, setActiveScholar] = useState<ScholarInActivity | null>(null);
@@ -713,6 +755,7 @@ function ActivityView({
       await createProject({
         userId: scholar.scholarId,
         unitId: focusUnitId as Id<"units">,
+        activityId: currentFocusId as Id<"focusSettings">,
       });
     }
     // Dragging from focused activity → unassigned
@@ -721,6 +764,7 @@ function ActivityView({
       await updateProject({
         id: scholar.projectId,
         unitId: null,
+        activityId: null,
       });
     }
     // Dragging between process steps
@@ -732,7 +776,7 @@ function ActivityView({
         stepKey,
       });
     }
-  }, [activeScholar, dragSource, focusUnitId, createProject, updateProject, moveStep]);
+  }, [activeScholar, dragSource, focusUnitId, currentFocusId, createProject, updateProject, moveStep]);
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -742,7 +786,6 @@ function ActivityView({
           units={units}
           focusedGroup={focusedGroup}
           focusUnitId={focusUnitId}
-          unassignedCount={unassignedScholars.length}
           selectedUnitId={selectedUnitId}
           onSelectUnit={onSelectUnit}
           currentFocus={currentFocus}
@@ -757,6 +800,7 @@ function ActivityView({
           }}
           isDragging={!!activeScholar}
           dragSource={dragSource}
+          completedActivities={completedActivities}
         />
 
         {/* Detail Panel */}
@@ -770,24 +814,8 @@ function ActivityView({
                 </Text>
               </VStack>
             </Flex>
-          ) : selectedGroup.type === "unassigned" ? (
-            <Box p={6}>
-              <HStack mb={4} pb={4} borderBottom="1px solid" borderColor="gray.200" gap={3}>
-                <Box color="charcoal.400"><FiCompass size={24} /></Box>
-                <Text fontFamily="heading" fontWeight="700" fontSize="lg" color="navy.500">
-                  Unassigned
-                </Text>
-              </HStack>
-              {selectedGroup.scholars.length > 0 ? (
-                <ScholarCardGrid scholars={selectedGroup.scholars} source="__unassigned" droppedIds={droppedIds} />
-              ) : (
-                <Flex align="center" justify="center" py={12} color="charcoal.300">
-                  <Text fontFamily="heading" fontSize="sm">
-                    All scholars are in the current activity
-                  </Text>
-                </Flex>
-              )}
-            </Box>
+          ) : selectedGroup.type === "completed" ? (
+            <CompletedActivityDetail focusId={selectedGroup.focusId as Id<"focusSettings">} />
           ) : selectedGroup.type === "unit" ? (
             <Box p={6}>
               <ActivityHeader
@@ -800,6 +828,19 @@ function ActivityView({
                 onSetFocus={onSetFocus}
                 onClearFocus={onClearFocus}
                 durationMinutes={selectedGroup.data.durationMinutes}
+                unassignedScholars={unassignedScholars}
+                onAddScholars={async (scholarIds) => {
+                  const unitIdTyped = selectedGroup.data.unitId as Id<"units">;
+                  await Promise.all(
+                    scholarIds.map((sid) =>
+                      createProject({
+                        userId: sid,
+                        unitId: unitIdTyped,
+                        activityId: currentFocusId as Id<"focusSettings">,
+                      })
+                    )
+                  );
+                }}
               />
               {selectedGroup.data.scholars.length > 0 ? (
                 <>
@@ -863,7 +904,6 @@ function ActivitySidebar({
   units,
   focusedGroup,
   focusUnitId,
-  unassignedCount,
   selectedUnitId,
   onSelectUnit,
   currentFocus,
@@ -871,24 +911,19 @@ function ActivitySidebar({
   onStopActivity,
   isDragging,
   dragSource,
+  completedActivities,
 }: {
   units: UnitInfo[];
   focusedGroup: ActivityData["unitGroups"][number] | null;
   focusUnitId: string | null;
-  unassignedCount: number;
   selectedUnitId: string | null;
   onSelectUnit: (id: string | null) => void;
-  currentFocus: {
-    unitId?: string | null;
-    scholarIds?: string[] | null;
-    endsAt?: number | null;
-    _creationTime?: number;
-    isActive: boolean;
-  } | null;
+  currentFocus: FocusInfo | null;
   onStartActivity: (unitId: string, durationMinutes?: number) => void;
   onStopActivity: () => void;
   isDragging: boolean;
   dragSource: string | null;
+  completedActivities: CompletedActivity[];
 }) {
   const focusedUnit = focusUnitId ? units.find((u) => u._id === focusUnitId) : null;
   const [startDialogOpen, setStartDialogOpen] = useState(false);
@@ -1070,99 +1105,119 @@ function ActivitySidebar({
           </Portal>
         </Dialog.Root>
 
-        {/* The focused activity (droppable target) */}
+        {/* ── IN PROGRESS section ── */}
         {focusedUnit && (
-          <DroppableSidebarRow
-            dropId={focusUnitId!}
-            isSelected={selectedUnitId === focusUnitId}
-            isDragTarget={isDragging && dragSource === "__unassigned"}
-            onClick={() => onSelectUnit(focusUnitId)}
-          >
-            <Text fontSize="lg" flexShrink={0}>
-              {focusedUnit.emoji || "📚"}
+          <>
+            <Text px={4} pt={3} pb={1} fontFamily="heading" fontSize="2xs" fontWeight="600" color="charcoal.400" textTransform="uppercase" letterSpacing="0.05em">
+              In Progress
             </Text>
-            <VStack gap={0} align="start" flex={1} minW={0}>
-              <Text
-                fontWeight={selectedUnitId === focusUnitId ? "600" : "500"}
-                fontFamily="heading"
-                color={selectedUnitId === focusUnitId ? "violet.700" : "navy.500"}
-                fontSize="sm"
-                overflow="hidden"
-                textOverflow="ellipsis"
-                whiteSpace="nowrap"
-              >
-                {focusedUnit.title}
+            <DroppableSidebarRow
+              dropId={focusUnitId!}
+              isSelected={selectedUnitId === focusUnitId}
+              isDragTarget={isDragging && dragSource === "__unassigned"}
+              onClick={() => onSelectUnit(focusUnitId)}
+            >
+              <Text fontSize="lg" flexShrink={0}>
+                {focusedUnit.emoji || "📚"}
               </Text>
-              {focusedGroup && focusedGroup.scholars.length > 0 && (
-                <HStack gap={0} mt={0.5}>
-                  {focusedGroup.scholars.slice(0, 4).map((s, i) => (
-                    <Box key={String(s.scholarId)} ml={i > 0 ? "-6px" : "0"} zIndex={4 - i}>
-                      <Avatar
-                        size="xs"
-                        name={s.name || undefined}
-                        src={s.image || undefined}
-                      />
-                    </Box>
-                  ))}
-                  {focusedGroup.scholars.length > 4 && (
-                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading" ml={1}>
-                      +{focusedGroup.scholars.length - 4}
-                    </Text>
-                  )}
-                </HStack>
+              <VStack gap={0} align="start" flex={1} minW={0}>
+                <Text
+                  fontWeight={selectedUnitId === focusUnitId ? "600" : "500"}
+                  fontFamily="heading"
+                  color={selectedUnitId === focusUnitId ? "violet.700" : "navy.500"}
+                  fontSize="sm"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                >
+                  {focusedUnit.title}
+                </Text>
+                {focusedGroup && focusedGroup.scholars.length > 0 && (
+                  <HStack gap={0} mt={0.5}>
+                    {focusedGroup.scholars.slice(0, 4).map((s, i) => (
+                      <Box key={String(s.scholarId)} ml={i > 0 ? "-6px" : "0"} zIndex={4 - i}>
+                        <Avatar
+                          size="xs"
+                          name={s.name || undefined}
+                          src={s.image || undefined}
+                        />
+                      </Box>
+                    ))}
+                    {focusedGroup.scholars.length > 4 && (
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="heading" ml={1}>
+                        +{focusedGroup.scholars.length - 4}
+                      </Text>
+                    )}
+                  </HStack>
+                )}
+              </VStack>
+              {currentFocus?.endsAt && (
+                <Box border="1px solid" borderColor="gray.400" borderRadius="sm" p={1} display="inline-flex" flexShrink={0} ml="auto">
+                  <ProgressCircle.Root value={sidebarProgress} colorPalette="red" size="xs">
+                    <ProgressCircle.Circle css={{ "--thickness": "12px" }}>
+                      <ProgressCircle.Track stroke="white" />
+                      <ProgressCircle.Range />
+                    </ProgressCircle.Circle>
+                  </ProgressCircle.Root>
+                </Box>
               )}
-            </VStack>
-            {currentFocus?.endsAt ? (
-              <Box border="1px solid" borderColor="gray.400" borderRadius="sm" p={1} display="inline-flex" flexShrink={0} ml="auto">
-                <ProgressCircle.Root value={sidebarProgress} colorPalette="red" size="xs">
-                  <ProgressCircle.Circle css={{ "--thickness": "12px" }}>
-                    <ProgressCircle.Track stroke="white" />
-                    <ProgressCircle.Range />
-                  </ProgressCircle.Circle>
-                </ProgressCircle.Root>
-              </Box>
-            ) : (
-              <FiLock size={10} color="var(--chakra-colors-violet-500)" style={{ flexShrink: 0, marginLeft: "auto" }} />
-            )}
-          </DroppableSidebarRow>
+            </DroppableSidebarRow>
+          </>
         )}
 
-        {/* Unassigned — everyone not in the focused activity (droppable target) */}
-        <DroppableSidebarRow
-          dropId="__unassigned"
-          isSelected={selectedUnitId === "__unassigned"}
-          isDragTarget={isDragging && dragSource !== "__unassigned"}
-          onClick={() => onSelectUnit("__unassigned")}
-          borderTop={focusedUnit ? "1px solid" : undefined}
-          borderTopColor="gray.100"
-        >
-          <Box flexShrink={0} color="charcoal.400">
-            <FiCompass size={20} />
-          </Box>
-          <Text
-            fontWeight={selectedUnitId === "__unassigned" ? "600" : "500"}
-            fontFamily="heading"
-            color={selectedUnitId === "__unassigned" ? "violet.700" : "navy.500"}
-            fontSize="sm"
-            flex={1}
-          >
-            Unassigned
-          </Text>
-          <Badge
-            bg="gray.100"
-            color="charcoal.400"
-            fontFamily="heading"
-            fontSize="xs"
-            px={2}
-            minW="24px"
-            textAlign="center"
-            flexShrink={0}
-          >
-            {unassignedCount}
-          </Badge>
-        </DroppableSidebarRow>
+        {/* ── COMPLETED section ── */}
+        {completedActivities.length > 0 && (
+          <>
+            <Text px={4} pt={3} pb={1} fontFamily="heading" fontSize="2xs" fontWeight="600" color="charcoal.400" textTransform="uppercase" letterSpacing="0.05em">
+              Completed
+            </Text>
+            {completedActivities.map((ca) => {
+              const key = `completed-${ca._id}`;
+              const isSelected = selectedUnitId === key;
+              const startTime = new Date(ca.startedAt);
+              const endTime = new Date(ca.completedAt);
+              const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+              return (
+                <HStack
+                  key={ca._id}
+                  px={4}
+                  py={2.5}
+                  gap={2.5}
+                  cursor="pointer"
+                  bg={isSelected ? "violet.50" : "transparent"}
+                  borderLeft="3px solid"
+                  borderColor={isSelected ? "violet.500" : "transparent"}
+                  _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
+                  transition="all 0.1s"
+                  opacity={0.7}
+                  onClick={() => onSelectUnit(key)}
+                >
+                  <Text fontSize="lg" flexShrink={0}>
+                    {ca.unitEmoji || "📚"}
+                  </Text>
+                  <VStack gap={0} align="start" flex={1} minW={0}>
+                    <Text
+                      fontWeight={isSelected ? "600" : "500"}
+                      fontFamily="heading"
+                      color={isSelected ? "violet.700" : "navy.500"}
+                      fontSize="sm"
+                      overflow="hidden"
+                      textOverflow="ellipsis"
+                      whiteSpace="nowrap"
+                    >
+                      {ca.unitTitle}
+                    </Text>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                      {fmt(startTime)}–{fmt(endTime)} · {ca.scholarCount} scholar{ca.scholarCount !== 1 ? "s" : ""}
+                    </Text>
+                  </VStack>
+                </HStack>
+              );
+            })}
+          </>
+        )}
 
-        {!focusedUnit && (
+        {!focusedUnit && completedActivities.length === 0 && (
           <VStack py={8} gap={3} px={4}>
             <Text color="charcoal.300" fontFamily="heading" fontSize="sm" textAlign="center">
               Click Start to begin an activity
@@ -1218,6 +1273,182 @@ function DroppableSidebarRow({
   );
 }
 
+// ── Add Scholars Button ──────────────────────────────────────────────
+
+function AddScholarsButton({
+  unassignedScholars,
+  onAddScholars,
+}: {
+  unassignedScholars: ScholarInActivity[];
+  onAddScholars: (scholarIds: Id<"users">[]) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
+
+  const sorted = useMemo(
+    () => [...unassignedScholars].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
+    [unassignedScholars]
+  );
+
+  if (sorted.length === 0) return null;
+
+  const allSelected = selected.size === sorted.length;
+
+  const handleToggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sorted.map((s) => String(s.scholarId))));
+    }
+  };
+
+  const handleAdd = async () => {
+    if (selected.size === 0) return;
+    setAdding(true);
+    try {
+      await onAddScholars(
+        Array.from(selected).map((id) => id as Id<"users">)
+      );
+      setSelected(new Set());
+      setOpen(false);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        size="xs"
+        bg="violet.500"
+        color="white"
+        fontFamily="heading"
+        fontSize="xs"
+        _hover={{ bg: "violet.600" }}
+        onClick={() => { setOpen(true); setSelected(new Set()); }}
+      >
+        <FiUserPlus style={{ marginRight: "4px" }} />
+        Add Scholars
+      </Button>
+
+      <Dialog.Root
+        open={open}
+        onOpenChange={(e) => { if (!e.open) setOpen(false); }}
+        placement="center"
+        motionPreset="slide-in-bottom"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+              <Dialog.Header px={6} pt={5} pb={2}>
+                <Dialog.Title fontFamily="heading" fontWeight="700" color="navy.500">
+                  Add Scholars
+                </Dialog.Title>
+                <Dialog.CloseTrigger asChild>
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Close"
+                    position="absolute"
+                    top={3}
+                    right={3}
+                  >
+                    <FiX />
+                  </IconButton>
+                </Dialog.CloseTrigger>
+              </Dialog.Header>
+
+              <Dialog.Body px={6} py={3}>
+                <Flex justify="flex-end" mb={3}>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    color="violet.500"
+                    fontFamily="heading"
+                    fontSize="xs"
+                    _hover={{ bg: "violet.50" }}
+                    onClick={handleSelectAll}
+                  >
+                    {allSelected ? "Deselect All" : "Select All"}
+                  </Button>
+                </Flex>
+
+                <VStack gap={1} align="stretch" maxH="300px" overflowY="auto">
+                  {sorted.map((s) => {
+                    const id = String(s.scholarId);
+                    return (
+                      <Flex
+                        key={id}
+                        align="center"
+                        gap={3}
+                        px={3}
+                        py={2}
+                        borderRadius="md"
+                        cursor="pointer"
+                        _hover={{ bg: "violet.50" }}
+                        onClick={() => handleToggle(id)}
+                      >
+                        <Checkbox.Root
+                          checked={selected.has(id)}
+                          onCheckedChange={() => handleToggle(id)}
+                          colorPalette="violet"
+                          size="sm"
+                        >
+                          <Checkbox.HiddenInput />
+                          <Checkbox.Control>
+                            <Checkbox.Indicator />
+                          </Checkbox.Control>
+                        </Checkbox.Root>
+                        <Avatar
+                          name={s.name ?? "Scholar"}
+                          src={s.image ?? undefined}
+                          size="xs"
+                        />
+                        <Text fontFamily="heading" fontSize="sm" color="charcoal.500">
+                          {s.name ?? "Unknown Scholar"}
+                        </Text>
+                      </Flex>
+                    );
+                  })}
+                </VStack>
+              </Dialog.Body>
+
+              <Dialog.Footer px={6} pb={5} pt={3}>
+                <Button
+                  size="sm"
+                  bg="violet.500"
+                  color="white"
+                  fontFamily="heading"
+                  fontSize="sm"
+                  _hover={{ bg: "violet.600" }}
+                  w="full"
+                  disabled={selected.size === 0 || adding}
+                  onClick={handleAdd}
+                >
+                  {adding
+                    ? "Adding..."
+                    : `Add ${selected.size} Scholar${selected.size !== 1 ? "s" : ""}`}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
+    </>
+  );
+}
+
 // ── Activity Header ───────────────────────────────────────────────────
 
 function ActivityHeader({
@@ -1230,28 +1461,27 @@ function ActivityHeader({
   onSetFocus,
   onClearFocus,
   durationMinutes,
+  unassignedScholars,
+  onAddScholars,
 }: {
   title: string;
   emoji: string | null;
   description: string | null;
   unitId: string | null;
   units: UnitInfo[];
-  currentFocus: {
-    unitId?: string | null;
-    scholarIds?: string[] | null;
-    endsAt?: number | null;
-    _creationTime?: number;
-    isActive: boolean;
-  } | null;
+  currentFocus: FocusInfo | null;
   onSetFocus: (args: { unitId?: Id<"units">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
   onClearFocus: () => void;
   durationMinutes: number | null;
+  unassignedScholars: ScholarInActivity[];
+  onAddScholars: (scholarIds: Id<"users">[]) => Promise<void>;
 }) {
   const isActive = currentFocus?.isActive ?? false;
   const isLocked = isActive && unitId && currentFocus?.unitId === unitId;
   const [linkCopied, setLinkCopied] = useState(false);
   const [timerInput, setTimerInput] = useState("");
   const [showTimerInput, setShowTimerInput] = useState(false);
+  const [timerEditing, setTimerEditing] = useState(false);
 
   // Countdown timer
   const [timeLeft, setTimeLeft] = useState("");
@@ -1296,73 +1526,149 @@ function ActivityHeader({
   };
 
   return (
-    <Flex
+    <VStack
       mb={4}
       pb={4}
       borderBottom="1px solid"
       borderColor="gray.200"
-      align="center"
+      align="stretch"
       gap={3}
-      flexWrap="wrap"
     >
-      {emoji && <Text fontSize="2xl">{emoji}</Text>}
-      <VStack gap={0} align="start" flex={1} minW={0}>
-        <Text fontFamily="heading" fontWeight="700" fontSize="lg" color="navy.500">
-          {title}
-        </Text>
-        {description && (
-          <Text
-            fontSize="sm"
-            color="charcoal.400"
-            fontFamily="heading"
-            overflow="hidden"
-            textOverflow="ellipsis"
-            whiteSpace="nowrap"
-            maxW="100%"
-          >
-            {description}
+      {/* Title row */}
+      <HStack gap={3} align="center">
+        {emoji && <Text fontSize="2xl">{emoji}</Text>}
+        <VStack gap={0} align="start" flex={1} minW={0}>
+          <Text fontFamily="heading" fontWeight="700" fontSize="lg" color="navy.500">
+            {title}
           </Text>
-        )}
-      </VStack>
+          {description && (
+            <Text
+              fontSize="sm"
+              color="charcoal.400"
+              fontFamily="heading"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              whiteSpace="nowrap"
+              maxW="100%"
+            >
+              {description}
+            </Text>
+          )}
+        </VStack>
 
-      {/* Timer display + setter */}
-      {isLocked && (
-        <>
-          <Popover.Root open={showTimerInput} onOpenChange={(e) => setShowTimerInput(e.open)}>
+        {/* Timer circle (inline with title when active) */}
+        {isLocked && timeLeft && (
+          <Popover.Root open={showTimerInput} onOpenChange={(e) => { setShowTimerInput(e.open); if (!e.open) setTimerEditing(false); }}>
             <Popover.Trigger asChild>
-              {timeLeft ? (
-                <Box
-                  border="1px solid"
-                  borderColor="gray.300"
-                  borderRadius="md"
-                  p={1}
-                  display="inline-flex"
-                  cursor="pointer"
-                  flexShrink={0}
-                >
-                  <ProgressCircle.Root value={timerProgress} bg="white" colorPalette="red" size="xs">
-                    <ProgressCircle.Circle css={{ "--thickness": "12px" }}>
-                      <ProgressCircle.Track stroke="white" />
-                      <ProgressCircle.Range />
-                    </ProgressCircle.Circle>
-                  </ProgressCircle.Root>
-                </Box>
-              ) : (
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  color="charcoal.400"
-                  fontFamily="heading"
-                  fontSize="xs"
-                  _hover={{ color: "red.500", bg: "red.50" }}
-                >
-                  Set Timer
-                </Button>
-              )}
+              <Box
+                border="1px solid"
+                borderColor="gray.300"
+                borderRadius="md"
+                p={1}
+                display="inline-flex"
+                cursor="pointer"
+                flexShrink={0}
+              >
+                <ProgressCircle.Root value={timerProgress} bg="white" colorPalette="red" size="xs">
+                  <ProgressCircle.Circle css={{ "--thickness": "12px" }}>
+                    <ProgressCircle.Track stroke="white" />
+                    <ProgressCircle.Range />
+                  </ProgressCircle.Circle>
+                </ProgressCircle.Root>
+              </Box>
             </Popover.Trigger>
             <Portal>
               <Popover.Positioner>
-                <Popover.Content w="180px" p={4} borderRadius="lg" shadow="lg">
+                <Popover.Content w="200px" p={4} borderRadius="lg" shadow="lg">
+                  {!timerEditing ? (
+                    <VStack gap={3} align="stretch">
+                      <VStack gap={0}>
+                        <Text fontFamily="heading" fontSize="2xl" fontWeight="700" color="red.500" textAlign="center">
+                          {timeLeft}
+                        </Text>
+                        <Text fontFamily="heading" fontSize="xs" color="charcoal.400" textAlign="center">
+                          remaining
+                        </Text>
+                      </VStack>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        borderColor="charcoal.300"
+                        color="charcoal.500"
+                        fontFamily="heading"
+                        fontSize="sm"
+                        _hover={{ bg: "gray.50", borderColor: "charcoal.400" }}
+                        w="full"
+                        onClick={() => setTimerEditing(true)}
+                      >
+                        Edit
+                      </Button>
+                    </VStack>
+                  ) : (
+                    <VStack gap={3} align="stretch">
+                      <HStack gap={2} align="center">
+                        <Input
+                          size="sm"
+                          type="number"
+                          w="80px"
+                          fontFamily="heading"
+                          fontSize="sm"
+                          value={timerInput}
+                          onChange={(e) => setTimerInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { handleSetTimer(); setShowTimerInput(false); setTimerEditing(false); } }}
+                          autoFocus
+                          min={1}
+                          max={480}
+                        />
+                        <Text fontSize="sm" color="charcoal.500" fontFamily="heading">min</Text>
+                      </HStack>
+                      <Button
+                        size="sm"
+                        bg="red.500"
+                        color="white"
+                        fontFamily="heading"
+                        fontSize="sm"
+                        _hover={{ bg: "red.600" }}
+                        w="full"
+                        onClick={() => { handleSetTimer(); setShowTimerInput(false); setTimerEditing(false); }}
+                      >
+                        Set
+                      </Button>
+                    </VStack>
+                  )}
+                </Popover.Content>
+              </Popover.Positioner>
+            </Portal>
+          </Popover.Root>
+        )}
+      </HStack>
+
+      {/* Action buttons row */}
+      <HStack gap={2} flexWrap="wrap">
+        {/* Add Scholars (primary) */}
+        <AddScholarsButton
+          unassignedScholars={unassignedScholars}
+          onAddScholars={onAddScholars}
+        />
+
+        {/* Set Timer */}
+        {isLocked && !timeLeft && (
+          <Popover.Root open={showTimerInput} onOpenChange={(e) => { setShowTimerInput(e.open); if (!e.open) setTimerEditing(false); }}>
+            <Popover.Trigger asChild>
+              <Button
+                size="xs"
+                variant="ghost"
+                color="charcoal.400"
+                fontFamily="heading"
+                fontSize="xs"
+                _hover={{ color: "red.500", bg: "red.50" }}
+              >
+                Set Timer
+              </Button>
+            </Popover.Trigger>
+            <Portal>
+              <Popover.Positioner>
+                <Popover.Content w="200px" p={4} borderRadius="lg" shadow="lg">
                   <VStack gap={3} align="stretch">
                     <HStack gap={2} align="center">
                       <Input
@@ -1373,7 +1679,7 @@ function ActivityHeader({
                         fontSize="sm"
                         value={timerInput}
                         onChange={(e) => setTimerInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { handleSetTimer(); setShowTimerInput(false); } }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { handleSetTimer(); setShowTimerInput(false); setTimerEditing(false); } }}
                         autoFocus
                         min={1}
                         max={480}
@@ -1388,7 +1694,7 @@ function ActivityHeader({
                       fontSize="sm"
                       _hover={{ bg: "red.600" }}
                       w="full"
-                      onClick={() => { handleSetTimer(); setShowTimerInput(false); }}
+                      onClick={() => { handleSetTimer(); setShowTimerInput(false); setTimerEditing(false); }}
                     >
                       Set
                     </Button>
@@ -1397,44 +1703,115 @@ function ActivityHeader({
               </Popover.Positioner>
             </Portal>
           </Popover.Root>
-        </>
-      )}
+        )}
 
-      {/* Release All */}
-      {unitId && isLocked && (
-        <Button
-          size="sm"
-          variant="solid"
-          bg="violet.500"
-          color="white"
-          fontFamily="heading"
-          fontSize="xs"
-          _hover={{ bg: "red.500" }}
-          onClick={onClearFocus}
-        >
-          <FiUnlock style={{ marginRight: "4px" }} /> Release All
-        </Button>
-      )}
+        {/* Copy Link */}
+        {unitId && (
+          <Button
+            size="xs"
+            variant="ghost"
+            color="charcoal.400"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "violet.50", color: "violet.500" }}
+            onClick={handleCopyLink}
+          >
+            {linkCopied ? (
+              <><FiCheck style={{ marginRight: "4px" }} />Copied!</>
+            ) : (
+              <><FiLink style={{ marginRight: "4px" }} />Copy Link</>
+            )}
+          </Button>
+        )}
 
-      {/* Copy Link */}
-      {unitId && (
-        <Button
-          size="sm"
-          variant="ghost"
-          color="charcoal.400"
-          fontFamily="heading"
-          fontSize="xs"
-          _hover={{ bg: "violet.50", color: "violet.500" }}
-          onClick={handleCopyLink}
-        >
-          {linkCopied ? (
-            <><FiCheck style={{ marginRight: "4px" }} />Copied!</>
-          ) : (
-            <><FiLink style={{ marginRight: "4px" }} />Copy Link</>
+        {/* End Activity */}
+        {unitId && isLocked && (
+          <Button
+            size="xs"
+            variant="ghost"
+            color="charcoal.400"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "red.50", color: "red.500" }}
+            onClick={onClearFocus}
+          >
+            <FiCheck style={{ marginRight: "4px" }} /> End Activity
+          </Button>
+        )}
+      </HStack>
+    </VStack>
+  );
+}
+
+// ── Scholar Cards Grid ────────────────────────────────────────────────
+
+// ── Completed Activity Detail ───────────────────────────────────────
+
+function CompletedActivityDetail({ focusId }: { focusId: Id<"focusSettings"> }) {
+  const data = useQuery(api.focus.getWithProjects, { focusId });
+
+  if (!data) {
+    return (
+      <Flex align="center" justify="center" h="full">
+        <Spinner size="lg" color="violet.500" />
+      </Flex>
+    );
+  }
+
+  const startTime = new Date(data.startedAt);
+  const endTime = data.completedAt ? new Date(data.completedAt) : null;
+  const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  return (
+    <Box p={6}>
+      {/* Header */}
+      <Flex mb={4} pb={4} borderBottom="1px solid" borderColor="gray.200" align="center" gap={3}>
+        {data.unitEmoji && <Text fontSize="2xl">{data.unitEmoji}</Text>}
+        <VStack gap={0} align="start" flex={1} minW={0}>
+          <Text fontFamily="heading" fontWeight="700" fontSize="lg" color="navy.500">
+            {data.unitTitle}
+          </Text>
+          <Text fontSize="sm" color="charcoal.400" fontFamily="heading">
+            {fmt(startTime)}{endTime ? `–${fmt(endTime)}` : ""} · {data.scholars.length} scholar{data.scholars.length !== 1 ? "s" : ""}
+          </Text>
+          {data.unitDescription && (
+            <Text fontSize="sm" color="charcoal.400" fontFamily="heading" mt={0.5}>
+              {data.unitDescription}
+            </Text>
           )}
-        </Button>
+        </VStack>
+        <Badge bg="gray.100" color="charcoal.500" fontFamily="heading" fontSize="xs">
+          Completed
+        </Badge>
+      </Flex>
+
+      {/* Scholar cards (read-only, no drag) */}
+      {data.scholars.length > 0 ? (
+        data.process ? (
+          <RacetrackPanel
+            process={data.process}
+            scholars={data.scholars}
+            source={`completed-${focusId}`}
+            droppedIds={new Set()}
+            onRelease={undefined}
+            fullWidth
+            readOnly
+          />
+        ) : (
+          <Flex wrap="wrap" gap={3} mb={2}>
+            {data.scholars.map((s) => (
+              <ScholarCard key={String(s.projectId)} scholar={s} />
+            ))}
+          </Flex>
+        )
+      ) : (
+        <Flex align="center" justify="center" py={12} color="charcoal.300">
+          <Text fontFamily="heading" fontSize="sm">
+            No scholars participated in this activity
+          </Text>
+        </Flex>
       )}
-    </Flex>
+    </Box>
   );
 }
 
@@ -1636,6 +2013,7 @@ function RacetrackPanel({
   droppedIds,
   onRelease,
   fullWidth,
+  readOnly,
 }: {
   process: {
     title: string;
@@ -1647,6 +2025,7 @@ function RacetrackPanel({
   droppedIds: Set<string>;
   onRelease?: (scholar: ScholarInActivity) => void;
   fullWidth?: boolean;
+  readOnly?: boolean;
 }) {
   // Group scholars by their current step
   const scholarsByStep: Record<string, ScholarInActivity[]> = {};
@@ -1677,6 +2056,34 @@ function RacetrackPanel({
         {process.steps.map((step) => {
           const scholarsAtStep = scholarsByStep[step.key] || [];
           const hasScholars = scholarsAtStep.length > 0;
+          const stepContent = (
+            <>
+              <Timeline.Title
+                fontFamily="heading"
+                fontSize="sm"
+                fontWeight={hasScholars ? "600" : "400"}
+                color={hasScholars ? "navy.500" : "charcoal.300"}
+              >
+                {step.title}
+              </Timeline.Title>
+              {step.description && (
+                <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mt={0.5}>
+                  {step.description}
+                </Text>
+              )}
+              {hasScholars && (
+                <Flex wrap="wrap" gap={3} mt={2}>
+                  {scholarsAtStep.map((s) =>
+                    readOnly ? (
+                      <ScholarCard key={String(s.projectId)} scholar={s} />
+                    ) : (
+                      <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
+                    )
+                  )}
+                </Flex>
+              )}
+            </>
+          );
           return (
             <Timeline.Item key={step.key}>
               <Timeline.Connector>
@@ -1697,28 +2104,15 @@ function RacetrackPanel({
                   </Text>
                 </Timeline.Indicator>
               </Timeline.Connector>
-              <DroppableTimelineContent stepKey={step.key} pb={hasScholars ? 4 : 2}>
-                <Timeline.Title
-                  fontFamily="heading"
-                  fontSize="sm"
-                  fontWeight={hasScholars ? "600" : "400"}
-                  color={hasScholars ? "navy.500" : "charcoal.300"}
-                >
-                  {step.title}
-                </Timeline.Title>
-                {step.description && (
-                  <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mt={0.5}>
-                    {step.description}
-                  </Text>
-                )}
-                {hasScholars && (
-                  <Flex wrap="wrap" gap={3} mt={2}>
-                    {scholarsAtStep.map((s) => (
-                      <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
-                    ))}
-                  </Flex>
-                )}
-              </DroppableTimelineContent>
+              {readOnly ? (
+                <Timeline.Content pb={hasScholars ? 4 : 2}>
+                  {stepContent}
+                </Timeline.Content>
+              ) : (
+                <DroppableTimelineContent stepKey={step.key} pb={hasScholars ? 4 : 2}>
+                  {stepContent}
+                </DroppableTimelineContent>
+              )}
             </Timeline.Item>
           );
         })}
@@ -1731,9 +2125,13 @@ function RacetrackPanel({
             Not started
           </Text>
           <Flex wrap="wrap" gap={3}>
-            {noStep.map((s) => (
-              <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
-            ))}
+            {noStep.map((s) =>
+              readOnly ? (
+                <ScholarCard key={String(s.projectId)} scholar={s} />
+              ) : (
+                <DraggableScholarCard key={String(s.projectId)} scholar={s} source={source} onRelease={onRelease} />
+              )
+            )}
           </Flex>
         </Box>
       )}

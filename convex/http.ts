@@ -457,8 +457,8 @@ http.route({
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
           tools.push(updateDossierTool); // Always enabled
           tools.push(createCodeTool); // Always enabled — scholars can build interactive code
+          tools.push(editDocumentTool); // Always enabled — needed to edit code artifacts and create/edit documents
           if (hasProcess) tools.push(processStepTool);
-          if (project.unitContext || (project.artifactData && project.artifactData.length > 0)) tools.push(editDocumentTool);
 
           // ── Stream with tool runner ──────────────────────────────────
 
@@ -466,7 +466,7 @@ http.route({
             // Use beta tool runner for automatic multi-turn handling
             const runner = anthropic.beta.messages.toolRunner({
               model: "claude-sonnet-4-5-20250929",
-              max_tokens: 2048,
+              max_tokens: 4096,
               system: systemPrompt,
               messages: apiMessages,
               tools,
@@ -509,7 +509,7 @@ http.route({
             // No tools: simple streaming (no tool runner needed)
             const anthropicStream = anthropic.messages.stream({
               model: "claude-sonnet-4-5-20250929",
-              max_tokens: 2048,
+              max_tokens: 4096,
               system: systemPrompt,
               messages: apiMessages,
             });
@@ -1164,6 +1164,219 @@ http.route({
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }),
+});
+
+// ── Parent API endpoints ──────────────────────────────────────────────────────
+
+const PARENT_API_CORS = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+};
+
+/** Extract Bearer token from Authorization header */
+function extractToken(request: Request): string | null {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  return authHeader.slice(7);
+}
+
+http.route({
+  path: "/parent-api/validate",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    return new Response(
+      JSON.stringify({ scholarName: auth.scholarName, parentName: auth.parentName }),
+      { status: 200, headers: PARENT_API_CORS }
+    );
+  }),
+});
+
+http.route({
+  path: "/parent-api/summary",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const summary = await ctx.runQuery(internal.parentAccess.getScholarSummary, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(summary), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+http.route({
+  path: "/parent-api/projects",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const projects = await ctx.runQuery(internal.parentAccess.getRecentProjects, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(projects), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+http.route({
+  path: "/parent-api/mastery",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const mastery = await ctx.runQuery(internal.curriculumAssistant.getScholarMastery, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(mastery), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+http.route({
+  path: "/parent-api/signals",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const signals = await ctx.runQuery(internal.curriculumAssistant.getScholarSignals, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(signals), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+http.route({
+  path: "/parent-api/seeds",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const seeds = await ctx.runQuery(internal.curriculumAssistant.getScholarSeeds, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(seeds), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+http.route({
+  path: "/parent-api/observations",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    const observations = await ctx.runQuery(internal.curriculumAssistant.getScholarObservations, { scholarId: auth.scholarId });
+    return new Response(JSON.stringify(observations), { status: 200, headers: PARENT_API_CORS });
+  }),
+});
+
+// CORS preflight for parent-api
+http.route({
+  path: "/parent-api/validate",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/summary",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/projects",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/mastery",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/signals",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/seeds",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+http.route({
+  path: "/parent-api/observations",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
   }),

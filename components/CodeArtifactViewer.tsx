@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Box, Flex, Text, Button, IconButton, Textarea, HStack } from "@chakra-ui/react";
 import { FiCode, FiEye, FiTrash2, FiRefreshCw } from "react-icons/fi";
 
@@ -28,7 +28,7 @@ export function CodeArtifactViewer({
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const lastKnownContentRef = useRef(artifact.content);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const isSynced = localCode === artifact.content;
 
@@ -66,24 +66,7 @@ export function CodeArtifactViewer({
     setShowUpdateBanner(false);
   };
 
-  const refreshPreview = useCallback(() => {
-    if (iframeRef.current) {
-      const doc = iframeRef.current.contentDocument;
-      if (doc) {
-        doc.open();
-        doc.write(localCode);
-        doc.close();
-      }
-    }
-  }, [localCode]);
-
-  // Update preview when code changes (debounced)
-  useEffect(() => {
-    if (view === "preview") {
-      const timer = setTimeout(refreshPreview, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [localCode, view, refreshPreview]);
+  const refreshPreview = () => setPreviewKey((k) => k + 1);
 
   useEffect(() => {
     return () => clearTimeout(saveTimeoutRef.current);
@@ -171,8 +154,9 @@ export function CodeArtifactViewer({
       {view === "preview" ? (
         <Box flex={1} overflow="hidden" bg="white">
           <iframe
-            ref={iframeRef}
+            key={previewKey}
             sandbox="allow-scripts"
+            srcDoc={localCode}
             style={{
               width: "100%",
               height: "100%",

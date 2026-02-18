@@ -111,6 +111,7 @@ export const create = authedMutation({
   args: {
     userId: v.optional(v.id("users")), // For teacher remote mode
     unitId: v.optional(v.id("units")),
+    activityId: v.optional(v.id("focusSettings")),
   },
   handler: async (ctx, args) => {
     const isTeacher =
@@ -132,6 +133,7 @@ export const create = authedMutation({
     const id = await ctx.db.insert("projects", {
       userId: ownerUserId,
       unitId: args.unitId,
+      activityId: args.activityId,
       title,
       isArchived: false,
     });
@@ -158,6 +160,7 @@ export const update = authedMutation({
     id: v.id("projects"),
     title: v.optional(v.string()),
     unitId: v.optional(v.union(v.id("units"), v.null())),
+    activityId: v.optional(v.union(v.id("focusSettings"), v.null())),
     teacherWhisper: v.optional(v.union(v.string(), v.null())),
     pendingWhisper: v.optional(v.union(v.string(), v.null())),
     readingLevelOverride: v.optional(v.union(v.string(), v.null())),
@@ -181,6 +184,8 @@ export const update = authedMutation({
     if (args.title !== undefined) updates.title = args.title;
     if (args.unitId !== undefined)
       updates.unitId = args.unitId ?? undefined;
+    if (args.activityId !== undefined)
+      updates.activityId = args.activityId ?? undefined;
 
     // Only teachers can update these
     if (isTeacher) {
@@ -396,6 +401,7 @@ export const listActiveByUnit = teacherQuery({
               processStep: procState?.currentStep ?? null,
               projectTitle: proj.title,
               analysisSummary: proj.analysisSummary ?? null,
+              activityId: proj.activityId ? String(proj.activityId) : null,
             };
           })
         );
@@ -419,7 +425,7 @@ export const listActiveByUnit = teacherQuery({
       })
     );
 
-    // Resolve unassigned scholars
+    // Resolve unassigned scholars (projects with no unit)
     const unassignedScholars = await Promise.all(
       unassigned.map(async (proj) => {
         const scholar = await ctx.db.get(proj.userId);
@@ -443,15 +449,42 @@ export const listActiveByUnit = teacherQuery({
           processStep: null,
           projectTitle: proj.title,
           analysisSummary: proj.analysisSummary ?? null,
+          activityId: proj.activityId ? String(proj.activityId) : null,
         };
       })
     );
+
+    // Include scholars with no active projects at all
+    const allScholars = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .collect();
+    const scholarsWithProjects = new Set(allProjects.map((p) => String(p.userId)));
+    const noProjectScholars = allScholars
+      .filter((s) => !scholarsWithProjects.has(String(s._id)))
+      .map((s) => ({
+        scholarId: s._id,
+        projectId: "" as Id<"projects">, // placeholder — no project yet
+        projectCreatedAt: s._creationTime,
+        name: s.name ?? null,
+        image: s.image ?? null,
+        readingLevel: s.readingLevel ?? null,
+        dateOfBirth: s.dateOfBirth ?? null,
+        pulseScore: null,
+        lastMessageAt: null,
+        lastMessageContent: null,
+        lastMessageRole: null,
+        processStep: null,
+        projectTitle: "",
+        analysisSummary: null,
+        activityId: null,
+      }));
 
     return {
       unitGroups: unitGroups.filter(
         (g): g is NonNullable<typeof g> => g !== null
       ),
-      unassigned: { scholars: unassignedScholars },
+      unassigned: { scholars: [...unassignedScholars, ...noProjectScholars] },
     };
   },
 });

@@ -54,10 +54,12 @@ export default defineSchema({
     // DEPRECATED — kept optional for migration, remove after running migrations:removeStatusField
     status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))),
     progressScore: v.optional(v.number()),
+    activityId: v.optional(v.id("focusSettings")),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])
-    .index("by_unit", ["unitId"]),
+    .index("by_unit", ["unitId"])
+    .index("by_activity", ["activityId"]),
 
   messages: defineTable({
     projectId: v.id("projects"),
@@ -289,7 +291,10 @@ export default defineSchema({
     // Phase 1: simplified — only unitId, individual dims removed
     isActive: v.boolean(),
     endsAt: v.optional(v.number()), // auto-expire: computed from unit.durationMinutes or teacher override
-  }).index("by_active", ["isActive"]),
+    completedAt: v.optional(v.number()), // timestamp when activity was completed/released
+  })
+    .index("by_active", ["isActive"])
+    .index("by_teacher", ["teacherId"]),
 
   processes: defineTable({
     teacherId: v.id("users"),
@@ -342,6 +347,17 @@ export default defineSchema({
   })
     .index("by_teacher", ["teacherId"])
     .index("by_stream", ["streamId"]),
+
+  parentTokens: defineTable({
+    token: v.string(),
+    scholarId: v.id("users"),
+    parentName: v.string(),
+    parentEmail: v.optional(v.string()),
+    createdBy: v.id("users"),
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_scholar", ["scholarId"]),
 
   processState: defineTable({
     projectId: v.id("projects"),

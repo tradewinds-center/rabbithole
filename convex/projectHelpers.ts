@@ -559,7 +559,7 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
   }
 
   // Code artifacts guidance
-  parts.push(`\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script> — no external files or CDN links. It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.`);
+  parts.push(`\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script>. Prefer vanilla JS — external libraries via CDN are allowed if needed (e.g. p5.js, Three.js). It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.`);
 
   // Exploration seeds (teacher-approved + pending ideas to weave in)
   if (seedsData && seedsData.length > 0) {

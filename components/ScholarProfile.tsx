@@ -33,7 +33,9 @@ import {
   FiEdit3,
   FiCpu,
   FiClipboard,
+  FiShare2,
 } from "react-icons/fi";
+import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
 import { MasteryTab } from "@/components/MasteryTab";
 import { SeedsTab } from "@/components/SeedsTab";
@@ -126,6 +128,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [newReport, setNewReport] = useState({ title: "", content: "" });
   const [isAddingReport, setIsAddingReport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showParentAccess, setShowParentAccess] = useState(false);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
@@ -256,6 +259,18 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         </HStack>
 
         <HStack ml="auto" gap={1}>
+          <Button
+            size="sm"
+            variant="ghost"
+            color="violet.500"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "violet.50" }}
+            onClick={() => setShowParentAccess(true)}
+          >
+            <FiShare2 style={{ marginRight: "4px" }} />
+            Parent Access
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -723,6 +738,14 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
           </Dialog.Positioner>
         </Portal>
       </Dialog.Root>
+
+      {/* Parent Access Dialog */}
+      <ParentAccessDialog
+        scholarId={scholarId}
+        scholarName={scholar?.name ?? "Scholar"}
+        open={showParentAccess}
+        onClose={() => setShowParentAccess(false)}
+      />
     </Box>
   );
 }

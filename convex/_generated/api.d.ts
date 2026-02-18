@@ -26,6 +26,7 @@ import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as observations from "../observations.js";
 import type * as observer from "../observer.js";
+import type * as parentAccess from "../parentAccess.js";
 import type * as personas from "../personas.js";
 import type * as perspectives from "../perspectives.js";
 import type * as processState from "../processState.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   observations: typeof observations;
   observer: typeof observer;
+  parentAccess: typeof parentAccess;
   personas: typeof personas;
   perspectives: typeof perspectives;
   processState: typeof processState;
