@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, teacherQuery } from "./lib/customFunctions";
+import { authedQuery, teacherQuery, teacherMutation } from "./lib/customFunctions";
 import { internalMutation } from "./_generated/server";
 
 /**
@@ -83,6 +83,37 @@ export const updateStep = internalMutation({
           status: args.status,
           commentary: args.commentary ?? s.commentary,
         };
+      }
+      return s;
+    });
+
+    await ctx.db.patch(state._id, {
+      currentStep: args.stepKey,
+      steps: updatedSteps,
+    });
+  },
+});
+
+/**
+ * Teacher moves a scholar to a different process step (drag-and-drop in Activity View).
+ */
+export const teacherMoveStep = teacherMutation({
+  args: {
+    projectId: v.id("projects"),
+    stepKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const state = await ctx.db
+      .query("processState")
+      .withIndex("by_project", (q) =>
+        q.eq("projectId", args.projectId)
+      )
+      .first();
+    if (!state) return;
+
+    const updatedSteps = state.steps.map((s) => {
+      if (s.key === args.stepKey) {
+        return { ...s, status: "in_progress" as const };
       }
       return s;
     });

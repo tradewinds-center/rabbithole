@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherMutation, teacherQuery } from "./lib/customFunctions";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
@@ -325,6 +325,131 @@ export const sendMessage = authedMutation({
       assistantMsgId,
       projectId: args.projectId,
       imageId: args.imageId ?? null,
+    };
+  },
+});
+
+/**
+ * List all active (non-archived) projects grouped by unitId.
+ * Used by teacher Activity View to show which scholars are working on which units.
+ */
+export const listActiveByUnit = teacherQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Get all non-archived projects
+    const allProjects = await ctx.db
+      .query("projects")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    // Group by unitId
+    const byUnit = new Map<string, typeof allProjects>();
+    const unassigned: typeof allProjects = [];
+    for (const p of allProjects) {
+      if (p.unitId) {
+        const key = String(p.unitId);
+        if (!byUnit.has(key)) byUnit.set(key, []);
+        byUnit.get(key)!.push(p);
+      } else {
+        unassigned.push(p);
+      }
+    }
+
+    // Resolve each unit group
+    const unitGroups = await Promise.all(
+      Array.from(byUnit.entries()).map(async ([unitIdStr, projects]) => {
+        const unitId = unitIdStr as Id<"units">;
+        const unit = await ctx.db.get(unitId);
+        if (!unit) return null;
+
+        const process = unit.processId
+          ? await ctx.db.get(unit.processId)
+          : null;
+
+        const scholars = await Promise.all(
+          projects.map(async (proj) => {
+            const scholar = await ctx.db.get(proj.userId);
+            // Get last message (content + timestamp)
+            const lastMsg = await ctx.db
+              .query("messages")
+              .withIndex("by_project", (q) => q.eq("projectId", proj._id))
+              .order("desc")
+              .first();
+            // Get process state
+            const procState = await ctx.db
+              .query("processState")
+              .withIndex("by_project", (q) => q.eq("projectId", proj._id))
+              .first();
+
+            return {
+              scholarId: proj.userId,
+              projectId: proj._id,
+              name: scholar?.name ?? null,
+              image: scholar?.image ?? null,
+              readingLevel: scholar?.readingLevel ?? null,
+              dateOfBirth: scholar?.dateOfBirth ?? null,
+              pulseScore: proj.pulseScore ?? null,
+              lastMessageAt: lastMsg?._creationTime ?? null,
+              lastMessageContent: lastMsg?.content?.slice(0, 120) ?? null,
+              lastMessageRole: lastMsg?.role ?? null,
+              processStep: procState?.currentStep ?? null,
+              projectTitle: proj.title,
+              analysisSummary: proj.analysisSummary ?? null,
+            };
+          })
+        );
+
+        return {
+          unitId: unit._id,
+          unitTitle: unit.title,
+          unitEmoji: unit.emoji ?? null,
+          unitDescription: unit.description ?? null,
+          processId: unit.processId ?? null,
+          process: process
+            ? {
+                title: process.title,
+                emoji: process.emoji ?? null,
+                steps: process.steps,
+              }
+            : null,
+          durationMinutes: unit.durationMinutes ?? null,
+          scholars,
+        };
+      })
+    );
+
+    // Resolve unassigned scholars
+    const unassignedScholars = await Promise.all(
+      unassigned.map(async (proj) => {
+        const scholar = await ctx.db.get(proj.userId);
+        const lastMsg = await ctx.db
+          .query("messages")
+          .withIndex("by_project", (q) => q.eq("projectId", proj._id))
+          .order("desc")
+          .first();
+        return {
+          scholarId: proj.userId,
+          projectId: proj._id,
+          name: scholar?.name ?? null,
+          image: scholar?.image ?? null,
+          readingLevel: scholar?.readingLevel ?? null,
+          dateOfBirth: scholar?.dateOfBirth ?? null,
+          pulseScore: proj.pulseScore ?? null,
+          lastMessageAt: lastMsg?._creationTime ?? null,
+          lastMessageContent: lastMsg?.content?.slice(0, 120) ?? null,
+          lastMessageRole: lastMsg?.role ?? null,
+          processStep: null,
+          projectTitle: proj.title,
+          analysisSummary: proj.analysisSummary ?? null,
+        };
+      })
+    );
+
+    return {
+      unitGroups: unitGroups.filter(
+        (g): g is NonNullable<typeof g> => g !== null
+      ),
+      unassigned: { scholars: unassignedScholars },
     };
   },
 });

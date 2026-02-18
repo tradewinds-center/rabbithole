@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -17,6 +18,8 @@ import {
   Badge,
   Input,
   Tabs,
+  Dialog,
+  Portal,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -44,6 +47,7 @@ interface ScholarProfileProps {
   scholarId: string;
   activeTab?: TabKey;
   onTabChange?: (tab: TabKey) => void;
+  onDelete?: () => void;
 }
 
 const READING_LEVELS = [
@@ -89,7 +93,10 @@ function timeAgo(timestamp: number): string {
   return `${months}mo ago`;
 }
 
-export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange }: ScholarProfileProps) {
+export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange, onDelete }: ScholarProfileProps) {
+  const { user: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === "admin";
+  const deleteUser = useMutation(api.users.deleteUser);
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
   // masteryByDomain moved to MasteryTab component
@@ -118,6 +125,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [isAddingObservation, setIsAddingObservation] = useState(false);
   const [newReport, setNewReport] = useState({ title: "", content: "" });
   const [isAddingReport, setIsAddingReport] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
@@ -260,6 +268,20 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             <FiExternalLink style={{ marginRight: "4px" }} />
             Remote View
           </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="ghost"
+              color="red.500"
+              fontFamily="heading"
+              fontSize="xs"
+              _hover={{ bg: "red.50" }}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <FiTrash2 style={{ marginRight: "4px" }} />
+              Delete
+            </Button>
+          )}
         </HStack>
 
       </Flex>
@@ -652,6 +674,55 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
           </Box>
         )}
       </Box>
+
+      {/* Delete confirmation dialog */}
+      <Dialog.Root
+        open={showDeleteConfirm}
+        onOpenChange={(e) => setShowDeleteConfirm(e.open)}
+        placement="center"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+              <Dialog.Header px={6} pt={5} pb={2}>
+                <Dialog.Title fontFamily="heading" fontSize="lg" color="navy.500">
+                  Delete Scholar
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body px={6} py={3}>
+                <Text fontSize="sm" fontFamily="body" color="charcoal.500">
+                  Delete <strong>{scholar?.name ?? "this scholar"}</strong> and ALL their data? This cannot be undone.
+                </Text>
+              </Dialog.Body>
+              <Dialog.Footer px={6} pb={5} pt={2} gap={2}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  fontFamily="heading"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  bg="red.500"
+                  color="white"
+                  _hover={{ bg: "red.600" }}
+                  fontFamily="heading"
+                  onClick={async () => {
+                    setShowDeleteConfirm(false);
+                    onDelete?.();
+                    await deleteUser({ userId: scholarId as Id<"users"> });
+                  }}
+                >
+                  Delete
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   );
 }

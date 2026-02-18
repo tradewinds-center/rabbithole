@@ -140,6 +140,19 @@ function ScholarProjectInner() {
     // Wait for unit list to load if we have a unit param
     if (urlUnit && units.length === 0) return;
 
+    // Check if scholar already has a project for this unit (join, don't duplicate)
+    if (resolvedUnitId && projects.length > 0) {
+      const existing = projects.find((p) => p.unitId === resolvedUnitId);
+      if (existing) {
+        newProjectCreatedRef.current = true;
+        const queryParts: string[] = [];
+        if (remoteUserId) queryParts.push(`remote=${remoteUserId}`);
+        const query = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+        router.replace(`/scholar/${existing.id}${query}`);
+        return;
+      }
+    }
+
     newProjectCreatedRef.current = true;
 
     const createArgs: Record<string, unknown> = {};
@@ -162,7 +175,7 @@ function ScholarProjectInner() {
         console.error("Error creating project:", error);
         newProjectCreatedRef.current = false;
       });
-  }, [isNewProject, hasDimensionParams, units, resolvedUnitId, createProject, router, remoteUserId, isRemoteMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNewProject, hasDimensionParams, units, resolvedUnitId, createProject, router, remoteUserId, isRemoteMode, projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Open unit picker dialog for new project
   const handleNewProject = useCallback(() => {
