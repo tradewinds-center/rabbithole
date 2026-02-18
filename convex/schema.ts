@@ -272,6 +272,7 @@ export default defineSchema({
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
+    durationMinutes: v.optional(v.number()),
     // null = teacher-created; set = scholar-created independent study unit
     scholarId: v.optional(v.id("users")),
     isActive: v.boolean(),
@@ -284,8 +285,10 @@ export default defineSchema({
   focusSettings: defineTable({
     teacherId: v.id("users"),
     unitId: v.optional(v.id("units")),
+    scholarIds: v.optional(v.array(v.id("users"))), // targeted scholars (empty/undefined = all)
     // Phase 1: simplified — only unitId, individual dims removed
     isActive: v.boolean(),
+    endsAt: v.optional(v.number()), // auto-expire: computed from unit.durationMinutes or teacher override
   }).index("by_active", ["isActive"]),
 
   processes: defineTable({

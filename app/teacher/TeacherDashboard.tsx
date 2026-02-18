@@ -545,6 +545,7 @@ function LiveView({
     <Flex flex={1} direction="column" overflow="hidden">
       <FocusBar
         currentFocus={currentFocus}
+        scholars={scholars}
         units={units}
         onSet={onSetFocus}
         onClear={onClearFocus}
@@ -858,20 +859,50 @@ interface FocusEntity {
 interface FocusBarProps {
   currentFocus: {
     unitId?: string | null;
+    scholarIds?: string[] | null;
+    endsAt?: number | null;
     isActive: boolean;
   } | null;
+  scholars: Scholar[];
   units: FocusEntity[];
   onSet: (args: {
     unitId?: Id<"units">;
+    scholarIds?: Id<"users">[];
   }) => void;
   onClear: () => void;
 }
 
-function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
+function FocusBar({ currentFocus, scholars, units, onSet, onClear }: FocusBarProps) {
   const isActive = currentFocus?.isActive ?? false;
   const focusUnitId = isActive ? currentFocus?.unitId ?? null : null;
   const hasFocus = !!focusUnitId;
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Scholar selection state — seeded from currentFocus when it changes
+  const [selectedScholarIds, setSelectedScholarIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (currentFocus?.scholarIds && currentFocus.scholarIds.length > 0) {
+      setSelectedScholarIds(new Set(currentFocus.scholarIds));
+    } else if (!hasFocus) {
+      setSelectedScholarIds(new Set());
+    }
+  }, [currentFocus?.scholarIds, hasFocus]);
+
+  // Countdown timer
+  const [timeLeft, setTimeLeft] = useState("");
+  useEffect(() => {
+    if (!currentFocus?.endsAt) { setTimeLeft(""); return; }
+    const update = () => {
+      const remaining = Math.max(0, Math.floor((currentFocus.endsAt! - Date.now()) / 1000));
+      if (remaining <= 0) { setTimeLeft(""); return; }
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      setTimeLeft(m > 0 ? `${m}m ${s.toString().padStart(2, "0")}s` : `${s}s`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [currentFocus?.endsAt]);
 
   // Building block lists for unit edit modal
   const personasList = useQuery(api.personas.list) ?? [];
@@ -887,6 +918,44 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
     navigator.clipboard.writeText(url);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  // Toggle a scholar in the selection and immediately call onSet
+  const toggleScholar = (id: string) => {
+    setSelectedScholarIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      // Fire the mutation with the updated set
+      if (focusUnitId) {
+        onSet({
+          unitId: focusUnitId as Id<"units">,
+          scholarIds: Array.from(next) as Id<"users">[],
+        });
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    const allIds = scholars.map((s) => s.id);
+    const allSelected = allIds.every((id) => selectedScholarIds.has(id));
+    const next = allSelected ? new Set<string>() : new Set(allIds);
+    setSelectedScholarIds(next);
+    if (focusUnitId) {
+      onSet({
+        unitId: focusUnitId as Id<"units">,
+        scholarIds: Array.from(next) as Id<"users">[],
+      });
+    }
+  };
+
+  // When unit changes via picker, also pass current scholar selection
+  const handleUnitChange = (id: string | null) => {
+    const scholarArr = Array.from(selectedScholarIds) as Id<"users">[];
+    onSet({
+      unitId: (id as Id<"units">) ?? undefined,
+      scholarIds: scholarArr.length > 0 ? scholarArr : undefined,
+    });
   };
 
   // Edit modal state
@@ -925,6 +994,7 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
       align="center"
       gap={3}
       transition="all 0.15s"
+      flexWrap="wrap"
     >
       <HStack gap={2} color="violet.600" flexShrink={0}>
         <FiLock size={14} />
@@ -939,7 +1009,7 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
           defaultLabel="None"
           activeId={focusUnitId}
           options={unitOptions}
-          onChange={(id) => onSet({ unitId: (id as Id<"units">) ?? undefined })}
+          onChange={handleUnitChange}
           renderOption={(p) => `${p.emoji || "📚"} ${p.title}`}
           renderActive={() => {
             const active = units.find((p) => p._id === focusUnitId);
@@ -947,6 +1017,13 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
           }}
           onEdit={(id) => openEdit(id)}
         />
+
+        {/* Countdown timer */}
+        {timeLeft && (
+          <Text fontFamily="heading" fontSize="xs" color="orange.600" fontWeight="600" ml={2} whiteSpace="nowrap">
+            {timeLeft} left
+          </Text>
+        )}
 
         <Box
           as="button"
@@ -966,6 +1043,52 @@ function FocusBar({ currentFocus, units, onSet, onClear }: FocusBarProps) {
           <FiX size={14} />
         </Box>
       </HStack>
+
+      {/* Scholar chips — shown when a unit is selected */}
+      {hasFocus && scholars.length > 0 && (
+        <HStack gap={1.5} flexWrap="wrap">
+          <Box
+            as="button"
+            px={2}
+            py={0.5}
+            borderRadius="full"
+            fontSize="xs"
+            fontFamily="heading"
+            fontWeight="600"
+            cursor="pointer"
+            bg={selectedScholarIds.size === 0 || selectedScholarIds.size === scholars.length ? "violet.200" : "gray.200"}
+            color={selectedScholarIds.size === 0 || selectedScholarIds.size === scholars.length ? "violet.700" : "charcoal.500"}
+            _hover={{ bg: "violet.300" }}
+            transition="all 0.1s"
+            onClick={toggleAll}
+          >
+            {selectedScholarIds.size === scholars.length ? "Deselect All" : "All"}
+          </Box>
+          {scholars.map((s) => {
+            const isSelected = selectedScholarIds.has(s.id);
+            return (
+              <Box
+                key={s.id}
+                as="button"
+                px={2}
+                py={0.5}
+                borderRadius="full"
+                fontSize="xs"
+                fontFamily="heading"
+                fontWeight="500"
+                cursor="pointer"
+                bg={isSelected ? "violet.500" : "gray.100"}
+                color={isSelected ? "white" : "charcoal.400"}
+                _hover={{ bg: isSelected ? "violet.600" : "gray.200" }}
+                transition="all 0.1s"
+                onClick={() => toggleScholar(s.id)}
+              >
+                {(s.name ?? "Unknown").split(" ")[0]}
+              </Box>
+            );
+          })}
+        </HStack>
+      )}
 
       <Box flex={1} />
 

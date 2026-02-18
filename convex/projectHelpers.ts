@@ -171,6 +171,31 @@ export const getProjectContext = internalQuery({
       })),
     ];
 
+    // Get focus timing context
+    const activeFocus = await ctx.db
+      .query("focusSettings")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .first();
+    let timingContext: {
+      unitEndsAt: number | null;
+      projectStartedAt: number;
+      unitDurationMinutes: number | null;
+    } | null = null;
+    if (activeFocus && activeFocus.isActive && activeFocus.endsAt && Date.now() <= activeFocus.endsAt) {
+      timingContext = {
+        unitEndsAt: activeFocus.endsAt,
+        projectStartedAt: project._creationTime,
+        unitDurationMinutes: unit?.durationMinutes ?? null,
+      };
+    } else if (unit?.durationMinutes) {
+      // No active focus but unit has a duration — pass it for soft pacing
+      timingContext = {
+        unitEndsAt: null,
+        projectStartedAt: project._creationTime,
+        unitDurationMinutes: unit.durationMinutes,
+      };
+    }
+
     // Get artifact data (multi-document)
     const allArtifacts = await ctx.db
       .query("artifacts")
@@ -205,6 +230,7 @@ export const getProjectContext = internalQuery({
       seeds,
       chatHistory,
       title: project.title,
+      timingContext,
     };
   },
 });
@@ -344,7 +370,12 @@ export function buildSystemPrompt(
     evidence: string;
     studentInitiated: boolean;
   }[] | null = null,
-  signalContext: Record<string, { count: number; highCount: number }> | null = null
+  signalContext: Record<string, { count: number; highCount: number }> | null = null,
+  timingContext: {
+    unitEndsAt: number | null;
+    projectStartedAt: number;
+    unitDurationMinutes: number | null;
+  } | null = null
 ): string {
   const parts: string[] = [];
 
@@ -456,6 +487,30 @@ Do NOT update the dossier on every message — only when you have a genuine new 
     }
     if (unitContext.rubric) {
       parts.push(`Rubric: ${unitContext.rubric}`);
+    }
+  }
+
+  // Timing context (pacing guidance)
+  if (timingContext) {
+    if (timingContext.unitEndsAt) {
+      const now = Date.now();
+      const totalMs = timingContext.unitDurationMinutes
+        ? timingContext.unitDurationMinutes * 60_000
+        : timingContext.unitEndsAt - timingContext.projectStartedAt;
+      const elapsedMs = now - (timingContext.unitEndsAt - totalMs);
+      const remainingMs = timingContext.unitEndsAt - now;
+      const remainingMin = Math.max(0, Math.round(remainingMs / 60_000));
+      const pctThrough = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+
+      parts.push(`\n\nTIMING: Session is ${pctThrough}% through, ~${remainingMin} minute${remainingMin !== 1 ? "s" : ""} remaining.`);
+      if (remainingMin <= 5) {
+        parts.push(`Almost over. Help the scholar wrap up their current thought, summarize what they explored, and suggest where to pick up next time.`);
+      } else if (remainingMin <= 10) {
+        parts.push(`Approaching the end. Begin guiding toward a natural stopping point — don't start new big threads.`);
+      }
+      parts.push(`Students are NEVER locked out. This is purely for pacing your responses naturally.`);
+    } else if (timingContext.unitDurationMinutes) {
+      parts.push(`\n\nTIMING: This unit is designed for ~${timingContext.unitDurationMinutes} minutes. Pace your responses accordingly, but no strict deadline is active.`);
     }
   }
 

@@ -50,6 +50,7 @@ export interface DimensionEditData {
   emoji?: string;
   icon?: string;
   rubric?: string;
+  durationMinutes?: number;
   steps?: { key: string; title: string; description?: string }[];
   personaId?: string;
   perspectiveId?: string;
@@ -295,6 +296,7 @@ export function DimensionEditModal({
     description: "",
     systemPrompt: "",
     rubric: "",
+    durationMinutes: "",
     emoji: "",
     icon: "",
     personaId: "",
@@ -318,6 +320,7 @@ export function DimensionEditModal({
         description: data?.description ?? "",
         systemPrompt: data?.systemPrompt ?? "",
         rubric: data?.rubric ?? "",
+        durationMinutes: data?.durationMinutes?.toString() ?? "",
         emoji: data?.emoji ?? "",
         icon: data?.icon ?? "",
         personaId: data?.personaId ?? "",
@@ -361,6 +364,7 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
           });
         } else if (dimensionType === "unit") {
+          const dur = parseInt(formData.durationMinutes);
           await updateUnit({
             id: entityId as Id<"units">,
             title: formData.title,
@@ -368,6 +372,7 @@ export function DimensionEditModal({
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
+            durationMinutes: dur > 0 ? dur : null,
             personaId: formData.personaId ? formData.personaId as Id<"personas"> : null,
             perspectiveId: formData.perspectiveId ? formData.perspectiveId as Id<"perspectives"> : null,
             processId: formData.processId ? formData.processId as Id<"processes"> : null,
@@ -399,12 +404,14 @@ export function DimensionEditModal({
             systemPrompt: formData.systemPrompt || undefined,
           });
         } else if (dimensionType === "unit") {
+          const dur = parseInt(formData.durationMinutes);
           await createUnit({
             title: formData.title,
             emoji: formData.emoji || undefined,
             description: formData.description || undefined,
             systemPrompt: formData.systemPrompt || undefined,
             rubric: formData.rubric || undefined,
+            ...(dur > 0 ? { durationMinutes: dur } : {}),
             ...(formData.personaId ? { personaId: formData.personaId as Id<"personas"> } : {}),
             ...(formData.perspectiveId ? { perspectiveId: formData.perspectiveId as Id<"perspectives"> } : {}),
             ...(formData.processId ? { processId: formData.processId as Id<"processes"> } : {}),
@@ -538,6 +545,25 @@ export function DimensionEditModal({
                         fontSize="md"
                         bg="white"
                       />
+                    </FieldRow>
+                    <FieldRow
+                      label="Duration"
+                      hint="Suggested session length in minutes. Used for AI pacing when focus-locked."
+                    >
+                      <HStack gap={2} align="center">
+                        <Input
+                          type="number"
+                          value={formData.durationMinutes}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                          placeholder="e.g. 45"
+                          fontFamily="body"
+                          fontSize="md"
+                          bg="white"
+                          maxW="120px"
+                          min={1}
+                        />
+                        <Text fontSize="sm" color="charcoal.400" fontFamily="body">minutes</Text>
+                      </HStack>
                     </FieldRow>
                     {(personas?.length || perspectives?.length || processes?.length) ? (
                       <FieldRow

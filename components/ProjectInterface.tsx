@@ -14,7 +14,8 @@ import {
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiImage, FiMic, FiMicOff, FiSend, FiUpload, FiVolume2, FiX } from "react-icons/fi";
+import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiHome, FiImage, FiLock, FiMic, FiMicOff, FiSend, FiUpload, FiVolume2, FiX } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import { useTTS } from "@/hooks/useTTS";
 import { useTimeLimit } from "@/hooks/useTimeLimit";
@@ -68,6 +69,7 @@ export function ProjectInterface({
   isAdmin,
   isRemoteMode,
 }: ProjectInterfaceProps) {
+  const router = useRouter();
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
@@ -223,17 +225,9 @@ export function ProjectInterface({
     }
   }, [isLoading, projectId]);
 
-  // Auto-apply locked unit when focus becomes active (skip in test mode)
-  useEffect(() => {
-    if (isTestMode || !focusLock || !projectData?.project) return;
-    const proj = projectData.project;
-    if (focusLock.unitId != null && String(proj.unitId ?? "") !== focusLock.unitId) {
-      updateProject({
-        id: projectId as Id<"projects">,
-        unitId: focusLock.unitId as Id<"units">,
-      }).catch(console.error);
-    }
-  }, [focusLock, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Focus mismatch: teacher locked a unit but this project has a different one
+  const isFocusMismatch = !isTestMode && focusLock?.unitId != null &&
+    String(projectData?.project?.unitId ?? "") !== focusLock.unitId;
 
   // Handle unit change via Convex mutation
   const handleUnitChange = async (value: string | null) => {
@@ -470,6 +464,47 @@ export function ProjectInterface({
         onToggleRightPanel={hasRightPanelContent ? () => setRightPanelOpen((v) => !v) : undefined}
       />
 
+      {/* Focus mismatch banner — read-only mode */}
+      {isFocusMismatch && (() => {
+        const lockedUnit = units.find((u) => String(u._id) === focusLock?.unitId);
+        return (
+          <Flex
+            px={4}
+            py={3}
+            bg="orange.100"
+            borderBottom="1px solid"
+            borderColor="orange.200"
+            align="center"
+            gap={3}
+          >
+            <FiLock size={16} color="var(--chakra-colors-orange-600)" />
+            <Text fontSize="sm" fontFamily="heading" color="orange.800" flex={1}>
+              Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title})` : ""}. You can read this project but not add messages.
+            </Text>
+            <Box
+              as="button"
+              px={3}
+              py={1.5}
+              bg="orange.500"
+              color="white"
+              borderRadius="lg"
+              fontFamily="heading"
+              fontWeight="600"
+              fontSize="sm"
+              _hover={{ bg: "orange.600" }}
+              cursor="pointer"
+              onClick={() => router.push("/scholar")}
+              display="flex"
+              alignItems="center"
+              gap={1.5}
+            >
+              <FiHome size={14} />
+              Go Home
+            </Box>
+          </Flex>
+        );
+      })()}
+
       {/* Main content area with optional right panel */}
       {(() => {
         const chatProps: ChatColumnProps = {
@@ -513,6 +548,7 @@ export function ProjectInterface({
             }
             e.target.value = ""; // Reset so same file can be re-selected
           },
+          isFocusMismatch,
         };
 
         return showRightPanel ? (
@@ -607,6 +643,7 @@ interface ChatColumnProps {
   onClearImage?: () => void;
   fileInputRef?: React.RefObject<HTMLInputElement | null>;
   onFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isFocusMismatch?: boolean;
 }
 
 function ChatColumn({
@@ -643,6 +680,7 @@ function ChatColumn({
   onClearImage,
   fileInputRef,
   onFileChange,
+  isFocusMismatch = false,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -1218,16 +1256,16 @@ function ChatColumn({
             value={timeLimit?.isExpired ? "" : input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
+            placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
             resize="none"
             rows={1}
             overflow="hidden"
             bg="white"
             border="0.5px solid"
-            borderColor={timeLimit?.isExpired ? "red.300" : "gray.400"}
+            borderColor={isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "gray.400"}
             borderRadius="xl"
             _focus={{
-              borderColor: timeLimit?.isExpired ? "red.300" : "violet.400",
+              borderColor: isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "violet.400",
               boxShadow: "none",
               outline: "none",
             }}
@@ -1235,12 +1273,12 @@ function ChatColumn({
               boxShadow: "none",
               outline: "none",
             }}
-            _placeholder={{ color: timeLimit?.isExpired ? "red.300" : "gray.400" }}
+            _placeholder={{ color: isFocusMismatch ? "orange.400" : timeLimit?.isExpired ? "red.300" : "gray.400" }}
             fontFamily="body"
             fontSize="md"
             py={3}
             px={4}
-            disabled={isStreaming || timeLimit?.isExpired}
+            disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
           />
           {/* Time limit clock button */}
           <IconButton
@@ -1266,7 +1304,7 @@ function ChatColumn({
                 borderRadius="xl"
                 h="auto"
                 minW={12}
-                disabled={isStreaming || timeLimit?.isExpired}
+                disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
               >
                 <FiImage />
               </IconButton>
@@ -1297,7 +1335,7 @@ function ChatColumn({
                 h="auto"
                 minW={12}
                 onClick={toggleRecording}
-                disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired}
+                disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
                 className={dictationState === "recording" ? "recording-pulse" : undefined}
               >
                 {dictationState === "transcribing" ? (
@@ -1335,7 +1373,7 @@ function ChatColumn({
             h="auto"
             minW={12}
             onClick={() => handleSend()}
-            disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired}
+            disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired || isFocusMismatch}
           >
             <FiArrowUp />
           </IconButton>

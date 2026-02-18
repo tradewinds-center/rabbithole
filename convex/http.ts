@@ -66,7 +66,8 @@ http.route({
       project.dossierContent,
       project.seeds.length > 0 ? project.seeds : null,
       project.masteryContext,
-      project.signalContext
+      project.signalContext,
+      project.timingContext
     );
 
     const encoder = new TextEncoder();

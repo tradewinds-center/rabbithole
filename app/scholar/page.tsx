@@ -202,16 +202,15 @@ function ScholarHome() {
                 borderRadius="xl"
                 p={5}
                 shadow="xs"
-                cursor={isMismatch ? "default" : "pointer"}
-                opacity={isMismatch ? 0.4 : 1}
-                pointerEvents={isMismatch ? "none" : "auto"}
-                _hover={isMismatch ? undefined : { shadow: "md" }}
+                cursor="pointer"
+                opacity={isMismatch ? 0.5 : 1}
+                _hover={{ shadow: "md" }}
                 transition="all 0.15s"
                 minH="140px"
                 display="flex"
                 flexDir="column"
                 position="relative"
-                onClick={isMismatch ? undefined : () => handleOpenProject(project._id)}
+                onClick={() => handleOpenProject(project._id)}
               >
                 {isMismatch && (
                   <Box position="absolute" top={3} right={3} color="charcoal.300">
