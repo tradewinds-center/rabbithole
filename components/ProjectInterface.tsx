@@ -1269,7 +1269,7 @@ function ChatColumn({
 
       {/* Input Area */}
       <Box
-        p={isTouchDevice ? 2 : 4}
+        p={4}
         borderTop="0.5px solid"
         borderColor="gray.200"
         bg={timeLimit?.isExpired ? "red.50" : "gray.50"}
@@ -1344,7 +1344,7 @@ function ChatColumn({
             </Text>
           </Flex>
         )}
-        <Flex maxW="3xl" mx="auto" gap={isTouchDevice ? 1.5 : 3}>
+        <Flex maxW="3xl" mx="auto" gap={3}>
           {/* Add photo — left of input */}
           <Menu.Root positioning={{ placement: "top" }}>
             <Menu.Trigger asChild>
@@ -1400,7 +1400,7 @@ function ChatColumn({
             _placeholder={{ color: isFocusMismatch ? "orange.400" : timeLimit?.isExpired ? "red.300" : "gray.400" }}
             fontFamily="body"
             fontSize={isTouchDevice ? "md" : "xl"}
-            py={isTouchDevice ? 2 : 3}
+            py={3}
             px={isTouchDevice ? 3 : 4}
             disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
           />
