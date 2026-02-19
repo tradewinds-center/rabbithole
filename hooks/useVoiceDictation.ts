@@ -36,6 +36,7 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
   const [isTooLoud, setIsTooLoud] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const cancelledRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -152,6 +153,13 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
       stream.getTracks().forEach((t) => t.stop());
       stopLevelMonitor();
 
+      // If cancelled, discard audio and return to idle
+      if (cancelledRef.current) {
+        cancelledRef.current = false;
+        setState("idle");
+        return;
+      }
+
       const blob = new Blob(chunksRef.current, { type: mimeType });
       if (blob.size === 0) {
         setState("idle");
@@ -171,12 +179,21 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     };
 
     recorderRef.current = recorder;
+    cancelledRef.current = false;
     recorder.start();
     setState("recording");
   }, [state, onTranscript, transcribe, startLevelMonitor, stopLevelMonitor]);
 
   const stopRecording = useCallback(() => {
     if (state === "recording" && recorderRef.current) {
+      recorderRef.current.stop();
+    }
+  }, [state]);
+
+  /** Stop recording and discard audio without transcribing. */
+  const cancelRecording = useCallback(() => {
+    if (state === "recording" && recorderRef.current) {
+      cancelledRef.current = true;
       recorderRef.current.stop();
     }
   }, [state]);
@@ -190,5 +207,5 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     }
   }, [state, startRecording, stopRecording]);
 
-  return { state, error, isTooLoud, toggleRecording, startRecording, stopRecording };
+  return { state, error, isTooLoud, toggleRecording, startRecording, stopRecording, cancelRecording };
 }
