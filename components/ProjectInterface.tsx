@@ -15,7 +15,7 @@ import {
   Tooltip,
   Portal,
 } from "@chakra-ui/react";
-import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiHome, FiImage, FiLock, FiMic, FiMicOff, FiSend, FiUpload, FiVolume2, FiX } from "react-icons/fi";
+import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiHome, FiImage, FiLock, FiMic, FiMicOff, FiSend, FiSquare, FiUpload, FiVolume2, FiX } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import { useTTS } from "@/hooks/useTTS";
@@ -77,6 +77,7 @@ export function ProjectInterface({
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const welcomeSentRef = useRef<string | null>(null);
   const [whisperInput, setWhisperInput] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
@@ -329,9 +330,12 @@ export function ProjectInterface({
         ".cloud",
         ".site"
       );
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       const res = await fetch(`${convexUrl}/project-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           projectId: result.projectId,
           streamId: result.streamId,
@@ -393,9 +397,14 @@ export function ProjectInterface({
       console.error("Error sending message:", error);
       setStreamingMsgId(null);
     } finally {
+      abortControllerRef.current = null;
       setIsStreaming(false);
     }
   };
+
+  const handleStopStream = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   // Keep ref in sync so dictation callback can call latest handleSend
   sendMessageRef.current = handleSend;
@@ -577,6 +586,7 @@ export function ProjectInterface({
           },
           isFocusMismatch,
           isTouchDevice,
+          onStopStream: handleStopStream,
         };
 
         const artifactPanelElement = (
@@ -732,6 +742,7 @@ interface ChatColumnProps {
   onFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isFocusMismatch?: boolean;
   isTouchDevice?: boolean;
+  onStopStream?: () => void;
 }
 
 function ChatColumn({
@@ -771,6 +782,7 @@ function ChatColumn({
   onFileChange,
   isFocusMismatch = false,
   isTouchDevice = false,
+  onStopStream,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -1404,8 +1416,21 @@ function ChatColumn({
             px={isTouchDevice ? 3 : 4}
             disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
           />
-          {/* Mic — hidden when input has text */}
-          {(!input.trim() && !pendingImage) && (
+          {/* Right slot: Stop (streaming) / Mic (empty input) / Send (has input) */}
+          {isStreaming ? (
+            <IconButton
+              aria-label="Stop generating"
+              variant="ghost"
+              color="red.500"
+              _hover={{ bg: "red.50" }}
+              borderRadius="xl"
+              h="auto"
+              minW={isTouchDevice ? 10 : 12}
+              onClick={onStopStream}
+            >
+              <FiSquare />
+            </IconButton>
+          ) : (!input.trim() && !pendingImage) ? (
             <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }} disabled={isTouchDevice}>
               <Tooltip.Trigger asChild>
                 <IconButton
@@ -1420,7 +1445,7 @@ function ChatColumn({
                   h="auto"
                   minW={isTouchDevice ? 10 : 12}
                   onClick={toggleRecording}
-                  disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
+                  disabled={dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
                   className={dictationState === "recording" ? "recording-pulse" : undefined}
                 >
                   {dictationState === "transcribing" ? (
@@ -1448,9 +1473,7 @@ function ChatColumn({
                 </Tooltip.Positioner>
               </Portal>
             </Tooltip.Root>
-          )}
-          {/* Send — hidden when input is empty */}
-          {(input.trim() || pendingImage) && (
+          ) : (
             <IconButton
               aria-label="Send message"
               bg="violet.500"
