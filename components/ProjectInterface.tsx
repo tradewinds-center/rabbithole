@@ -1345,35 +1345,7 @@ function ChatColumn({
           </Flex>
         )}
         <Flex maxW="3xl" mx="auto" gap={isTouchDevice ? 1.5 : 3}>
-          <Textarea
-            ref={textareaRef}
-            value={timeLimit?.isExpired ? "" : input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
-            resize="none"
-            rows={1}
-            overflow="hidden"
-            bg="white"
-            border="0.5px solid"
-            borderColor={isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "gray.400"}
-            borderRadius="xl"
-            _focus={{
-              borderColor: isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "violet.400",
-              boxShadow: "none",
-              outline: "none",
-            }}
-            _focusVisible={{
-              boxShadow: "none",
-              outline: "none",
-            }}
-            _placeholder={{ color: isFocusMismatch ? "orange.400" : timeLimit?.isExpired ? "red.300" : "gray.400" }}
-            fontFamily="body"
-            fontSize={isTouchDevice ? "sm" : "md"}
-            py={isTouchDevice ? 2 : 3}
-            px={isTouchDevice ? 3 : 4}
-            disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
-          />
+          {/* Add photo — left of input */}
           <Menu.Root positioning={{ placement: "top" }}>
             <Menu.Trigger asChild>
               <IconButton
@@ -1403,61 +1375,96 @@ function ChatColumn({
               </Menu.Content>
             </Menu.Positioner>
           </Menu.Root>
-          <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }} disabled={isTouchDevice}>
-            <Tooltip.Trigger asChild>
-              <IconButton
-                ref={micBtnRef}
-                aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
-                bg={dictationState === "recording" ? "red.500" : "gray.200"}
-                color={dictationState === "recording" ? "white" : "charcoal.500"}
-                _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
-                _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-                borderRadius="xl"
-                h="auto"
-                minW={isTouchDevice ? 10 : 12}
-                onClick={toggleRecording}
-                disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
-                className={dictationState === "recording" ? "recording-pulse" : undefined}
-              >
-                {dictationState === "transcribing" ? (
-                  <Spinner size="sm" />
-                ) : dictationState === "recording" ? (
-                  <FiMicOff />
-                ) : (
-                  <FiMic />
-                )}
-              </IconButton>
-            </Tooltip.Trigger>
-            <Portal>
-              <Tooltip.Positioner style={{ zIndex: 10000 }}>
-                <Tooltip.Content
-                  fontFamily="heading"
-                  fontSize="xs"
-                  bg="red.600"
-                  color="white"
-                  px={3}
-                  py={1.5}
-                  borderRadius="lg"
-                >
-                  Hold Tab to talk
-                </Tooltip.Content>
-              </Tooltip.Positioner>
-            </Portal>
-          </Tooltip.Root>
-          <IconButton
-            aria-label="Send message"
-            bg="violet.500"
-            color="white"
-            _hover={{ bg: "violet.700" }}
-            _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+          <Textarea
+            ref={textareaRef}
+            value={timeLimit?.isExpired ? "" : input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
+            resize="none"
+            rows={1}
+            overflow="hidden"
+            bg="white"
+            border="0.5px solid"
+            borderColor={isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "gray.400"}
             borderRadius="xl"
-            h="auto"
-            minW={isTouchDevice ? 10 : 12}
-            onClick={() => handleSend()}
-            disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired || isFocusMismatch}
-          >
-            <FiArrowUp />
-          </IconButton>
+            _focus={{
+              borderColor: isFocusMismatch ? "orange.300" : timeLimit?.isExpired ? "red.300" : "violet.400",
+              boxShadow: "none",
+              outline: "none",
+            }}
+            _focusVisible={{
+              boxShadow: "none",
+              outline: "none",
+            }}
+            _placeholder={{ color: isFocusMismatch ? "orange.400" : timeLimit?.isExpired ? "red.300" : "gray.400" }}
+            fontFamily="body"
+            fontSize={isTouchDevice ? "md" : "xl"}
+            py={isTouchDevice ? 2 : 3}
+            px={isTouchDevice ? 3 : 4}
+            disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
+          />
+          {/* Mic — hidden when input has text */}
+          {(!input.trim() && !pendingImage) && (
+            <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }} disabled={isTouchDevice}>
+              <Tooltip.Trigger asChild>
+                <IconButton
+                  ref={micBtnRef}
+                  aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
+                  bg={dictationState === "recording" ? "red.500" : "gray.200"}
+                  color={dictationState === "recording" ? "white" : "charcoal.500"}
+                  _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+                  _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                  borderRadius="xl"
+                  h="auto"
+                  minW={isTouchDevice ? 10 : 12}
+                  onClick={toggleRecording}
+                  disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
+                  className={dictationState === "recording" ? "recording-pulse" : undefined}
+                >
+                  {dictationState === "transcribing" ? (
+                    <Spinner size="sm" />
+                  ) : dictationState === "recording" ? (
+                    <FiMicOff />
+                  ) : (
+                    <FiMic />
+                  )}
+                </IconButton>
+              </Tooltip.Trigger>
+              <Portal>
+                <Tooltip.Positioner style={{ zIndex: 10000 }}>
+                  <Tooltip.Content
+                    fontFamily="heading"
+                    fontSize="xs"
+                    bg="red.600"
+                    color="white"
+                    px={3}
+                    py={1.5}
+                    borderRadius="lg"
+                  >
+                    Hold Tab to talk
+                  </Tooltip.Content>
+                </Tooltip.Positioner>
+              </Portal>
+            </Tooltip.Root>
+          )}
+          {/* Send — hidden when input is empty */}
+          {(input.trim() || pendingImage) && (
+            <IconButton
+              aria-label="Send message"
+              bg="violet.500"
+              color="white"
+              _hover={{ bg: "violet.700" }}
+              _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+              borderRadius="xl"
+              h="auto"
+              minW={isTouchDevice ? 10 : 12}
+              onClick={() => handleSend()}
+              disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired || isFocusMismatch}
+            >
+              <FiArrowUp />
+            </IconButton>
+          )}
         </Flex>
         {dictationError && (
           <Text fontSize="xs" color="red.500" textAlign="center" mt={1} fontFamily="heading">
