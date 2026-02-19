@@ -1421,8 +1421,8 @@ function ChatColumn({
             <IconButton
               aria-label="Stop generating"
               variant="ghost"
-              color="red.500"
-              _hover={{ bg: "red.50" }}
+              color="charcoal.400"
+              _hover={{ bg: "gray.100" }}
               borderRadius="xl"
               h="auto"
               minW={isTouchDevice ? 10 : 12}
