@@ -698,6 +698,10 @@ function ChatColumn({
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
   const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // Camera capture state
   const [showCamera, setShowCamera] = useState(false);
@@ -743,7 +747,9 @@ function ChatColumn({
 
   // Walkie-talkie: Tab hold → record, Tab release → stop & send
   // Quick tap (<200ms) is a no-op so normal Tab usage isn't hijacked
+  // Disabled on touch devices — they use tap-to-toggle instead
   useEffect(() => {
+    if (isTouchDevice) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       // Don't hijack Tab when user is in an input/textarea that isn't ours
@@ -780,7 +786,7 @@ function ChatColumn({
       window.removeEventListener("keyup", onKeyUp);
       if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
     };
-  }, [isStreaming, dictationState, startRecording, stopRecording]);
+  }, [isStreaming, dictationState, startRecording, stopRecording, isTouchDevice]);
 
   // Compute ripple center from mic button position
   const [rippleCenter, setRippleCenter] = useState<{ x: number; y: number } | null>(null);
@@ -1295,19 +1301,6 @@ function ChatColumn({
             px={4}
             disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
           />
-          {/* Time limit clock button */}
-          <IconButton
-            aria-label="Set time limit"
-            bg={timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.100" : "orange.100") : "gray.200"}
-            color={timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.500" : "orange.500") : "charcoal.500"}
-            _hover={{ bg: timeLimit?.isActive ? (timeLimit.secondsRemaining <= 60 ? "red.200" : "orange.200") : "gray.300" }}
-            borderRadius="xl"
-            h="auto"
-            minW={12}
-            onClick={onToggleTimeLimitModal}
-          >
-            <FiClock />
-          </IconButton>
           <Menu.Root positioning={{ placement: "top" }}>
             <Menu.Trigger asChild>
               <IconButton
@@ -1337,7 +1330,7 @@ function ChatColumn({
               </Menu.Content>
             </Menu.Positioner>
           </Menu.Root>
-          <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }}>
+          <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }} disabled={isTouchDevice}>
             <Tooltip.Trigger asChild>
               <IconButton
                 ref={micBtnRef}
@@ -1405,7 +1398,9 @@ function ChatColumn({
           mt={2}
           fontFamily="heading"
         >
-          Conversations may be inspected for debugging and product improvement. Do not enter personal information. AI can make mistakes.
+          {isTouchDevice
+            ? "Do not enter personal information."
+            : "Conversations may be inspected for debugging and product improvement. Do not enter personal information. AI can make mistakes."}
         </Text>
       </Box>
     </Flex>

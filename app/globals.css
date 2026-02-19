@@ -84,6 +84,12 @@ body {
   margin-right: auto;
 }
 
+@media (max-width: 768px) {
+  .message-bubble.assistant {
+    max-width: 100%;
+  }
+}
+
 /* Markdown in chat */
 .chat-markdown p {
   margin-bottom: 0.5rem;
