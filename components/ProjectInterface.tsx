@@ -1211,7 +1211,8 @@ function ChatColumn({
 
       {/* Input Area */}
       <Box
-        p={4}
+        py={3}
+        px={isTouchDevice ? 2 : 3}
         borderTop="0.5px solid"
         borderColor="gray.200"
         bg={timeLimit?.isExpired ? "red.50" : "gray.50"}
@@ -1286,7 +1287,7 @@ function ChatColumn({
             </Text>
           </Flex>
         )}
-        <Flex maxW="3xl" mx="auto" gap={3}>
+        <Flex maxW="3xl" mx="auto" gap={isTouchDevice? 1 : 3}>
           {dictationState === "recording" ? (
             <>
               {/* Cancel recording — discard audio */}
@@ -1396,7 +1397,7 @@ function ChatColumn({
                 value={timeLimit?.isExpired ? "" : input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Ask me anything..."}
+                placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Chat"}
                 resize="none"
                 rows={1}
                 overflow="hidden"
@@ -1500,7 +1501,7 @@ function ChatColumn({
           fontSize="xs"
           color="charcoal.300"
           textAlign="center"
-          mt={isTouchDevice ? 1 : 2}
+          mt={2}
           fontFamily="heading"
         >
           {isTouchDevice
