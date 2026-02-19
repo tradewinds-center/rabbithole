@@ -42,12 +42,13 @@ export function AccountMenu({
           flexShrink={0}
         >
           <HStack gap={2}>
-            {/* Desktop: standalone orb */}
+            {/* Desktop: standalone orb (popover disabled — details in menu) */}
             {showOrb && !isMobile && (
               <StatusOrb
                 pulseScore={pulseScore ?? null}
                 lastMessageAt={lastMessageAt ?? null}
                 size="sm"
+                disablePopover
               />
             )}
             {/* Avatar with optional orb overlay on mobile */}
@@ -63,6 +64,7 @@ export function AccountMenu({
                     pulseScore={pulseScore ?? null}
                     lastMessageAt={lastMessageAt ?? null}
                     size="sm"
+                    disablePopover
                   />
                 </Box>
               )}
@@ -85,8 +87,8 @@ export function AccountMenu({
       </Menu.Trigger>
       <Menu.Positioner>
         <Menu.Content minW="160px">
-          {/* Pulse score details — mobile only */}
-          {showOrb && isMobile && (
+          {/* Pulse score details */}
+          {showOrb && (
             <Box px={3} py={2} borderBottom="1px solid" borderColor="gray.100">
               <PulseScoreDetail pulseScore={pulseScore ?? null} lastMessageAt={lastMessageAt ?? null} />
             </Box>

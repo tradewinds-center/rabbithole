@@ -8,6 +8,8 @@ interface StatusOrbProps {
   pulseScore: number | null;
   lastMessageAt: number | null;
   size?: "sm" | "md" | "lg";
+  /** When true, render just the orb with no popover (for embedding inside other interactive elements) */
+  disablePopover?: boolean;
 }
 
 const SIZE_MAP = { sm: 14, md: 24, lg: 40 } as const;
@@ -182,6 +184,7 @@ export function StatusOrb({
   pulseScore,
   lastMessageAt,
   size = "md",
+  disablePopover = false,
 }: StatusOrbProps) {
   const px = SIZE_MAP[size];
   const rafRef = useRef<number>(0);
@@ -235,45 +238,51 @@ export function StatusOrb({
     closeTimer.current = setTimeout(() => setIsOpen(false), 150);
   }, []);
 
+  const orbElement = (
+    <Box
+      ref={orbRef}
+      flexShrink={0}
+      w={`${px}px`}
+      h={`${px}px`}
+      borderRadius="50% 50% 47.5% 47.5% / 52.5% 52.5% 45% 45%"
+      position="relative"
+      cursor="default"
+      onMouseEnter={disablePopover ? undefined : handleEnter}
+      onMouseLeave={disablePopover ? undefined : handleLeave}
+      transition="filter 0.2s ease"
+      css={{
+        animation: `statusOrbBreathe ${breatheDuration}s ease-in-out infinite`,
+        "@keyframes statusOrbBreathe": {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: `scale(${breatheScale})` },
+        },
+        "&:hover": {
+          filter: "brightness(1.25)",
+          animation: "none",
+          transform: `scale(${breatheScale + 0.06})`,
+        },
+      }}
+      _after={{
+        content: '""',
+        position: "absolute",
+        top: "10%",
+        left: "18%",
+        width: "35%",
+        height: "25%",
+        borderRadius: "50%",
+        background:
+          "radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 100%)",
+        pointerEvents: "none",
+      }}
+    />
+  );
+
+  if (disablePopover) return orbElement;
+
   return (
     <Popover.Root open={isOpen} onOpenChange={(e) => setIsOpen(e.open)} positioning={{ placement: "bottom" }}>
       <Popover.Trigger asChild>
-        <Box
-          ref={orbRef}
-          flexShrink={0}
-          w={`${px}px`}
-          h={`${px}px`}
-          borderRadius="50% 50% 47.5% 47.5% / 52.5% 52.5% 45% 45%"
-          position="relative"
-          cursor="default"
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-          transition="filter 0.2s ease"
-          css={{
-            animation: `statusOrbBreathe ${breatheDuration}s ease-in-out infinite`,
-            "@keyframes statusOrbBreathe": {
-              "0%, 100%": { transform: "scale(1)" },
-              "50%": { transform: `scale(${breatheScale})` },
-            },
-            "&:hover": {
-              filter: "brightness(1.25)",
-              animation: "none",
-              transform: `scale(${breatheScale + 0.06})`,
-            },
-          }}
-          _after={{
-            content: '""',
-            position: "absolute",
-            top: "10%",
-            left: "18%",
-            width: "35%",
-            height: "25%",
-            borderRadius: "50%",
-            background:
-              "radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 100%)",
-            pointerEvents: "none",
-          }}
-        />
+        {orbElement}
       </Popover.Trigger>
       <Portal>
         <Popover.Positioner>
