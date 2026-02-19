@@ -7,7 +7,15 @@ const ADMIN_USERNAMES = ["andyszy", "andy", "carl"];
 const TEACHER_USERNAMES = ["test-teacher-001"];
 
 export const { auth, signIn, signOut, store } = convexAuth({
-  providers: [Password],
+  providers: [
+    Password({
+      validatePasswordRequirements: (password: string) => {
+        if (!password || password.length < 4) {
+          throw new Error("Password must be at least 4 characters");
+        }
+      },
+    }),
+  ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
       if (args.existingUserId) {

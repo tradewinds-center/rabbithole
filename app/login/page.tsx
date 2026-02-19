@@ -27,6 +27,12 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setError("");
 
+    if (password.length < 4) {
+      setError("Password must be at least 4 characters");
+      setIsSubmitting(false);
+      return;
+    }
+
     const email = `${trimmed}@makawulu.local`;
 
     try {
