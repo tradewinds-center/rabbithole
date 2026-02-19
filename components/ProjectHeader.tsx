@@ -11,7 +11,7 @@ import {
   Portal,
   Input,
 } from "@chakra-ui/react";
-import { FiMenu } from "react-icons/fi";
+import { FiMenu, FiPaperclip } from "react-icons/fi";
 import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
 import { AccountMenu } from "./AccountMenu";
 
@@ -35,6 +35,8 @@ interface ProjectHeaderProps {
   onProjectRename?: (title: string) => void;
   showRightPanel?: boolean;
   onToggleRightPanel?: () => void;
+  mobileAttachmentCount?: number;
+  onMobileAttachmentClick?: () => void;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
 }
@@ -53,6 +55,8 @@ export function ProjectHeader({
   onProjectRename,
   showRightPanel,
   onToggleRightPanel,
+  mobileAttachmentCount,
+  onMobileAttachmentClick,
   pulseScore,
   lastMessageAt,
 }: ProjectHeaderProps) {
@@ -202,6 +206,41 @@ export function ProjectHeader({
           >
             <SidebarSimple size={16} weight={showRightPanel ? "fill" : "regular"} />
           </IconButton>
+        )}
+
+        {onMobileAttachmentClick && mobileAttachmentCount != null && mobileAttachmentCount > 0 && (
+          <Box position="relative" flexShrink={0}>
+            <IconButton
+              aria-label="Attachments"
+              size="xs"
+              variant="ghost"
+              color="charcoal.400"
+              _hover={{ bg: "gray.100" }}
+              onClick={onMobileAttachmentClick}
+            >
+              <FiPaperclip size={16} />
+            </IconButton>
+            <Box
+              position="absolute"
+              top="-2px"
+              right="-2px"
+              bg="violet.500"
+              color="white"
+              fontSize="2xs"
+              fontFamily="heading"
+              fontWeight="700"
+              borderRadius="full"
+              minW="16px"
+              h="16px"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              px={1}
+              lineHeight={1}
+            >
+              {mobileAttachmentCount}
+            </Box>
+          </Box>
         )}
 
         {userName && onSignOut && (

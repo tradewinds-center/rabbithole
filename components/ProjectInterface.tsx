@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
+  Drawer,
   Flex,
   VStack,
   Text,
@@ -185,6 +186,16 @@ export function ProjectInterface({
   }, [hasRightPanelContent]);
 
   const showRightPanel = rightPanelOpen && hasRightPanelContent;
+
+  // Mobile detection
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // Mobile drawer for right panel
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const rightPanelItemCount = artifacts.length + (hasProcess ? 1 : 0) + (activeUnit?.youtubeUrl ? 1 : 0);
 
   // Convex mutation for updating project dimensions
   const updateProject = useMutation(api.projects.update);
@@ -470,7 +481,12 @@ export function ProjectInterface({
         onSignOut={onSignOut}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}
         showRightPanel={showRightPanel}
-        onToggleRightPanel={hasRightPanelContent ? () => setRightPanelOpen((v) => !v) : undefined}
+        onToggleRightPanel={isTouchDevice
+          ? undefined  // Hide desktop toggle on mobile
+          : hasRightPanelContent ? () => setRightPanelOpen((v) => !v) : undefined
+        }
+        mobileAttachmentCount={isTouchDevice ? rightPanelItemCount : undefined}
+        onMobileAttachmentClick={isTouchDevice && hasRightPanelContent ? () => setMobileDrawerOpen(true) : undefined}
       />
 
       {/* Focus mismatch banner — read-only mode */}
@@ -559,8 +575,84 @@ export function ProjectInterface({
             e.target.value = ""; // Reset so same file can be re-selected
           },
           isFocusMismatch,
+          isTouchDevice,
         };
 
+        const artifactPanelElement = (
+          <ArtifactPanel
+            artifacts={artifacts}
+            activeArtifactId={activeArtifactId}
+            onSelectArtifact={setActiveArtifactId}
+            onSave={handleSaveArtifact}
+            onCreateArtifact={handleCreateArtifact}
+            onDeleteArtifact={handleDeleteArtifact}
+            onSyncChange={setArtifactSynced}
+            youtubeUrl={activeUnit?.youtubeUrl}
+            process={hasProcess ? {
+              title: activeProcessDef!.title,
+              emoji: activeProcessDef!.emoji ?? null,
+              steps: activeProcessDef!.steps,
+            } : null}
+            processCurrentStep={hasProcess ? processState!.currentStep : undefined}
+            processSteps={hasProcess ? processState!.steps : undefined}
+          />
+        );
+
+        // Mobile: full-width chat + bottom drawer for right panel
+        if (isTouchDevice) {
+          return (
+            <>
+              <Flex flex={1} overflow="hidden">
+                <ChatColumn {...chatProps} />
+              </Flex>
+              {hasRightPanelContent && (
+                <Drawer.Root
+                  open={mobileDrawerOpen}
+                  onOpenChange={(e) => setMobileDrawerOpen(e.open)}
+                  placement="bottom"
+                  size="xl"
+                >
+                  <Drawer.Backdrop />
+                  <Drawer.Positioner>
+                    <Drawer.Content
+                      borderTopRadius="2xl"
+                      bg="gray.50"
+                      maxH="85vh"
+                    >
+                      <Flex
+                        px={4}
+                        pt={3}
+                        pb={2}
+                        align="center"
+                        justify="space-between"
+                        flexShrink={0}
+                      >
+                        <Text fontSize="sm" fontFamily="heading" fontWeight="600" color="navy.500">
+                          Attachments
+                        </Text>
+                        <Drawer.CloseTrigger asChild>
+                          <IconButton
+                            aria-label="Close"
+                            size="xs"
+                            variant="ghost"
+                            color="charcoal.400"
+                          >
+                            <FiX />
+                          </IconButton>
+                        </Drawer.CloseTrigger>
+                      </Flex>
+                      <Flex flex={1} overflow="auto" flexDir="column">
+                        {artifactPanelElement}
+                      </Flex>
+                    </Drawer.Content>
+                  </Drawer.Positioner>
+                </Drawer.Root>
+              )}
+            </>
+          );
+        }
+
+        // Desktop: splitter layout
         return showRightPanel ? (
           <Splitter.Root
             flex={1}
@@ -576,28 +668,8 @@ export function ProjectInterface({
             </Splitter.Panel>
             <Splitter.ResizeTrigger id="chat:side" css={{ "--splitter-border-size": "0.5px" }} />
             <Splitter.Panel id="side">
-              <Flex
-                h="full"
-                flexDir="column"
-                overflow="hidden"
-              >
-                <ArtifactPanel
-                  artifacts={artifacts}
-                  activeArtifactId={activeArtifactId}
-                  onSelectArtifact={setActiveArtifactId}
-                  onSave={handleSaveArtifact}
-                  onCreateArtifact={handleCreateArtifact}
-                  onDeleteArtifact={handleDeleteArtifact}
-                  onSyncChange={setArtifactSynced}
-                  youtubeUrl={activeUnit?.youtubeUrl}
-                  process={hasProcess ? {
-                    title: activeProcessDef!.title,
-                    emoji: activeProcessDef!.emoji ?? null,
-                    steps: activeProcessDef!.steps,
-                  } : null}
-                  processCurrentStep={hasProcess ? processState!.currentStep : undefined}
-                  processSteps={hasProcess ? processState!.steps : undefined}
-                />
+              <Flex h="full" flexDir="column" overflow="hidden">
+                {artifactPanelElement}
               </Flex>
             </Splitter.Panel>
           </Splitter.Root>
@@ -656,6 +728,7 @@ interface ChatColumnProps {
   fileInputRef?: React.RefObject<HTMLInputElement | null>;
   onFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isFocusMismatch?: boolean;
+  isTouchDevice?: boolean;
 }
 
 function ChatColumn({
@@ -694,14 +767,11 @@ function ChatColumn({
   fileInputRef,
   onFileChange,
   isFocusMismatch = false,
+  isTouchDevice = false,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
   const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  }, []);
 
   // Camera capture state
   const [showCamera, setShowCamera] = useState(false);
