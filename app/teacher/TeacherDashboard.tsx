@@ -238,7 +238,7 @@ export default function TeacherDashboardInner() {
   }
 
   return (
-    <Flex h="100vh" bg="gray.50" direction="column">
+    <Flex h="100dvh" bg="gray.50" direction="column">
       {/* Tab Bar with logo + account */}
       <Flex bg="white" borderBottom="1px solid" borderColor="gray.200" shadow="0 1px 3px rgba(0,0,0,0.06)" px={6} align="center">
         {/* Logo */}

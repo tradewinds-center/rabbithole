@@ -241,7 +241,7 @@ function ScholarProjectInner() {
   const showProject = !isNewProject && projectId;
 
   return (
-    <Flex h="100vh" bg="gray.50">
+    <Flex h="100dvh" bg="gray.50">
       {/* Sidebar Drawer */}
       <Drawer.Root
         open={isSidebarOpen}
