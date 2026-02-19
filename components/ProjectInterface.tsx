@@ -487,6 +487,7 @@ export function ProjectInterface({
         }
         mobileAttachmentCount={isTouchDevice ? rightPanelItemCount : undefined}
         onMobileAttachmentClick={isTouchDevice && hasRightPanelContent ? () => setMobileDrawerOpen(true) : undefined}
+        isMobile={isTouchDevice}
       />
 
       {/* Focus mismatch banner — read-only mode */}
@@ -1268,7 +1269,7 @@ function ChatColumn({
 
       {/* Input Area */}
       <Box
-        p={4}
+        p={isTouchDevice ? 2 : 4}
         borderTop="0.5px solid"
         borderColor="gray.200"
         bg={timeLimit?.isExpired ? "red.50" : "gray.50"}
@@ -1343,7 +1344,7 @@ function ChatColumn({
             </Text>
           </Flex>
         )}
-        <Flex maxW="3xl" mx="auto" gap={3}>
+        <Flex maxW="3xl" mx="auto" gap={isTouchDevice ? 1.5 : 3}>
           <Textarea
             ref={textareaRef}
             value={timeLimit?.isExpired ? "" : input}
@@ -1368,9 +1369,9 @@ function ChatColumn({
             }}
             _placeholder={{ color: isFocusMismatch ? "orange.400" : timeLimit?.isExpired ? "red.300" : "gray.400" }}
             fontFamily="body"
-            fontSize="md"
-            py={3}
-            px={4}
+            fontSize={isTouchDevice ? "sm" : "md"}
+            py={isTouchDevice ? 2 : 3}
+            px={isTouchDevice ? 3 : 4}
             disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
           />
           <Menu.Root positioning={{ placement: "top" }}>
@@ -1383,10 +1384,10 @@ function ChatColumn({
                 _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
                 borderRadius="xl"
                 h="auto"
-                minW={12}
+                minW={isTouchDevice ? 10 : 12}
                 disabled={isStreaming || timeLimit?.isExpired || isFocusMismatch}
               >
-                <FiImage />
+                <FiImage size={isTouchDevice ? 16 : undefined} />
               </IconButton>
             </Menu.Trigger>
             <Menu.Positioner>
@@ -1413,7 +1414,7 @@ function ChatColumn({
                 _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
                 borderRadius="xl"
                 h="auto"
-                minW={12}
+                minW={isTouchDevice ? 10 : 12}
                 onClick={toggleRecording}
                 disabled={isStreaming || dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
                 className={dictationState === "recording" ? "recording-pulse" : undefined}
@@ -1451,7 +1452,7 @@ function ChatColumn({
             _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
             borderRadius="xl"
             h="auto"
-            minW={12}
+            minW={isTouchDevice ? 10 : 12}
             onClick={() => handleSend()}
             disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired || isFocusMismatch}
           >
@@ -1467,7 +1468,7 @@ function ChatColumn({
           fontSize="xs"
           color="charcoal.300"
           textAlign="center"
-          mt={2}
+          mt={isTouchDevice ? 1 : 2}
           fontFamily="heading"
         >
           {isTouchDevice

@@ -37,6 +37,7 @@ interface ProjectHeaderProps {
   onToggleRightPanel?: () => void;
   mobileAttachmentCount?: number;
   onMobileAttachmentClick?: () => void;
+  isMobile?: boolean;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
 }
@@ -57,6 +58,7 @@ export function ProjectHeader({
   onToggleRightPanel,
   mobileAttachmentCount,
   onMobileAttachmentClick,
+  isMobile,
   pulseScore,
   lastMessageAt,
 }: ProjectHeaderProps) {
@@ -142,7 +144,7 @@ export function ProjectHeader({
             >
               {projectTitle}
             </Text>
-            {unitId && (() => {
+            {!isMobile && unitId && (() => {
               const activeUnit = unitOptions.find((u) => u.id === unitId);
               return activeUnit ? (
                 <Text fontSize="xs" color="charcoal.400" fontFamily="heading" lineHeight="1.2" mt={0.5}>
@@ -153,7 +155,7 @@ export function ProjectHeader({
           </Box>
         )}
 
-        {isSynced !== undefined && (
+        {!isMobile && isSynced !== undefined && (
           <Tooltip.Root openDelay={400} closeDelay={0}>
             <Tooltip.Trigger asChild>
               <Box flexShrink={0} cursor="default">
@@ -251,6 +253,7 @@ export function ProjectHeader({
             lastMessageAt={lastMessageAt}
             onSignOut={onSignOut}
             isAdmin={isAdmin}
+            isMobile={isMobile}
           />
         )}
       </Flex>

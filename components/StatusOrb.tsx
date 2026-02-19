@@ -98,6 +98,86 @@ const GRADIENT_BAR_CSS = (() => {
   return `linear-gradient(to right, ${colors.join(", ")})`;
 })();
 
+/** Reusable pulse score detail panel (score + label + gradient bar) */
+export function PulseScoreDetail({
+  pulseScore,
+  lastMessageAt,
+}: {
+  pulseScore: number | null;
+  lastMessageAt: number | null;
+}) {
+  const effectiveScore = computeEffectiveScore(pulseScore, lastMessageAt);
+  const heroHex = colorScale(effectiveScore).hex();
+  const label = getScoreLabel(effectiveScore);
+  const markerPct = Math.min(100, Math.max(0, (effectiveScore / 5) * 100));
+
+  return (
+    <VStack gap={2} align="stretch">
+      <HStack gap={2} align="baseline">
+        <Text
+          fontSize="2xl"
+          fontWeight="700"
+          fontFamily="heading"
+          lineHeight="1"
+          style={{ color: heroHex }}
+        >
+          {effectiveScore.toFixed(1)}
+        </Text>
+        <Text
+          fontSize="xs"
+          fontWeight="600"
+          fontFamily="heading"
+          style={{ color: heroHex }}
+        >
+          / 5
+        </Text>
+      </HStack>
+      <Text
+        fontSize="sm"
+        fontWeight="600"
+        fontFamily="heading"
+        lineHeight="1.2"
+        style={{ color: heroHex }}
+      >
+        {label}
+      </Text>
+      <Box mt={1}>
+        <Box position="relative" h="10px">
+          <Box
+            h="6px"
+            borderRadius="full"
+            position="absolute"
+            top="2px"
+            left={0}
+            right={0}
+            style={{ background: GRADIENT_BAR_CSS }}
+          />
+          <Box
+            position="absolute"
+            top="0px"
+            w="10px"
+            h="10px"
+            borderRadius="full"
+            border="2px solid white"
+            shadow="0 0 3px rgba(0,0,0,0.3)"
+            style={{
+              left: `calc(${markerPct}% - 5px)`,
+              background: heroHex,
+            }}
+          />
+        </Box>
+        <HStack justify="space-between" mt="2px">
+          {[0, 1, 2, 3, 4, 5].map((n) => (
+            <Text key={n} fontSize="9px" fontFamily="heading" color="charcoal.300">
+              {n}
+            </Text>
+          ))}
+        </HStack>
+      </Box>
+    </VStack>
+  );
+}
+
 export function StatusOrb({
   pulseScore,
   lastMessageAt,
@@ -209,88 +289,7 @@ export function StatusOrb({
             onMouseEnter={handleEnter}
             onMouseLeave={handleLeave}
           >
-            <VStack gap={2} align="stretch">
-              {/* Score + label */}
-              <HStack gap={2} align="baseline">
-                <Text
-                  fontSize="2xl"
-                  fontWeight="700"
-                  fontFamily="heading"
-                  lineHeight="1"
-                  style={{ color: heroHex }}
-                >
-                  {effectiveScore.toFixed(1)}
-                </Text>
-                <Text
-                  fontSize="xs"
-                  fontWeight="600"
-                  fontFamily="heading"
-                  style={{ color: heroHex }}
-                >
-                  / 5
-                </Text>
-              </HStack>
-              <Text
-                fontSize="sm"
-                fontWeight="600"
-                fontFamily="heading"
-                lineHeight="1.2"
-                style={{ color: heroHex }}
-              >
-                {label}
-              </Text>
-
-              {/* Gradient scale bar */}
-              <Box mt={1}>
-                <Box position="relative" h="10px">
-                  {/* Track */}
-                  <Box
-                    h="6px"
-                    borderRadius="full"
-                    position="absolute"
-                    top="2px"
-                    left={0}
-                    right={0}
-                    style={{ background: GRADIENT_BAR_CSS }}
-                  />
-                  {/* Marker */}
-                  <Box
-                    position="absolute"
-                    top="0px"
-                    w="10px"
-                    h="10px"
-                    borderRadius="full"
-                    border="2px solid white"
-                    shadow="0 0 3px rgba(0,0,0,0.3)"
-                    style={{
-                      left: `calc(${markerPct}% - 5px)`,
-                      background: heroHex,
-                    }}
-                  />
-                </Box>
-                {/* Scale labels */}
-                <HStack justify="space-between" mt="2px">
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    0
-                  </Text>
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    1
-                  </Text>
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    2
-                  </Text>
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    3
-                  </Text>
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    4
-                  </Text>
-                  <Text fontSize="9px" fontFamily="heading" color="charcoal.300">
-                    5
-                  </Text>
-                </HStack>
-              </Box>
-            </VStack>
+            <PulseScoreDetail pulseScore={pulseScore} lastMessageAt={lastMessageAt} />
           </Popover.Content>
         </Popover.Positioner>
       </Portal>
