@@ -618,6 +618,8 @@ export function ProjectInterface({
                       borderTopRadius="2xl"
                       bg="gray.50"
                       maxH="85vh"
+                      display="flex"
+                      flexDirection="column"
                     >
                       <Flex
                         px={4}
@@ -641,9 +643,9 @@ export function ProjectInterface({
                           </IconButton>
                         </Drawer.CloseTrigger>
                       </Flex>
-                      <Flex flex={1} overflow="auto" flexDir="column">
+                      <Box flex={1} minH={0} overflowY="auto" px={4} pb={4}>
                         {artifactPanelElement}
-                      </Flex>
+                      </Box>
                     </Drawer.Content>
                   </Drawer.Positioner>
                 </Drawer.Root>
@@ -1272,7 +1274,7 @@ function ChatColumn({
         bg={timeLimit?.isExpired ? "red.50" : "gray.50"}
         shadow="0 -1px 3px rgba(0,0,0,0.06)"
         position="relative"
-        zIndex={9999}
+        zIndex={10}
       >
         {/* Pending image preview */}
         {pendingImage && (
