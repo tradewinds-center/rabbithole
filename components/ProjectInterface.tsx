@@ -1350,9 +1350,9 @@ function ChatColumn({
             <Menu.Trigger asChild>
               <IconButton
                 aria-label="Add image"
-                bg="gray.200"
-                color="charcoal.500"
-                _hover={{ bg: "gray.300" }}
+                variant="ghost"
+                color="charcoal.400"
+                _hover={{ bg: "gray.100" }}
                 _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
                 borderRadius="xl"
                 h="auto"
@@ -1411,9 +1411,10 @@ function ChatColumn({
                 <IconButton
                   ref={micBtnRef}
                   aria-label={dictationState === "recording" ? "Stop recording" : "Start voice dictation"}
-                  bg={dictationState === "recording" ? "red.500" : "gray.200"}
-                  color={dictationState === "recording" ? "white" : "charcoal.500"}
-                  _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.300" }}
+                  variant={dictationState === "recording" ? "solid" : "ghost"}
+                  bg={dictationState === "recording" ? "red.500" : undefined}
+                  color={dictationState === "recording" ? "white" : "charcoal.400"}
+                  _hover={{ bg: dictationState === "recording" ? "red.600" : "gray.100" }}
                   _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
                   borderRadius="xl"
                   h="auto"
