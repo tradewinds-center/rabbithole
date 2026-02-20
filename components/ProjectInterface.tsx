@@ -794,6 +794,20 @@ function ChatColumn({
   const tabHeldRef = useRef(false);
   const tabTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Recording timer (count-up)
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  useEffect(() => {
+    if (dictationState !== "recording") {
+      setRecordingSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRecordingSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [dictationState]);
+  const timerDisplay = `${Math.floor(recordingSeconds / 60)}:${String(recordingSeconds % 60).padStart(2, "0")}`;
+
   // Camera capture state
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1343,8 +1357,9 @@ function ChatColumn({
                     fontWeight="600"
                     fontSize={isTouchDevice ? "md" : "xl"}
                     color={isTooLoud ? "red.600" : "red.500"}
+                    fontVariantNumeric="tabular-nums"
                   >
-                    {isTooLoud ? "Too loud!" : hasSpeech ? "Listening..." : "Waiting for speech..."}
+                    {isTooLoud ? "Too loud!" : timerDisplay}
                   </Text>
                 </Flex>
               </Box>
