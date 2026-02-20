@@ -22,6 +22,7 @@ export const transcribe = action({
     const formData = new FormData();
     formData.append("file", blob, `recording.${ext}`);
     formData.append("model", "whisper-1");
+    formData.append("language", "en");
 
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",

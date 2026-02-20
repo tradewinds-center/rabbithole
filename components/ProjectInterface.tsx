@@ -206,7 +206,7 @@ export function ProjectInterface({
 
   const sendMessageRef = useRef<(text: string) => void>(() => {});
 
-  const { state: dictationState, error: dictationError, isTooLoud, toggleRecording, startRecording, stopRecording, cancelRecording } =
+  const { state: dictationState, error: dictationError, isTooLoud, hasSpeech, toggleRecording, startRecording, stopRecording, cancelRecording } =
     useVoiceDictation((text) => {
       sendMessageRef.current(text);
     });
@@ -568,6 +568,7 @@ export function ProjectInterface({
           onClearWhisper: handleClearWhisper,
           observations: projectObservations,
           isTooLoud,
+          hasSpeech,
           generatingImage,
           timeLimit,
           isTimeLimitModalOpen,
@@ -724,6 +725,7 @@ interface ChatColumnProps {
   onClearWhisper?: () => void;
   observations?: ObservationData[];
   isTooLoud?: boolean;
+  hasSpeech?: boolean;
   generatingImage?: boolean;
   timeLimit?: {
     isActive: boolean;
@@ -773,6 +775,7 @@ function ChatColumn({
   onClearWhisper,
   observations = [],
   isTooLoud = false,
+  hasSpeech = false,
   generatingImage = false,
   timeLimit,
   isTimeLimitModalOpen = false,
@@ -1287,7 +1290,7 @@ function ChatColumn({
             </Text>
           </Flex>
         )}
-        <Flex maxW="3xl" mx="auto" gap={isTouchDevice? 1 : 3}>
+        <Flex maxW="3xl" mx="auto" gap={isTouchDevice? 1 : 3} align="center">
           {dictationState === "recording" ? (
             <>
               {/* Cancel recording — discard audio */}
@@ -1297,8 +1300,7 @@ function ChatColumn({
                 color="charcoal.400"
                 _hover={{ bg: "red.50" }}
                 borderRadius="full"
-                h="auto"
-                minW={isTouchDevice ? 10 : 12}
+                size="md"
                 onClick={cancelRecording}
               >
                 <FiSquare />
@@ -1342,19 +1344,18 @@ function ChatColumn({
                     fontSize={isTouchDevice ? "md" : "xl"}
                     color={isTooLoud ? "red.600" : "red.500"}
                   >
-                    {isTooLoud ? "Too loud!" : "Listening..."}
+                    {isTooLoud ? "Too loud!" : hasSpeech ? "Listening..." : "Waiting for speech..."}
                   </Text>
                 </Flex>
               </Box>
               {/* Send recording — stop + transcribe + send */}
               <IconButton
                 aria-label="Send recording"
-                bg="red.500"
+                bg={hasSpeech ? "red.500" : "charcoal.300"}
                 color="white"
-                _hover={{ bg: "red.600" }}
+                _hover={{ bg: hasSpeech ? "red.600" : "charcoal.400" }}
                 borderRadius="full"
-                h="auto"
-                minW={isTouchDevice ? 10 : 12}
+                size="md"
                 onClick={stopRecording}
               >
                 <FiArrowUp />
@@ -1429,50 +1430,30 @@ function ChatColumn({
                   color="charcoal.400"
                   _hover={{ bg: "gray.100" }}
                   borderRadius="xl"
-                  h="auto"
-                  minW={isTouchDevice ? 10 : 12}
+                  size="md"
                   onClick={onStopStream}
                 >
                   <FiSquare />
                 </IconButton>
               ) : (!input.trim() && !pendingImage) ? (
-                <Tooltip.Root openDelay={600} closeDelay={0} positioning={{ placement: "top" }} disabled={isTouchDevice}>
-                  <Tooltip.Trigger asChild>
-                    <IconButton
-                      ref={micBtnRef}
-                      aria-label="Start voice dictation"
-                      variant="ghost"
-                      color="charcoal.400"
-                      _hover={{ bg: "gray.100" }}
-                      _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
-                      borderRadius="xl"
-                      size="md"
-                      onClick={toggleRecording}
-                      disabled={dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
-                    >
-                      {dictationState === "transcribing" ? (
-                        <Spinner size="sm" />
-                      ) : (
-                        <FiMic />
-                      )}
-                    </IconButton>
-                  </Tooltip.Trigger>
-                  <Portal>
-                    <Tooltip.Positioner style={{ zIndex: 10000 }}>
-                      <Tooltip.Content
-                        fontFamily="heading"
-                        fontSize="xs"
-                        bg="red.600"
-                        color="white"
-                        px={3}
-                        py={1.5}
-                        borderRadius="lg"
-                      >
-                        Hold Tab to talk
-                      </Tooltip.Content>
-                    </Tooltip.Positioner>
-                  </Portal>
-                </Tooltip.Root>
+                <IconButton
+                  ref={micBtnRef}
+                  aria-label="Start voice dictation"
+                  variant="ghost"
+                  color="charcoal.400"
+                  _hover={{ bg: "gray.100" }}
+                  _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
+                  borderRadius="xl"
+                  size="md"
+                  onClick={toggleRecording}
+                  disabled={dictationState === "transcribing" || timeLimit?.isExpired || isFocusMismatch}
+                >
+                  {dictationState === "transcribing" ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <FiMic />
+                  )}
+                </IconButton>
               ) : (
                 <IconButton
                   aria-label="Send message"
@@ -1481,8 +1462,7 @@ function ChatColumn({
                   _hover={{ bg: "violet.700" }}
                   _disabled={{ opacity: 0.5, cursor: "not-allowed" }}
                   borderRadius="xl"
-                  h="auto"
-                  minW={isTouchDevice ? 10 : 12}
+                  size="md"
                   onClick={() => handleSend()}
                   disabled={(!input.trim() && !pendingImage) || isStreaming || timeLimit?.isExpired || isFocusMismatch}
                 >

@@ -9,6 +9,9 @@ type DictationState = "idle" | "recording" | "transcribing";
 /** RMS dB threshold for "too loud" warning. -10 dBFS = noticeably loud / near-shouting. */
 const LOUD_THRESHOLD_DB = -10;
 
+/** RMS dB threshold below which audio is considered silence/background noise. */
+const SILENCE_THRESHOLD_DB = -35;
+
 function getSupportedMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
   if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) return "audio/webm;codecs=opus";
@@ -34,6 +37,7 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
   const [state, setState] = useState<DictationState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isTooLoud, setIsTooLoud] = useState(false);
+  const [hasSpeech, setHasSpeech] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const cancelledRef = useRef(false);
@@ -41,6 +45,7 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const loudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peakDbRef = useRef<number>(-100);
 
   const transcribe = useAction(api.audioActions.transcribe);
 
@@ -76,6 +81,11 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
         }
         const rms = Math.sqrt(sumSquares / dataArray.length);
         const db = rms > 0 ? 20 * Math.log10(rms) : -100;
+
+        if (db > peakDbRef.current) {
+          peakDbRef.current = db;
+          if (db >= SILENCE_THRESHOLD_DB) setHasSpeech(true);
+        }
 
         if (db > LOUD_THRESHOLD_DB) {
           setIsTooLoud(true);
@@ -139,6 +149,8 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     }
 
     // Start volume level monitoring
+    peakDbRef.current = -100;
+    setHasSpeech(false);
     startLevelMonitor(stream);
 
     chunksRef.current = [];
@@ -162,6 +174,12 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
 
       const blob = new Blob(chunksRef.current, { type: mimeType });
       if (blob.size === 0) {
+        setState("idle");
+        return;
+      }
+
+      // Skip transcription if the recording was mostly silence/background noise
+      if (peakDbRef.current < SILENCE_THRESHOLD_DB) {
         setState("idle");
         return;
       }
@@ -207,5 +225,5 @@ export function useVoiceDictation(onTranscript: (text: string) => void) {
     }
   }, [state, startRecording, stopRecording]);
 
-  return { state, error, isTooLoud, toggleRecording, startRecording, stopRecording, cancelRecording };
+  return { state, error, isTooLoud, hasSpeech, toggleRecording, startRecording, stopRecording, cancelRecording };
 }
