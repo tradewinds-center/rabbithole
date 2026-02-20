@@ -893,8 +893,49 @@ function ChatColumn({
     };
   }, [isStreaming, dictationState, startRecording, stopRecording, isTouchDevice]);
 
+  // Ripple center from the send-recording button (visible during recording)
+  const sendRecBtnRef = useRef<HTMLButtonElement>(null);
+  const [rippleCenter, setRippleCenter] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (dictationState === "recording" && sendRecBtnRef.current) {
+      const rect = sendRecBtnRef.current.getBoundingClientRect();
+      setRippleCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    } else {
+      setRippleCenter(null);
+    }
+  }, [dictationState]);
+
   return (
     <Flex flex={1} flexDir="column" overflow="hidden" h="full">
+      {/* Recording ripples — concentric circles emanating from the dot */}
+      {dictationState === "recording" && rippleCenter && (
+        <>
+          <style>{`
+            @keyframes rippleGrow {
+              0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+              100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+            }
+          `}</style>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                position: "fixed",
+                left: rippleCenter.x,
+                top: rippleCenter.y,
+                width: "250vmax",
+                height: "250vmax",
+                borderRadius: "50%",
+                border: "4px solid rgba(229, 62, 62, 0.9)",
+                pointerEvents: "none",
+                zIndex: 9998,
+                willChange: "transform, opacity",
+                animation: `rippleGrow 15s linear infinite ${-i * 5}s`,
+              }}
+            />
+          ))}
+        </>
+      )}
 
       {/* Messages */}
       <Box flex={1} overflowY="auto" overflowX="hidden" px={6} py={4}>
@@ -1365,6 +1406,7 @@ function ChatColumn({
               </Box>
               {/* Send recording — stop + transcribe + send */}
               <IconButton
+                ref={sendRecBtnRef}
                 aria-label="Send recording"
                 bg={hasSpeech ? "red.500" : "charcoal.300"}
                 color="white"
