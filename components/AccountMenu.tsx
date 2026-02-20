@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
-import { FiLogOut, FiChevronDown, FiSettings, FiUser } from "react-icons/fi";
+import { FiLogOut, FiSettings, FiUser } from "react-icons/fi";
 import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 
@@ -15,8 +15,6 @@ interface AccountMenuProps {
   lastMessageAt?: number | null;
   /** Show "Admin Tools" link when true */
   isAdmin?: boolean;
-  /** Mobile layout: orb overlays avatar, pulse details in menu */
-  isMobile?: boolean;
 }
 
 export function AccountMenu({
@@ -27,7 +25,6 @@ export function AccountMenu({
   pulseScore,
   lastMessageAt,
   isAdmin,
-  isMobile,
 }: AccountMenuProps) {
   const showOrb = pulseScore !== undefined;
 
@@ -42,8 +39,7 @@ export function AccountMenu({
           flexShrink={0}
         >
           <HStack gap={2}>
-            {/* Desktop: standalone orb (popover disabled — details in menu) */}
-            {showOrb && !isMobile && (
+            {showOrb && (
               <StatusOrb
                 pulseScore={pulseScore ?? null}
                 lastMessageAt={lastMessageAt ?? null}
@@ -51,48 +47,29 @@ export function AccountMenu({
                 disablePopover
               />
             )}
-            {/* Avatar with optional orb overlay on mobile */}
-            <Box position="relative" flexShrink={0}>
-              <Avatar size="xs" name={userName} src={userImage} />
-              {showOrb && isMobile && (
-                <Box
-                  position="absolute"
-                  bottom="-4px"
-                  right="-6px"
-                >
-                  <StatusOrb
-                    pulseScore={pulseScore ?? null}
-                    lastMessageAt={lastMessageAt ?? null}
-                    size="sm"
-                    disablePopover
-                  />
-                </Box>
-              )}
-            </Box>
-            {!isMobile && (
-              <>
-                <Text
-                  fontFamily="heading"
-                  fontSize="xs"
-                  fontWeight="500"
-                  color="charcoal.500"
-                >
-                  {userName}
-                </Text>
-                <FiChevronDown size={12} color="var(--chakra-colors-charcoal-400)" />
-              </>
-            )}
+            <Avatar size="xs" name={userName} src={userImage} />
           </HStack>
         </Button>
       </Menu.Trigger>
       <Menu.Positioner>
-        <Menu.Content minW="160px">
-          {/* Pulse score details */}
+        <Menu.Content minW="180px">
+          <Box px={3} py={2}>
+            <Text fontFamily="heading" fontWeight="700" fontSize="sm" color="navy.500">
+              {userName}
+            </Text>
+          </Box>
           {showOrb && (
-            <Box px={3} py={2} borderBottom="1px solid" borderColor="gray.100">
-              <PulseScoreDetail pulseScore={pulseScore ?? null} lastMessageAt={lastMessageAt ?? null} />
-            </Box>
+            <>
+              <Menu.Separator />
+              <Menu.ItemGroup>
+                <Menu.ItemGroupLabel>Pulse Score</Menu.ItemGroupLabel>
+                <Box px={3} pb={2}>
+                  <PulseScoreDetail pulseScore={pulseScore ?? null} lastMessageAt={lastMessageAt ?? null} />
+                </Box>
+              </Menu.ItemGroup>
+            </>
           )}
+          <Menu.Separator />
           {isAdmin && (
             <Menu.Item
               value="admin"

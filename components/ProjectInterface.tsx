@@ -883,7 +883,7 @@ function ChatColumn({
     <Flex flex={1} flexDir="column" overflow="hidden" h="full">
 
       {/* Messages */}
-      <Box flex={1} overflowY="auto" px={6} py={4}>
+      <Box flex={1} overflowY="auto" overflowX="hidden" px={6} py={4}>
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
           {messages.length === 0 && !streamingContent && (
             <Flex py={12} justify="center">

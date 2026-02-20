@@ -75,6 +75,8 @@ body {
 .message-bubble {
   max-width: 85%;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .message-bubble.user {
@@ -92,6 +94,11 @@ body {
 }
 
 /* Markdown in chat */
+.chat-markdown {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
 .chat-markdown p {
   margin-bottom: 0.5rem;
 }

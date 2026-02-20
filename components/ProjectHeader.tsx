@@ -253,7 +253,6 @@ export function ProjectHeader({
             lastMessageAt={lastMessageAt}
             onSignOut={onSignOut}
             isAdmin={isAdmin}
-            isMobile={isMobile}
           />
         )}
       </Flex>
