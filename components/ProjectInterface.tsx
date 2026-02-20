@@ -1049,10 +1049,12 @@ function ChatColumn({
               }
 
               const isActiveStream = streamingMsgId && message.id === streamingMsgId;
+              const displayContent = isActiveStream ? (streamingContent || message.content) : message.content;
+              if (!displayContent) return null;
               return (
                 <MessageBubble
                   key={message.id}
-                  message={isActiveStream ? { ...message, content: streamingContent || message.content } : message}
+                  message={isActiveStream ? { ...message, content: displayContent } : message}
                   personaOptions={personaOptions}
                   isStreaming={!!isActiveStream && !!streamingContent}
                   generatingImage={!!isActiveStream && generatingImage}
@@ -1700,18 +1702,6 @@ function MessageBubble({
                 Generating image...
               </Text>
             </Flex>
-          )}
-          {isStreaming && !generatingImage && (
-            <Box
-              as="span"
-              display="inline-block"
-              w={2}
-              h={4}
-              bg="violet.500"
-              ml={1}
-              className="animate-pulse-soft"
-              borderRadius="sm"
-            />
           )}
         </Box>
         {/* TTS button — appears on hover */}
