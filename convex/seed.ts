@@ -32,7 +32,7 @@ export const seedAll = internalMutation({
     // Create admin account (used as FK for seeded entities)
     const systemTeacherId = await ctx.db.insert("users", {
       username: "andyszy",
-      email: "andyszy@makawulu.local",
+      email: "andyszy@rabbithole.local",
       name: "Andy Szybalski",
       role: "admin",
     });
@@ -40,7 +40,7 @@ export const seedAll = internalMutation({
     // Create default guest scholar account
     await ctx.db.insert("users", {
       username: "guest",
-      email: "guest@makawulu.local",
+      email: "guest@rabbithole.local",
       name: "Guest",
       role: "scholar",
       profileSetupComplete: true,
@@ -1175,7 +1175,7 @@ export const seedUnitsAndTopics = internalMutation({
     // Find system teacher (or any teacher) for unit ownership
     const systemTeacher = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
@@ -1242,7 +1242,7 @@ export const seedProcesses = internalMutation({
     // Find system teacher
     const systemTeacher = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
@@ -1332,7 +1332,7 @@ export const seedWeekendNews = internalMutation({
     // Find system teacher
     const systemTeacher = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
@@ -1406,7 +1406,7 @@ export const seedDemocracy = internalMutation({
     // Find system teacher
     const systemTeacher = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
@@ -1568,7 +1568,7 @@ export const seedVideoReflection = internalMutation({
     // Find a teacher to own these entities
     const systemTeacher = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+      .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
@@ -1648,7 +1648,7 @@ export const seedVideoUnits = internalMutation({
     const teacher =
       (await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", "system@makawulu.app"))
+        .withIndex("by_email", (q) => q.eq("email", "system@rabbithole.app"))
         .first()) ??
       (await ctx.db
         .query("users")
@@ -1716,16 +1716,16 @@ export const patchSlugs = internalMutation({
 
 /**
  * Patch auth-created test users with proper names, avatars, and roles.
- * These users were created by the Password provider with email like test-scholar-001@test.makawulu.dev
+ * These users were created by the Password provider with email like test-scholar-001@test.rabbithole.dev
  * Run: npx convex run seed:patchTestUsers
  */
 export const patchTestUsers = internalMutation({
   handler: async (ctx) => {
     const testUserMap: Record<string, { name: string; image: string; role: "teacher" | "scholar"; readingLevel?: string; profileSetupComplete?: boolean }> = {
-      "test-teacher-001@test.makawulu.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: "teacher" },
-      "test-scholar-001@test.makawulu.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3", profileSetupComplete: true },
-      "test-scholar-002@test.makawulu.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2", profileSetupComplete: true },
-      "test-scholar-003@test.makawulu.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5", profileSetupComplete: true },
+      "test-teacher-001@test.rabbithole.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: "teacher" },
+      "test-scholar-001@test.rabbithole.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3", profileSetupComplete: true },
+      "test-scholar-002@test.rabbithole.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2", profileSetupComplete: true },
+      "test-scholar-003@test.rabbithole.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5", profileSetupComplete: true },
     };
 
     let patched = 0;

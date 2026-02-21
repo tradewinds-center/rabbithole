@@ -33,7 +33,7 @@ export default function LoginPage() {
       return;
     }
 
-    const email = `${trimmed}@makawulu.local`;
+    const email = `${trimmed}@rabbithole.local`;
 
     try {
       if (mode === "signIn") {

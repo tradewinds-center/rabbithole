@@ -24,11 +24,11 @@ export const { auth, signIn, signOut, store } = convexAuth({
 
       // New sign-up: extract username from synthetic email
       const email = args.profile.email as string | undefined;
-      const username = email?.replace("@makawulu.local", "")
-        .replace("@test.makawulu.dev", "") ?? "";
+      const username = email?.replace("@rabbithole.local", "")
+        .replace("@test.rabbithole.dev", "") ?? "";
 
       // Check if a seeded user with this email already exists
-      // (seeded users have email = username@makawulu.local)
+      // (seeded users have email = username@rabbithole.local)
       const existing = await ctx.db
         .query("users")
         .filter((q) => q.eq(q.field("email"), email))

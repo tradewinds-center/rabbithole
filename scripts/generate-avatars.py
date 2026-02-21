@@ -1,12 +1,15 @@
 """
-Generate profile avatars for default Makawulu users using Gemini 2.5 Flash Image.
+Generate profile avatars for default Rabbithole users using Gemini 2.5 Flash Image.
 Outputs to public/avatars/
 """
 
 import os
 import sys
 
-os.environ["GOOGLE_API_KEY"] = "***REDACTED***"
+if not os.environ.get("GOOGLE_API_KEY") and not os.environ.get("GEMINI_API_KEY"):
+    sys.exit("Error: Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable")
+if os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
 
 from google import genai
 from google.genai import types

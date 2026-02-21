@@ -3,8 +3,8 @@ import { authedQuery, authedMutation, teacherMutation, teacherQuery } from "./li
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
-/** Hardcoded parent password for time limit mode. */
-const PARENT_PASSWORD = "makawulu2026";
+/** Parent password for time limit mode (set via PARENT_PASSWORD env var in Convex dashboard). */
+const PARENT_PASSWORD = process.env.PARENT_PASSWORD ?? "";
 
 /**
  * List projects for a user (non-archived, most recent first).

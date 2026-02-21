@@ -88,7 +88,7 @@ export function ParentAccessDialog({
             "tradewinds-parent": {
               command: "npx",
               args: ["tsx", "src/index.ts"],
-              cwd: "<path-to-makawulu>/mcp-server",
+              cwd: "<path-to-rabbithole>/mcp-server",
               env: {
                 PARENT_TOKEN: newToken,
                 CONVEX_URL: convexUrl,

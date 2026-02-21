@@ -35,7 +35,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [ ] **Self-Serve Guest Mode** - Visitors can enter their own name at `/guest` (no token needed) and get a unique bookmarkable link they can save and return to. Creates a scholar account automatically.
   - **Test:** Visit `/guest` with no token param. Enter a name, click "Start Learning". Should create account and redirect to `/scholar`. Copy the link shown and visit it in incognito — should auto-sign-in as that guest.
 - [ ] **Time Limit Mode** - Parent sets a session time limit with a hardcoded parent password. Inserts a whisper to Claude to wrap things up with 1 minute to spare. Input is disabled when time expires.
-  - **Test:** Click clock icon near input area. Enter parent password ("makawulu2026") and time limit (e.g., 2 minutes). Timer countdown appears. At 1 min remaining, check that a whisper is queued. When timer hits 0, input should be disabled with "Time's up!" message.
+  - **Test:** Click clock icon near input area. Enter parent password (set via PARENT_PASSWORD env var in Convex) and time limit (e.g., 2 minutes). Timer countdown appears. At 1 min remaining, check that a whisper is queued. When timer hits 0, input should be disabled with "Time's up!" message.
 
 ---
 
@@ -187,11 +187,11 @@ focusSettings     -> teacher dimension locks per scholar
 ## Test Users (Development)
 
 ```
-Teacher: test-teacher-001@test.makawulu.dev (password: test-teacher-001)
+Teacher: test-teacher-001@test.rabbithole.dev (password: test-teacher-001)
 Scholars:
-  Kai Nakamura: test-scholar-001@test.makawulu.dev
-  Lani Kealoha: test-scholar-002@test.makawulu.dev
-  Noah Takahashi: test-scholar-003@test.makawulu.dev
+  Kai Nakamura: test-scholar-001@test.rabbithole.dev
+  Lani Kealoha: test-scholar-002@test.rabbithole.dev
+  Noah Takahashi: test-scholar-003@test.rabbithole.dev
 Seed data: pnpm db:seed
 ```
 
