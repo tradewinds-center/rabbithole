@@ -128,9 +128,6 @@ function ScholarHome() {
     );
   }
 
-  const displayName = user?.name || "Scholar";
-  const displayUsername = user?.username || undefined;
-  const displayImage = user?.image || undefined;
 
   // Derive scholar-level pulse from most recent project
   const mostRecent = projects?.[0];
@@ -144,11 +141,7 @@ function ScholarHome() {
   return (
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       <TopBar
-        displayName={displayName}
-        displayUsername={displayUsername}
-        displayImage={displayImage}
         isRemoteMode={isRemoteMode}
-        isAdmin={user?.role === "admin"}
         onSignOut={() => signOut()}
         onOpenProfile={() => setProfileModalOpen(true)}
         pulseScore={pulseScore}
@@ -313,21 +306,13 @@ function ScholarHome() {
 }
 
 function TopBar({
-  displayName,
-  displayUsername,
-  displayImage,
   isRemoteMode,
-  isAdmin,
   onSignOut,
   onOpenProfile,
   pulseScore,
   lastMessageAt,
 }: {
-  displayName: string;
-  displayUsername?: string;
-  displayImage?: string;
   isRemoteMode: boolean;
-  isAdmin?: boolean;
   onSignOut: () => void;
   onOpenProfile: () => void;
   pulseScore?: number | null;
@@ -347,15 +332,10 @@ function TopBar({
       <AppLogo variant="dark" />
       {!isRemoteMode && (
         <AccountMenu
-          userName={displayName}
-          userUsername={displayUsername}
-          userImage={displayImage}
           onSignOut={onSignOut}
           onOpenProfile={onOpenProfile}
           pulseScore={pulseScore}
           lastMessageAt={lastMessageAt}
-          isAdmin={isAdmin}
-          currentView="scholar"
         />
       )}
     </Flex>

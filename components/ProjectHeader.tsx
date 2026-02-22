@@ -27,11 +27,7 @@ interface ProjectHeaderProps {
   unitOptions: UnitInfo[];
   onMenuClick?: () => void;
   isSynced?: boolean;
-  userName?: string;
-  userUsername?: string;
-  userImage?: string;
   isTestMode?: boolean;
-  isAdmin?: boolean;
   onSignOut?: () => void;
   onProjectRename?: (title: string) => void;
   showRightPanel?: boolean;
@@ -51,11 +47,7 @@ export function ProjectHeader({
   unitOptions,
   onMenuClick,
   isSynced,
-  userName,
-  userUsername,
-  userImage,
   isTestMode,
-  isAdmin,
   onSignOut,
   onProjectRename,
   showRightPanel,
@@ -263,15 +255,11 @@ export function ProjectHeader({
           </Box>
         )}
 
-        {userName && onSignOut && (
+        {onSignOut && (
           <AccountMenu
-            userName={userName}
-            userUsername={userUsername}
-            userImage={userImage}
+            onSignOut={onSignOut}
             pulseScore={pulseScore}
             lastMessageAt={lastMessageAt}
-            onSignOut={onSignOut}
-            isAdmin={isAdmin}
           />
         )}
       </Flex>

@@ -280,10 +280,6 @@ export default function TeacherDashboardInner() {
         {/* Account menu */}
         <Box ml="auto">
           <AccountMenu
-            userName={user?.name || "Teacher"}
-            userUsername={user?.username || undefined}
-            userImage={user?.image || undefined}
-            isAdmin={user?.role === "admin"}
             onSignOut={() => {
               signOut();
               router.push("/sign-in");

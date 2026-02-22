@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
 import { FiLogOut, FiSettings, FiUser, FiEye } from "react-icons/fi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -7,42 +8,37 @@ import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 
 interface AccountMenuProps {
-  /** Override display name (falls back to current user) */
-  userName?: string;
-  userUsername?: string;
-  userImage?: string;
   onSignOut: () => void;
+  /** Open in-page profile editor (scholar home only) */
   onOpenProfile?: () => void;
-  /** Optional StatusOrb data — only displayed for scholar role */
+  /** Scholar-specific: current project pulse score */
   pulseScore?: number | null;
+  /** Scholar-specific: timestamp of last user message */
   lastMessageAt?: number | null;
-  /** @deprecated — derived from current user now */
-  isAdmin?: boolean;
-  /** Current view context — enables view toggle */
-  currentView?: "scholar" | "parent";
 }
 
 export function AccountMenu({
-  userName: userNameProp,
-  userUsername: userUsernameProp,
-  userImage: userImageProp,
   onSignOut,
   onOpenProfile,
   pulseScore,
   lastMessageAt,
-  isAdmin: isAdminProp,
-  currentView,
 }: AccountMenuProps) {
   const { user } = useCurrentUser();
+  const pathname = usePathname();
+
   const role = user?.role;
   const isScholar = role === "scholar";
-  const isAdmin = isAdminProp ?? role === "admin";
-  const userName = userNameProp ?? user?.name ?? "User";
-  const userUsername = userUsernameProp ?? user?.username;
-  const userImage = userImageProp ?? user?.image;
+  const isAdmin = role === "admin";
+  const userName = user?.name ?? "User";
+  const userUsername = user?.username;
+  const userImage = user?.image;
 
   // Only show pulse orb for scholars
   const showOrb = isScholar && pulseScore !== undefined;
+
+  // Derive view toggles from current path
+  const isOnScholarPage = pathname?.startsWith("/scholar");
+  const isOnParentPage = pathname?.startsWith("/parent");
 
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
@@ -92,7 +88,7 @@ export function AccountMenu({
           )}
           <Menu.Separator />
           {/* View toggle */}
-          {currentView === "scholar" && (
+          {isScholar && isOnScholarPage && (
             <Menu.Item
               value="parent-view"
               cursor="pointer"
@@ -102,7 +98,7 @@ export function AccountMenu({
               Parent View
             </Menu.Item>
           )}
-          {currentView === "parent" && (
+          {isScholar && isOnParentPage && (
             <Menu.Item
               value="student-view"
               cursor="pointer"

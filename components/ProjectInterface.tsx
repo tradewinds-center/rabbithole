@@ -52,11 +52,7 @@ interface ProjectInterfaceProps {
   onProjectUpdate?: () => void;
   onOpenSidebar?: () => void;
   onSignOut?: () => void;
-  userName?: string;
-  userUsername?: string;
-  userImage?: string;
   isTestMode?: boolean;
-  isAdmin?: boolean;
   isRemoteMode?: boolean;
   scholarName?: string | null;
 }
@@ -66,11 +62,7 @@ export function ProjectInterface({
   onProjectUpdate,
   onOpenSidebar,
   onSignOut,
-  userName,
-  userUsername,
-  userImage,
   isTestMode,
-  isAdmin,
   isRemoteMode,
   scholarName,
 }: ProjectInterfaceProps) {
@@ -487,11 +479,7 @@ export function ProjectInterface({
         })()}
         onMenuClick={onOpenSidebar}
         isSynced={hasArtifacts ? artifactSynced : undefined}
-        userName={userName}
-        userUsername={userUsername}
-        userImage={userImage}
         isTestMode={isTestMode}
-        isAdmin={isAdmin}
         onSignOut={onSignOut}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}
         showRightPanel={showRightPanel}

@@ -71,11 +71,7 @@ function ParentView() {
       >
         <AppLogo variant="dark" />
         <AccountMenu
-          userName={user.name || "Scholar"}
-          userUsername={user.username || undefined}
-          userImage={user.image || undefined}
           onSignOut={() => signOut()}
-          currentView="parent"
         />
       </Flex>
 
