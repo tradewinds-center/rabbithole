@@ -58,6 +58,11 @@ function ScholarHome() {
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
   const isTestMode = !!(user && (user.role === "teacher" || user.role === "admin"));
 
+  const remoteUser = useQuery(
+    api.users.getUser,
+    isRemoteMode && remoteUserId ? { userId: remoteUserId as Id<"users"> } : "skip"
+  );
+
   const projects = useQuery(
     api.projects.list,
     user ? (isRemoteMode ? { userId: remoteUserId as Id<"users"> } : {}) : "skip"
@@ -142,6 +147,7 @@ function ScholarHome() {
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       <TopBar
         isRemoteMode={isRemoteMode}
+        scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
         onSignOut={() => signOut()}
         onOpenProfile={() => setProfileModalOpen(true)}
         pulseScore={pulseScore}
@@ -307,12 +313,14 @@ function ScholarHome() {
 
 function TopBar({
   isRemoteMode,
+  scholarName,
   onSignOut,
   onOpenProfile,
   pulseScore,
   lastMessageAt,
 }: {
   isRemoteMode: boolean;
+  scholarName?: string | null;
   onSignOut: () => void;
   onOpenProfile: () => void;
   pulseScore?: number | null;
@@ -329,8 +337,16 @@ function TopBar({
       justify="space-between"
       flexShrink={0}
     >
-      <AppLogo variant="dark" />
-      {!isRemoteMode && (
+      {isRemoteMode && scholarName ? (
+        <Text fontWeight="600" fontFamily="heading" color="violet.500" fontSize="sm">
+          {scholarName}
+        </Text>
+      ) : (
+        <AppLogo variant="dark" />
+      )}
+      {isRemoteMode ? (
+        <AccountMenu onSignOut={onSignOut} />
+      ) : (
         <AccountMenu
           onSignOut={onSignOut}
           onOpenProfile={onOpenProfile}
