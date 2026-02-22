@@ -47,7 +47,6 @@ function AccountForm() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [readingLevel, setReadingLevel] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>();
@@ -63,7 +62,6 @@ function AccountForm() {
     if (user && !initialized.current) {
       initialized.current = true;
       setName(user.name ?? "");
-      setEmail(user.email ?? "");
       setDateOfBirth(user.dateOfBirth ?? "");
       setReadingLevel(user.readingLevel ?? "");
       setAvatarPreview(user.image ?? undefined);
@@ -73,7 +71,7 @@ function AccountForm() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
-      router.replace("/login");
+      router.replace("/sign-in");
     }
   }, [isLoading, user, router]);
 
@@ -111,14 +109,12 @@ function AccountForm() {
     try {
       const args: {
         name?: string;
-        email?: string;
         dateOfBirth?: string;
         readingLevel?: string;
         imageStorageId?: Id<"_storage">;
         profileSetupComplete?: boolean;
       } = {};
       if (name) args.name = name;
-      if (email) args.email = email;
       if (dateOfBirth) args.dateOfBirth = dateOfBirth;
       if (readingLevel) args.readingLevel = readingLevel;
       if (pendingStorageId) args.imageStorageId = pendingStorageId;
@@ -137,7 +133,7 @@ function AccountForm() {
     } finally {
       setIsSaving(false);
     }
-  }, [updateProfile, name, email, dateOfBirth, readingLevel, pendingStorageId, isSetup, router]);
+  }, [updateProfile, name, dateOfBirth, readingLevel, pendingStorageId, isSetup, router]);
 
   if (isLoading || !user) {
     return (
@@ -241,25 +237,6 @@ function AccountForm() {
                 h={12}
                 color="charcoal.400"
                 cursor="not-allowed"
-              />
-            </Box>
-
-            <Box w="full">
-              <Text fontSize="xs" fontFamily="heading" color="charcoal.400" mb={1} fontWeight="500">
-                Email
-              </Text>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                bg="gray.50"
-                border="1px solid"
-                borderColor="gray.300"
-                borderRadius="lg"
-                fontFamily="body"
-                h={12}
-                _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
-                _focusVisible={{ boxShadow: "none", outline: "none" }}
               />
             </Box>
 

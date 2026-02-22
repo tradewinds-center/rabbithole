@@ -124,7 +124,7 @@ function ScholarProjectInner() {
   useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
-      router.replace("/login");
+      router.replace("/sign-in");
       return;
     }
     // Let teachers through if they have dimension params (preview/demo), remote mode, or demo flag
@@ -235,6 +235,7 @@ function ScholarProjectInner() {
 
   // Header always shows the logged-in user, not the remote scholar
   const displayName = user?.name || "Scholar";
+  const displayUsername = user?.username || undefined;
   const displayImage = user?.image || undefined;
 
   // Show spinner while "new" project is being created
@@ -441,6 +442,7 @@ function ScholarProjectInner() {
             onOpenSidebar={() => setIsSidebarOpen(true)}
             onSignOut={isRemoteMode ? undefined : () => signOut()}
             userName={displayName}
+            userUsername={displayUsername}
             userImage={displayImage}
             isTestMode={isTestMode}
             isAdmin={user?.role === "admin"}

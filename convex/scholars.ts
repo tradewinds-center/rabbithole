@@ -49,7 +49,6 @@ export const getProfile = authedQuery({
     return {
       scholar: {
         id: scholar._id,
-        email: scholar.email,
         name: scholar.name,
         image: scholar.image,
         readingLevel: scholar.readingLevel ?? null,

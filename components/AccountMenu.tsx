@@ -7,6 +7,7 @@ import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 
 interface AccountMenuProps {
   userName: string;
+  userUsername?: string;
   userImage?: string;
   onSignOut: () => void;
   onOpenProfile?: () => void;
@@ -21,6 +22,7 @@ interface AccountMenuProps {
 
 export function AccountMenu({
   userName,
+  userUsername,
   userImage,
   onSignOut,
   onOpenProfile,
@@ -60,6 +62,11 @@ export function AccountMenu({
             <Text fontFamily="heading" fontWeight="700" fontSize="sm" color="navy.500">
               {userName}
             </Text>
+            {userUsername && (
+              <Text fontFamily="heading" fontSize="xs" color="charcoal.400">
+                @{userUsername}
+              </Text>
+            )}
           </Box>
           {showOrb && (
             <>

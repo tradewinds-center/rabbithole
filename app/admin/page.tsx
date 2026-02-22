@@ -112,7 +112,7 @@ export default function AdminPage() {
                 variant="outline"
                 fontFamily="heading"
                 colorPalette="red"
-                onClick={() => signOut().then(() => router.push("/login"))}
+                onClick={() => signOut().then(() => router.push("/sign-in"))}
               >
                 Sign Out
               </Button>
@@ -136,7 +136,7 @@ export default function AdminPage() {
                   return (
                     <Table.Row key={u._id}>
                       <Table.Cell fontFamily="body" pl={4}>
-                        <Text fontWeight="500">{u.username ?? u.email ?? "—"}</Text>
+                        <Text fontWeight="500">{u.username ?? "—"}</Text>
                       </Table.Cell>
                       <Table.Cell fontFamily="body">{u.name ?? "—"}</Table.Cell>
                       <Table.Cell>
@@ -156,7 +156,7 @@ export default function AdminPage() {
                             onClick={() =>
                               setDeleteTarget({
                                 id: u._id,
-                                name: u.name ?? u.username ?? u.email ?? "this user",
+                                name: u.name ?? u.username ?? "this user",
                               })
                             }
                           >

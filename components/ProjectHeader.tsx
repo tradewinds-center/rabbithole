@@ -28,6 +28,7 @@ interface ProjectHeaderProps {
   onMenuClick?: () => void;
   isSynced?: boolean;
   userName?: string;
+  userUsername?: string;
   userImage?: string;
   isTestMode?: boolean;
   isAdmin?: boolean;
@@ -49,6 +50,7 @@ export function ProjectHeader({
   onMenuClick,
   isSynced,
   userName,
+  userUsername,
   userImage,
   isTestMode,
   isAdmin,
@@ -248,6 +250,7 @@ export function ProjectHeader({
         {userName && onSignOut && (
           <AccountMenu
             userName={userName}
+            userUsername={userUsername}
             userImage={userImage}
             pulseScore={pulseScore}
             lastMessageAt={lastMessageAt}

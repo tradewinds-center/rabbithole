@@ -125,7 +125,6 @@ export const listScholars = teacherQuery({
         return {
           _id: scholar._id,
           id: scholar._id,
-          email: scholar.email,
           username: scholar.username ?? null,
           name: scholar.name,
           image: scholar.image,
@@ -211,7 +210,7 @@ export const internalListUsers = internalQuery({
   args: {},
   handler: async (ctx) => {
     const users = await ctx.db.query("users").collect();
-    return users.map((u) => ({ _id: u._id, name: u.name, email: u.email, username: u.username, role: u.role }));
+    return users.map((u) => ({ _id: u._id, name: u.name, username: u.username, role: u.role }));
   },
 });
 
@@ -226,7 +225,6 @@ export const listAllUsers = adminQuery({
       _id: u._id,
       username: u.username ?? null,
       name: u.name ?? null,
-      email: u.email ?? null,
       role: u.role ?? "scholar",
       _creationTime: u._creationTime,
     }));
@@ -388,7 +386,7 @@ export const deleteUser = adminMutation({
     // 11. Finally, delete the user
     await ctx.db.delete(args.userId);
 
-    return { deleted: true, name: targetUser.name ?? targetUser.email ?? "Unknown" };
+    return { deleted: true, name: targetUser.name ?? targetUser.username ?? "Unknown" };
   },
 });
 
@@ -399,7 +397,6 @@ export const deleteUser = adminMutation({
 export const updateProfile = authedMutation({
   args: {
     name: v.optional(v.string()),
-    email: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
     readingLevel: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
@@ -408,7 +405,6 @@ export const updateProfile = authedMutation({
   handler: async (ctx, args) => {
     const patch: Record<string, string | boolean | undefined | null> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
-    if (args.email !== undefined) patch.email = args.email.trim();
     if (args.dateOfBirth !== undefined) patch.dateOfBirth = args.dateOfBirth;
     if (args.readingLevel !== undefined) {
       const allowed = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];

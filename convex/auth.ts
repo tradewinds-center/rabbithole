@@ -17,16 +17,14 @@ export const { auth, signIn, signOut, store } = convexAuth({
         return args.existingUserId;
       }
 
-      // New sign-up: extract username from synthetic email
-      const email = args.profile.email as string | undefined;
-      const username = email?.replace("@rabbithole.local", "")
-        .replace("@test.rabbithole.dev", "") ?? "";
+      // Extract bare username from the synthetic email the frontend sends
+      const rawEmail = args.profile.email as string | undefined;
+      const username = rawEmail?.replace(/@.*$/, "") ?? "";
 
-      // Check if a seeded user with this email already exists
-      // (seeded users have email = username@rabbithole.local)
+      // Check if a seeded user with this username already exists
       const existing = await ctx.db
         .query("users")
-        .filter((q) => q.eq(q.field("email"), email))
+        .filter((q) => q.eq(q.field("username"), username))
         .unique();
       if (existing) {
         return existing._id;
@@ -38,7 +36,6 @@ export const { auth, signIn, signOut, store } = convexAuth({
       const role = userCount === 0 ? "admin" as const : "scholar" as const;
 
       return await ctx.db.insert("users", {
-        email,
         username,
         name: username,
         role,

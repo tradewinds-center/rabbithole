@@ -1,6 +1,7 @@
 "use client";
 
 import { useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -9,20 +10,22 @@ import { Box, Spinner, VStack, Text } from "@chakra-ui/react";
 export default function Home() {
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const { user, isLoading: userLoading } = useCurrentUser();
+  const { signOut } = useAuthActions();
   const router = useRouter();
 
   useEffect(() => {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push("/sign-in");
       return;
     }
 
     if (userLoading) return;
 
     if (!user) {
-      router.push("/login");
+      // Authenticated but no user doc — stale session. Sign out to break loop.
+      void signOut();
       return;
     }
 
@@ -32,7 +35,7 @@ export default function Home() {
     } else {
       router.push("/scholar");
     }
-  }, [authLoading, isAuthenticated, user, userLoading, router]);
+  }, [authLoading, isAuthenticated, user, userLoading, router, signOut]);
 
   return (
     <Box

@@ -83,7 +83,7 @@ function ScholarHome() {
   useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
-      router.replace("/login");
+      router.replace("/sign-in");
       return;
     }
     if ((user.role === "teacher" || user.role === "admin") && !remoteUserId) {
@@ -129,6 +129,7 @@ function ScholarHome() {
   }
 
   const displayName = user?.name || "Scholar";
+  const displayUsername = user?.username || undefined;
   const displayImage = user?.image || undefined;
 
   // Derive scholar-level pulse from most recent project
@@ -144,6 +145,7 @@ function ScholarHome() {
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       <TopBar
         displayName={displayName}
+        displayUsername={displayUsername}
         displayImage={displayImage}
         isRemoteMode={isRemoteMode}
         isAdmin={user?.role === "admin"}
@@ -312,6 +314,7 @@ function ScholarHome() {
 
 function TopBar({
   displayName,
+  displayUsername,
   displayImage,
   isRemoteMode,
   isAdmin,
@@ -321,6 +324,7 @@ function TopBar({
   lastMessageAt,
 }: {
   displayName: string;
+  displayUsername?: string;
   displayImage?: string;
   isRemoteMode: boolean;
   isAdmin?: boolean;
@@ -344,6 +348,7 @@ function TopBar({
       {!isRemoteMode && (
         <AccountMenu
           userName={displayName}
+          userUsername={displayUsername}
           userImage={displayImage}
           onSignOut={onSignOut}
           onOpenProfile={onOpenProfile}

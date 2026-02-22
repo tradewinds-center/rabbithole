@@ -30,7 +30,6 @@ interface ProfileEditModalProps {
   user: {
     name?: string;
     username?: string;
-    email?: string;
     image?: string;
     dateOfBirth?: string;
     readingLevel?: string;
@@ -42,7 +41,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [readingLevel, setReadingLevel] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>();
@@ -58,7 +56,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
     if (open && !initialized.current) {
       initialized.current = true;
       setName(isSetup ? "" : (user.name ?? ""));
-      setEmail(isSetup ? "" : (user.email ?? ""));
       setDateOfBirth(user.dateOfBirth ?? "");
       setReadingLevel(user.readingLevel ?? "");
       setAvatarPreview(user.image ?? undefined);
@@ -99,14 +96,12 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
     try {
       const args: {
         name?: string;
-        email?: string;
         dateOfBirth?: string;
         readingLevel?: string;
         imageStorageId?: Id<"_storage">;
         profileSetupComplete?: boolean;
       } = {};
       if (name) args.name = name;
-      if (email) args.email = email;
       if (dateOfBirth) args.dateOfBirth = dateOfBirth;
       if (readingLevel) args.readingLevel = readingLevel;
       if (pendingStorageId) args.imageStorageId = pendingStorageId;
@@ -128,7 +123,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
     } finally {
       setIsSaving(false);
     }
-  }, [updateProfile, name, email, dateOfBirth, readingLevel, pendingStorageId, isSetup, onClose]);
+  }, [updateProfile, name, dateOfBirth, readingLevel, pendingStorageId, isSetup, onClose]);
 
   const handleSkipOrCancel = useCallback(async () => {
     if (isSetup) {
@@ -235,25 +230,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                     h={10}
                     color="charcoal.400"
                     cursor="not-allowed"
-                  />
-                </Flex>
-
-                <Flex gap={3} w="full" align="center">
-                  <Text fontSize="sm" fontFamily="heading" color="charcoal.400" fontWeight="500" w="120px" flexShrink={0}>
-                    Email
-                  </Text>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    bg="gray.50"
-                    border="1px solid"
-                    borderColor="gray.300"
-                    borderRadius="lg"
-                    fontFamily="body"
-                    h={10}
-                    _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
-                    _focusVisible={{ boxShadow: "none", outline: "none" }}
                   />
                 </Flex>
 

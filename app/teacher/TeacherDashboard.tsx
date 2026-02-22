@@ -102,7 +102,7 @@ function timeAgo(timestamp: number): string {
 
 interface Scholar {
   id: string;
-  email?: string;
+  username?: string | null;
   name?: string;
   image?: string;
   readingLevel: string | null;
@@ -220,7 +220,7 @@ export default function TeacherDashboardInner() {
   useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
-      router.push("/login");
+      router.push("/sign-in");
       return;
     }
     if (user.role !== "teacher" && user.role !== "admin") {
@@ -281,11 +281,12 @@ export default function TeacherDashboardInner() {
         <Box ml="auto">
           <AccountMenu
             userName={user?.name || "Teacher"}
+            userUsername={user?.username || undefined}
             userImage={user?.image || undefined}
             isAdmin={user?.role === "admin"}
             onSignOut={() => {
               signOut();
-              router.push("/login");
+              router.push("/sign-in");
             }}
           />
         </Box>
@@ -386,7 +387,7 @@ export default function TeacherDashboardInner() {
                             color="charcoal.400"
                             _hover={{ color: "violet.500", bg: "violet.50" }}
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/login`);
+                              navigator.clipboard.writeText(`${window.location.origin}/sign-in`);
                             }}
                           >
                             <FiCopy />
@@ -432,9 +433,11 @@ export default function TeacherDashboardInner() {
                         >
                           {scholar.name}
                         </Text>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                          {scholar.projectCount} projects
-                        </Text>
+                        {scholar.username && (
+                          <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
+                            @{scholar.username}
+                          </Text>
+                        )}
                       </VStack>
                     </HStack>
                   );

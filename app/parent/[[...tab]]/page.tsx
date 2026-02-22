@@ -44,7 +44,7 @@ function ParentView() {
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      router.replace("/login");
+      router.replace("/sign-in");
     }
   }, [user, isLoading, router]);
 
@@ -72,6 +72,7 @@ function ParentView() {
         <AppLogo variant="dark" />
         <AccountMenu
           userName={user.name || "Scholar"}
+          userUsername={user.username || undefined}
           userImage={user.image || undefined}
           onSignOut={() => signOut()}
           currentView="parent"

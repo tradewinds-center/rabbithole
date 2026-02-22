@@ -2,24 +2,58 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Box, Button, Container, Heading, Input, Text, VStack } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
-export default function LoginPage() {
+interface AuthFormProps {
+  mode: "signIn" | "signUp";
+}
+
+const config = {
+  signIn: {
+    heading: "Welcome back",
+    subtext: "Enter your username to continue",
+    button: "Sign In",
+    usernamePlaceholder: "Username",
+    passwordPlaceholder: "Password",
+    autoComplete: "current-password" as const,
+    linkText: "Need an account? Create one",
+    linkHref: "/sign-up",
+    errorMessage: "Invalid username or password",
+  },
+  signUp: {
+    heading: "Join Rabbithole",
+    subtext: "Create your account to start learning",
+    button: "Create Account",
+    usernamePlaceholder: "Choose a username",
+    passwordPlaceholder: "Choose a password",
+    autoComplete: "new-password" as const,
+    linkText: "Already have an account? Sign in",
+    linkHref: "/sign-in",
+    errorMessage: "Username already taken",
+  },
+};
+
+export function AuthForm({ mode }: AuthFormProps) {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
+  const { user, isLoading: userLoading } = useCurrentUser();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const c = config[mode];
+
   useEffect(() => {
-    if (isAuthenticated) {
+    // Only redirect if both authenticated AND a user doc exists
+    if (isAuthenticated && !userLoading && user) {
       window.location.href = "/";
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userLoading, user]);
 
   const handleSubmit = async () => {
     const trimmed = username.trim();
@@ -33,7 +67,8 @@ export default function LoginPage() {
       return;
     }
 
-    const email = `${trimmed}@rabbithole.local`;
+    // Password provider requires an email — use synthetic one internally
+    const email = `${trimmed}@local`;
 
     try {
       if (mode === "signIn") {
@@ -52,11 +87,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Auth failed:", err);
-      setError(
-        mode === "signIn"
-          ? "Invalid username or password"
-          : "Username already taken"
-      );
+      setError(c.errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -68,6 +99,7 @@ export default function LoginPage() {
       display="flex"
       alignItems="center"
       justifyContent="center"
+      flexDirection="column"
       p={4}
     >
       <Container maxW="lg">
@@ -94,16 +126,16 @@ export default function LoginPage() {
               color="navy.500"
               letterSpacing="tight"
             >
-              Rabbithole
+              {c.heading}
             </Heading>
             <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
-              {mode === "signIn" ? "Sign in to continue" : "Create your account to get started"}
+              {c.subtext}
             </Text>
           </VStack>
 
           <VStack gap={3} w="full">
             <Input
-              placeholder={mode === "signIn" ? "Username" : "Choose a username"}
+              placeholder={c.usernamePlaceholder}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -120,7 +152,7 @@ export default function LoginPage() {
             />
             <Input
               type="password"
-              placeholder={mode === "signIn" ? "Password" : "Choose a password"}
+              placeholder={c.passwordPlaceholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
@@ -132,7 +164,7 @@ export default function LoginPage() {
               h={12}
               _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
               _focusVisible={{ boxShadow: "none", outline: "none" }}
-              autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+              autoComplete={c.autoComplete}
             />
 
             {error && (
@@ -153,26 +185,41 @@ export default function LoginPage() {
               disabled={!username.trim() || !password || isSubmitting}
               onClick={handleSubmit}
             >
-              {mode === "signIn" ? "Sign In" : "Create Account"}
+              {c.button}
             </Button>
           </VStack>
 
-          <Text
-            as="button"
-            color="charcoal.400"
-            fontSize="sm"
-            fontFamily="heading"
-            cursor="pointer"
-            _hover={{ color: "violet.500", textDecoration: "underline" }}
-            onClick={() => {
-              setMode(mode === "signIn" ? "signUp" : "signIn");
-              setError("");
-            }}
-          >
-            {mode === "signIn" ? "Need an account? Create one" : "Already have an account? Sign in"}
-          </Text>
+          <Link href={c.linkHref}>
+            <Text
+              color="charcoal.400"
+              fontSize="sm"
+              fontFamily="heading"
+              cursor="pointer"
+              _hover={{ color: "violet.500", textDecoration: "underline" }}
+            >
+              {c.linkText}
+            </Text>
+          </Link>
         </VStack>
       </Container>
+
+      <Text
+        color="whiteAlpha.500"
+        fontSize="xs"
+        fontFamily="heading"
+        mt={6}
+        textAlign="center"
+      >
+        A project of{" "}
+        <a
+          href="https://tradewinds.school/center"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "underline" }}
+        >
+          Tradewinds Center for Advanced Learning
+        </a>
+      </Text>
     </Box>
   );
 }

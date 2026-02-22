@@ -53,6 +53,7 @@ interface ProjectInterfaceProps {
   onOpenSidebar?: () => void;
   onSignOut?: () => void;
   userName?: string;
+  userUsername?: string;
   userImage?: string;
   isTestMode?: boolean;
   isAdmin?: boolean;
@@ -65,6 +66,7 @@ export function ProjectInterface({
   onOpenSidebar,
   onSignOut,
   userName,
+  userUsername,
   userImage,
   isTestMode,
   isAdmin,
@@ -484,6 +486,7 @@ export function ProjectInterface({
         onMenuClick={onOpenSidebar}
         isSynced={hasArtifacts ? artifactSynced : undefined}
         userName={userName}
+        userUsername={userUsername}
         userImage={userImage}
         isTestMode={isTestMode}
         isAdmin={isAdmin}

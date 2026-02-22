@@ -32,7 +32,6 @@ export const seedAll = internalMutation({
     // Create admin account (used as FK for seeded entities)
     const systemTeacherId = await ctx.db.insert("users", {
       username: "andyszy",
-      email: "andyszy@rabbithole.local",
       name: "Andy Szybalski",
       role: "admin",
     });
@@ -40,7 +39,6 @@ export const seedAll = internalMutation({
     // Create default guest scholar account
     await ctx.db.insert("users", {
       username: "guest",
-      email: "guest@rabbithole.local",
       name: "Guest",
       role: "scholar",
       profileSetupComplete: true,
@@ -1774,3 +1772,58 @@ export const patchAvatars = internalMutation({
     console.log(`Patched ${patched} users with avatars`);
   },
 });
+
+/**
+ * Clean up usernames: strip fake email domains (@rabbithole.local, @makawulu.local,
+ * @test.rabbithole.dev, @local) from username and email fields.
+ * Real email domains are left alone.
+ * Run: npx convex run seed:cleanUpUsernames
+ */
+export const cleanUpUsernames = internalMutation({
+  handler: async (ctx) => {
+    const fakeDomains = ["@rabbithole.local", "@makawulu.local", "@test.rabbithole.dev", "@local", "@rabbithole.app"];
+    const users = await ctx.db.query("users").collect();
+    let patched = 0;
+
+    for (const user of users) {
+      const patch: Record<string, string | undefined> = {};
+
+      // Clean username
+      if (user.username) {
+        const stripped = stripFakeDomain(user.username, fakeDomains);
+        if (stripped !== user.username) {
+          patch.username = stripped;
+        }
+      }
+
+      // Clean email — clear it if it was a fake domain, keep real emails
+      if (user.email) {
+        const isFake = fakeDomains.some((d) => user.email!.endsWith(d));
+        if (isFake) {
+          // Set username from email if username is missing
+          if (!user.username && !patch.username) {
+            patch.username = user.email.replace(/@.*$/, "");
+          }
+          patch.email = undefined;
+        }
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(user._id, patch);
+        patched++;
+        console.log(`Patched user ${user.name ?? user.username ?? user._id}: ${JSON.stringify(patch)}`);
+      }
+    }
+
+    console.log(`Cleaned up ${patched} users`);
+  },
+});
+
+function stripFakeDomain(value: string, fakeDomains: string[]): string {
+  for (const domain of fakeDomains) {
+    if (value.endsWith(domain)) {
+      return value.slice(0, -domain.length);
+    }
+  }
+  return value;
+}

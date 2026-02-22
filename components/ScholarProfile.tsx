@@ -237,9 +237,11 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
               {scholar?.name}
             </Text>
-            <Text color="charcoal.400" fontSize="xs" fontFamily="heading">
-              {scholar?.email}
-            </Text>
+            {scholar?.readingLevel && (
+              <Text color="charcoal.400" fontSize="xs" fontFamily="heading">
+                Reading level: {scholar.readingLevel}
+              </Text>
+            )}
           </VStack>
         </HStack>
 
