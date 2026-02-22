@@ -50,6 +50,8 @@ interface ScholarProfileProps {
   activeTab?: TabKey;
   onTabChange?: (tab: TabKey) => void;
   onDelete?: () => void;
+  /** "teacher" (default) shows all controls; "parent" hides teacher-only buttons */
+  mode?: "teacher" | "parent";
 }
 
 const READING_LEVELS = [
@@ -95,7 +97,8 @@ function timeAgo(timestamp: number): string {
   return `${months}mo ago`;
 }
 
-export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange, onDelete }: ScholarProfileProps) {
+export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange, onDelete, mode = "teacher" }: ScholarProfileProps) {
+  const isParentMode = mode === "parent";
   const { user: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === "admin";
   const deleteUser = useMutation(api.users.deleteUser);
@@ -259,43 +262,60 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         </HStack>
 
         <HStack ml="auto" gap={1}>
-          <Button
-            size="sm"
-            variant="ghost"
-            color="violet.500"
-            fontFamily="heading"
-            fontSize="xs"
-            _hover={{ bg: "violet.50" }}
-            onClick={() => setShowParentAccess(true)}
-          >
-            <FiShare2 style={{ marginRight: "4px" }} />
-            Parent Access
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            color="violet.500"
-            fontFamily="heading"
-            fontSize="xs"
-            _hover={{ bg: "violet.50" }}
-            onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
-          >
-            <FiExternalLink style={{ marginRight: "4px" }} />
-            Remote View
-          </Button>
-          {isAdmin && (
+          {isParentMode ? (
             <Button
               size="sm"
               variant="ghost"
-              color="red.500"
+              color="violet.500"
               fontFamily="heading"
               fontSize="xs"
-              _hover={{ bg: "red.50" }}
-              onClick={() => setShowDeleteConfirm(true)}
+              _hover={{ bg: "violet.50" }}
+              onClick={() => setShowParentAccess(true)}
             >
-              <FiTrash2 style={{ marginRight: "4px" }} />
-              Delete
+              <FiShare2 style={{ marginRight: "4px" }} />
+              MCP Access
             </Button>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="violet.500"
+                fontFamily="heading"
+                fontSize="xs"
+                _hover={{ bg: "violet.50" }}
+                onClick={() => setShowParentAccess(true)}
+              >
+                <FiShare2 style={{ marginRight: "4px" }} />
+                Parent Access
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="violet.500"
+                fontFamily="heading"
+                fontSize="xs"
+                _hover={{ bg: "violet.50" }}
+                onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
+              >
+                <FiExternalLink style={{ marginRight: "4px" }} />
+                Remote View
+              </Button>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  color="red.500"
+                  fontFamily="heading"
+                  fontSize="xs"
+                  _hover={{ bg: "red.50" }}
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <FiTrash2 style={{ marginRight: "4px" }} />
+                  Delete
+                </Button>
+              )}
+            </>
           )}
         </HStack>
 
@@ -745,6 +765,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         scholarName={scholar?.name ?? "Scholar"}
         open={showParentAccess}
         onClose={() => setShowParentAccess(false)}
+        mode={isParentMode ? "self" : "teacher"}
       />
     </Box>
   );

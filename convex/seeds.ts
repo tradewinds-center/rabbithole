@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
 
 /**
  * Record a seed from the AI observer (status: "pending", awaits teacher review).
@@ -146,9 +146,12 @@ export const updateStatus = teacherMutation({
 /**
  * Teacher-facing: all seeds for a scholar.
  */
-export const listByScholar = teacherQuery({
+export const listByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     return await ctx.db
       .query("seeds")
       .withIndex("by_scholar_status", (q) =>

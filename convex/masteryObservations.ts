@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { teacherQuery } from "./lib/customFunctions";
+import { authedQuery, teacherQuery } from "./lib/customFunctions";
 
 /**
  * Record a mastery observation (called by the observer action).
@@ -99,9 +99,12 @@ export const currentByScholar = internalQuery({
 /**
  * Teacher view: current observations for a scholar, grouped by domain.
  */
-export const byScholarDomain = teacherQuery({
+export const byScholarDomain = authedQuery({
   args: { scholarId: v.id("users"), domain: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const observations = await ctx.db
       .query("masteryObservations")
       .withIndex("by_scholar_current", (q) =>
@@ -126,12 +129,15 @@ export const byScholarDomain = teacherQuery({
 /**
  * Inspect a concept's full observation history (all versions).
  */
-export const inspectConcept = teacherQuery({
+export const inspectConcept = authedQuery({
   args: {
     scholarId: v.id("users"),
     conceptLabel: v.string(),
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const allForScholar = await ctx.db
       .query("masteryObservations")
       .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
@@ -161,9 +167,12 @@ export const inspectConcept = teacherQuery({
  * Current observations that have linked standards, for a scholar.
  * Used by StandardsTab for efficient initial load.
  */
-export const withStandardsByScholar = teacherQuery({
+export const withStandardsByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const observations = await ctx.db
       .query("masteryObservations")
       .withIndex("by_scholar_current", (q) =>
@@ -180,7 +189,7 @@ export const withStandardsByScholar = teacherQuery({
 /**
  * Get all observations for a project (for inline display in teacher view).
  */
-export const byProject = teacherQuery({
+export const byProject = authedQuery({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db

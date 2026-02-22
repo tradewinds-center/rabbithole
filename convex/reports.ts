@@ -1,12 +1,15 @@
 import { v } from "convex/values";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation } from "./lib/customFunctions";
 
 /**
  * List reports for a scholar, newest first.
  */
-export const list = teacherQuery({
+export const list = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     return await ctx.db
       .query("reports")
       .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
@@ -18,13 +21,16 @@ export const list = teacherQuery({
 /**
  * Create a report and auto-append to scholar dossier.
  */
-export const create = teacherMutation({
+export const create = authedMutation({
   args: {
     scholarId: v.id("users"),
     title: v.string(),
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const id = await ctx.db.insert("reports", {
       teacherId: ctx.user._id,
       scholarId: args.scholarId,
@@ -63,9 +69,14 @@ export const create = teacherMutation({
 /**
  * Delete a report. Does NOT remove from dossier (already folded in).
  */
-export const remove = teacherMutation({
+export const remove = authedMutation({
   args: { reportId: v.id("reports") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher) {
+      const report = await ctx.db.get(args.reportId);
+      if (!report || report.scholarId !== ctx.user._id) throw new Error("Forbidden");
+    }
     await ctx.db.delete(args.reportId);
   },
 });

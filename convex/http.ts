@@ -1272,7 +1272,7 @@ http.route({
   }),
 });
 
-// ── Parent API endpoints ──────────────────────────────────────────────────────
+// ── Parent/Token API endpoints ───────────────────────────────────────────────
 
 const PARENT_API_CORS = {
   "Content-Type": "application/json",
@@ -1286,18 +1286,53 @@ function extractToken(request: Request): string | null {
   return authHeader.slice(7);
 }
 
+/**
+ * Resolve the scholarId for an API request.
+ * - For scholar tokens: userId IS the scholar.
+ * - For teacher tokens: scholarId must come from the POST body.
+ */
+async function resolveScholarId(
+  auth: { userId: Id<"users">; role: string },
+  request: Request
+): Promise<Id<"users"> | null> {
+  if (auth.role === "teacher" || auth.role === "admin") {
+    try {
+      const body = await request.clone().json();
+      if (body?.scholarId) return body.scholarId as Id<"users">;
+    } catch {}
+    return null; // Teacher must provide scholarId
+  }
+  return auth.userId; // Scholar's own data
+}
+
 http.route({
   path: "/parent-api/validate",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
     return new Response(
-      JSON.stringify({ scholarName: auth.scholarName, parentName: auth.parentName }),
+      JSON.stringify({ userName: auth.userName, label: auth.label, role: auth.role }),
       { status: 200, headers: PARENT_API_CORS }
     );
+  }),
+});
+
+http.route({
+  path: "/parent-api/scholars",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = extractToken(request);
+    if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
+    if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
+    if (auth.role !== "teacher" && auth.role !== "admin") {
+      return new Response(JSON.stringify({ error: "Teacher access required" }), { status: 403, headers: PARENT_API_CORS });
+    }
+    const scholars = await ctx.runQuery(internal.tokens.listScholars, {});
+    return new Response(JSON.stringify(scholars), { status: 200, headers: PARENT_API_CORS });
   }),
 });
 
@@ -1307,9 +1342,11 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const summary = await ctx.runQuery(internal.parentAccess.getScholarSummary, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const summary = await ctx.runQuery(internal.tokens.getScholarSummary, { scholarId });
     return new Response(JSON.stringify(summary), { status: 200, headers: PARENT_API_CORS });
   }),
 });
@@ -1320,9 +1357,11 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const projects = await ctx.runQuery(internal.parentAccess.getRecentProjects, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const projects = await ctx.runQuery(internal.tokens.getRecentProjects, { scholarId });
     return new Response(JSON.stringify(projects), { status: 200, headers: PARENT_API_CORS });
   }),
 });
@@ -1333,9 +1372,11 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const mastery = await ctx.runQuery(internal.curriculumAssistant.getScholarMastery, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const mastery = await ctx.runQuery(internal.curriculumAssistant.getScholarMastery, { scholarId });
     return new Response(JSON.stringify(mastery), { status: 200, headers: PARENT_API_CORS });
   }),
 });
@@ -1346,9 +1387,11 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const signals = await ctx.runQuery(internal.curriculumAssistant.getScholarSignals, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const signals = await ctx.runQuery(internal.curriculumAssistant.getScholarSignals, { scholarId });
     return new Response(JSON.stringify(signals), { status: 200, headers: PARENT_API_CORS });
   }),
 });
@@ -1359,9 +1402,11 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const seeds = await ctx.runQuery(internal.curriculumAssistant.getScholarSeeds, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const seeds = await ctx.runQuery(internal.curriculumAssistant.getScholarSeeds, { scholarId });
     return new Response(JSON.stringify(seeds), { status: 200, headers: PARENT_API_CORS });
   }),
 });
@@ -1372,14 +1417,31 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = extractToken(request);
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
-    const auth = await ctx.runQuery(internal.parentAccess.validateToken, { token });
+    const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    const observations = await ctx.runQuery(internal.curriculumAssistant.getScholarObservations, { scholarId: auth.scholarId });
+    const scholarId = await resolveScholarId(auth, request);
+    if (!scholarId) return new Response(JSON.stringify({ error: "scholarId required" }), { status: 400, headers: PARENT_API_CORS });
+    const observations = await ctx.runQuery(internal.curriculumAssistant.getScholarObservations, { scholarId });
     return new Response(JSON.stringify(observations), { status: 200, headers: PARENT_API_CORS });
   }),
 });
 
 // CORS preflight for parent-api
+http.route({
+  path: "/parent-api/scholars",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
 http.route({
   path: "/parent-api/validate",
   method: "OPTIONS",

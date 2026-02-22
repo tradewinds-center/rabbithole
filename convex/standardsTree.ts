@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { teacherQuery } from "./lib/customFunctions";
+import { authedQuery } from "./lib/customFunctions";
 import { Id, Doc } from "./_generated/dataModel";
 
 /** Helper: filter out nodes with empty/placeholder descriptions */
@@ -21,7 +21,7 @@ function sortByNotation<T extends { notation?: string; description: string }>(
 /**
  * List all standards documents with leaf counts and distinct grade levels.
  */
-export const listDocuments = teacherQuery({
+export const listDocuments = authedQuery({
   args: {},
   handler: async (ctx) => {
     const docs = await ctx.db.query("standardsDocuments").collect();
@@ -63,7 +63,7 @@ export const listDocuments = teacherQuery({
  * Get top-level standards (parentId undefined) for a document,
  * filtered by grade and excluding "(no description)" entries.
  */
-export const getRootsByGrade = teacherQuery({
+export const getRootsByGrade = authedQuery({
   args: {
     documentId: v.id("standardsDocuments"),
     grade: v.string(),
@@ -88,7 +88,7 @@ export const getRootsByGrade = teacherQuery({
 /**
  * Get top-level standards (parentId undefined) for a document (no grade filter).
  */
-export const getRoots = teacherQuery({
+export const getRoots = authedQuery({
   args: { documentId: v.id("standardsDocuments") },
   handler: async (ctx, args) => {
     const all = await ctx.db
@@ -103,13 +103,16 @@ export const getRoots = teacherQuery({
 /**
  * Grade summary: total leaf standards for a grade, and how many have observations.
  */
-export const gradeSummary = teacherQuery({
+export const gradeSummary = authedQuery({
   args: {
     documentId: v.id("standardsDocuments"),
     grade: v.string(),
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const allStandards = await ctx.db
       .query("standards")
       .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
@@ -156,7 +159,7 @@ export const gradeSummary = teacherQuery({
  * Get children of a standard via by_parent index.
  * Filters out "(no description)" entries.
  */
-export const getChildren = teacherQuery({
+export const getChildren = authedQuery({
   args: { parentId: v.id("standards") },
   handler: async (ctx, args) => {
     const children = await ctx.db
@@ -171,7 +174,7 @@ export const getChildren = teacherQuery({
 /**
  * Walk parent chain to root for breadcrumb display.
  */
-export const getAncestors = teacherQuery({
+export const getAncestors = authedQuery({
   args: { standardId: v.id("standards") },
   handler: async (ctx, args) => {
     const ancestors: Doc<"standards">[] = [];
@@ -191,12 +194,15 @@ export const getAncestors = teacherQuery({
 /**
  * Get mastery observations linked to a specific standard.
  */
-export const observationsForStandard = teacherQuery({
+export const observationsForStandard = authedQuery({
   args: {
     standardId: v.id("standards"),
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     // Get all current observations for the scholar, filter for this standard
     const allObs = await ctx.db
       .query("masteryObservations")
@@ -215,12 +221,15 @@ export const observationsForStandard = teacherQuery({
  * Recursive subtree coverage: count leaf descendants and how many have observations.
  * Returns { total, assessed } for "X of Y assessed" display.
  */
-export const getSubtreeCoverage = teacherQuery({
+export const getSubtreeCoverage = authedQuery({
   args: {
     standardId: v.id("standards"),
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     // Collect all leaf IDs in the subtree
     const leafIds: Id<"standards">[] = [];
 

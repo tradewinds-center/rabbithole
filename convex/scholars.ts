@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, teacherMutation } from "./lib/customFunctions";
 import { internalQuery, internalMutation } from "./_generated/server";
 
 const VALID_READING_LEVELS = [
@@ -10,9 +10,12 @@ const VALID_READING_LEVELS = [
  * Get a scholar's profile with stats.
  * Topics and suggestions have been replaced by masteryObservations and seeds.
  */
-export const getProfile = teacherQuery({
+export const getProfile = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const scholar = await ctx.db.get(args.scholarId);
     if (!scholar || scholar.role !== "scholar") {
       throw new Error("Scholar not found");

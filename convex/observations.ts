@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherQuery, teacherMutation } from "./lib/customFunctions";
 
 const observationTypeValidator = v.union(
   v.literal("praise"),
@@ -11,9 +11,12 @@ const observationTypeValidator = v.union(
 /**
  * List observations for a scholar.
  */
-export const listByScholar = teacherQuery({
+export const listByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     return await ctx.db
       .query("observations")
       .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
@@ -41,7 +44,7 @@ export const listByProject = teacherQuery({
 /**
  * Add an observation.
  */
-export const add = teacherMutation({
+export const add = authedMutation({
   args: {
     scholarId: v.id("users"),
     projectId: v.optional(v.id("projects")),
@@ -49,6 +52,9 @@ export const add = teacherMutation({
     type: observationTypeValidator,
   },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const id = await ctx.db.insert("observations", {
       teacherId: ctx.user._id,
       scholarId: args.scholarId,
@@ -63,9 +69,14 @@ export const add = teacherMutation({
 /**
  * Delete an observation.
  */
-export const remove = teacherMutation({
+export const remove = authedMutation({
   args: { observationId: v.id("observations") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher) {
+      const obs = await ctx.db.get(args.observationId);
+      if (!obs || obs.scholarId !== ctx.user._id) throw new Error("Forbidden");
+    }
     await ctx.db.delete(args.observationId);
   },
 });

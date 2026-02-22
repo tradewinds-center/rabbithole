@@ -351,16 +351,14 @@ export default defineSchema({
     .index("by_teacher", ["teacherId"])
     .index("by_stream", ["streamId"]),
 
-  parentTokens: defineTable({
+  tokens: defineTable({
     token: v.string(),
-    scholarId: v.id("users"),
-    parentName: v.string(),
-    parentEmail: v.optional(v.string()),
-    createdBy: v.id("users"),
+    userId: v.id("users"),
+    label: v.string(),
     expiresAt: v.optional(v.number()),
   })
     .index("by_token", ["token"])
-    .index("by_scholar", ["scholarId"]),
+    .index("by_user", ["userId"]),
 
   processState: defineTable({
     projectId: v.id("projects"),

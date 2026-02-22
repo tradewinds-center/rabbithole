@@ -177,9 +177,9 @@ focusSettings     -> teacher dimension locks per scholar
 | Teacher | All scholars, dashboard, whispers, observations |
 | Admin | Full system access |
 
-- `@tradewinds.school` emails -> auto-assigned teacher role
-- Others -> scholar role
-- Admins: andy@tradewinds.school, carl@tradewinds.school
+- First user to sign up gets admin role automatically
+- All subsequent users get scholar role
+- Admins promote others to teacher/admin via `/admin`
 - Auth via @convex-dev/auth (Google OAuth + password provider for test users)
 
 ---

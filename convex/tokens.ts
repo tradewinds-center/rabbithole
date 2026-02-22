@@ -1,56 +1,47 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
 
-// ── Token CRUD (teacher-authed) ───────────────────────────────────────
+// ── Self-service token management (any logged-in user) ─────────────────
 
-export const createToken = teacherMutation({
-  args: {
-    scholarId: v.id("users"),
-    parentName: v.string(),
-    parentEmail: v.optional(v.string()),
-    expiresAt: v.optional(v.number()),
-  },
+/**
+ * Generate a token for the current user.
+ * Scholars create tokens for parent/MCP access to their own data.
+ * Teachers create tokens for MCP access to all scholar data.
+ */
+export const createMyToken = authedMutation({
+  args: { label: v.string() },
   handler: async (ctx, args) => {
-    // Verify scholar exists and is actually a scholar
-    const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
-      throw new Error("Scholar not found");
-    }
-
-    // Generate a random token (32 hex chars)
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     const token = Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    const id = await ctx.db.insert("parentTokens", {
+    const id = await ctx.db.insert("tokens", {
       token,
-      scholarId: args.scholarId,
-      parentName: args.parentName,
-      parentEmail: args.parentEmail,
-      createdBy: ctx.user._id,
-      expiresAt: args.expiresAt,
+      userId: ctx.user._id,
+      label: args.label.trim(),
     });
 
     return { id, token };
   },
 });
 
-export const listTokens = teacherQuery({
-  args: { scholarId: v.id("users") },
-  handler: async (ctx, args) => {
+/**
+ * List current user's tokens.
+ */
+export const myTokens = authedQuery({
+  args: {},
+  handler: async (ctx) => {
     const tokens = await ctx.db
-      .query("parentTokens")
-      .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
+      .query("tokens")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
       .collect();
 
     return tokens.map((t) => ({
       _id: t._id,
-      parentName: t.parentName,
-      parentEmail: t.parentEmail,
+      label: t.label,
       createdAt: t._creationTime,
       expiresAt: t.expiresAt,
       token: t.token,
@@ -58,44 +49,118 @@ export const listTokens = teacherQuery({
   },
 });
 
-export const revokeToken = teacherMutation({
-  args: { tokenId: v.id("parentTokens") },
+/**
+ * Revoke own token.
+ */
+export const revokeMyToken = authedMutation({
+  args: { tokenId: v.id("tokens") },
   handler: async (ctx, args) => {
     const token = await ctx.db.get(args.tokenId);
-    if (!token) throw new Error("Token not found");
+    if (!token || token.userId !== ctx.user._id) throw new Error("Not found");
     await ctx.db.delete(args.tokenId);
   },
 });
 
-// ── Token validation (internal, called by HTTP actions) ───────────────
+// ── Teacher: create token for a scholar (backward compat) ──────────────
+
+export const createForScholar = teacherMutation({
+  args: {
+    scholarId: v.id("users"),
+    label: v.string(),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    if (!scholar || scholar.role !== "scholar") {
+      throw new Error("Scholar not found");
+    }
+
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    const id = await ctx.db.insert("tokens", {
+      token,
+      userId: args.scholarId,
+      label: args.label.trim(),
+      expiresAt: args.expiresAt,
+    });
+
+    return { id, token };
+  },
+});
+
+/**
+ * Teacher lists tokens for a scholar.
+ */
+export const listForScholar = authedQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
+    const tokens = await ctx.db
+      .query("tokens")
+      .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
+      .collect();
+
+    return tokens.map((t) => ({
+      _id: t._id,
+      label: t.label,
+      createdAt: t._creationTime,
+      expiresAt: t.expiresAt,
+      token: t.token,
+    }));
+  },
+});
+
+/**
+ * Revoke a token (teacher can revoke any scholar's token, scholar can revoke own).
+ */
+export const revokeToken = authedMutation({
+  args: { tokenId: v.id("tokens") },
+  handler: async (ctx, args) => {
+    const token = await ctx.db.get(args.tokenId);
+    if (!token) throw new Error("Token not found");
+
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && token.userId !== ctx.user._id) throw new Error("Forbidden");
+
+    await ctx.db.delete(args.tokenId);
+  },
+});
+
+// ── Token validation (internal, called by HTTP actions) ─────────────────
 
 export const validateToken = internalQuery({
   args: { token: v.string() },
   handler: async (ctx, args) => {
     const tokenDoc = await ctx.db
-      .query("parentTokens")
+      .query("tokens")
       .withIndex("by_token", (q) => q.eq("token", args.token))
       .first();
 
     if (!tokenDoc) return null;
 
-    // Check expiration
     if (tokenDoc.expiresAt && Date.now() > tokenDoc.expiresAt) {
       return null;
     }
 
-    const scholar = await ctx.db.get(tokenDoc.scholarId);
-    if (!scholar) return null;
+    const user = await ctx.db.get(tokenDoc.userId);
+    if (!user) return null;
 
     return {
-      scholarId: tokenDoc.scholarId,
-      scholarName: scholar.name ?? "Scholar",
-      parentName: tokenDoc.parentName,
+      userId: tokenDoc.userId,
+      userName: user.name ?? "User",
+      label: tokenDoc.label,
+      role: user.role ?? "scholar",
     };
   },
 });
 
-// ── Parent-scoped data queries (internal) ─────────────────────────────
+// ── Parent-scoped data queries (internal, reused by HTTP parent-api) ────
 
 export const getScholarSummary = internalQuery({
   args: { scholarId: v.id("users") },
@@ -103,13 +168,11 @@ export const getScholarSummary = internalQuery({
     const scholar = await ctx.db.get(args.scholarId);
     if (!scholar) return null;
 
-    // Dossier
     const dossier = await ctx.db
       .query("scholarDossiers")
       .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
       .first();
 
-    // Recent pulse (from most recent non-archived project with a score)
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
@@ -118,7 +181,6 @@ export const getScholarSummary = internalQuery({
 
     const recentPulse = projects.find((p) => p.pulseScore != null);
 
-    // Mastery count
     const masteryObs = await ctx.db
       .query("masteryObservations")
       .withIndex("by_scholar_current", (q) =>
@@ -126,7 +188,6 @@ export const getScholarSummary = internalQuery({
       )
       .collect();
 
-    // Unique domains
     const domains = Array.from(new Set(masteryObs.map((o) => o.domain)));
 
     return {
@@ -155,14 +216,12 @@ export const getRecentProjects = internalQuery({
 
     const result = [];
     for (const p of projects) {
-      // Get unit name if linked
       let unitTitle: string | null = null;
       if (p.unitId) {
         const unit = await ctx.db.get(p.unitId);
         unitTitle = unit?.title ?? null;
       }
 
-      // Get message count
       const messages = await ctx.db
         .query("messages")
         .withIndex("by_project", (q) => q.eq("projectId", p._id))
@@ -179,5 +238,23 @@ export const getRecentProjects = internalQuery({
     }
 
     return result;
+  },
+});
+
+// ── Teacher-scoped: list all scholars (for teacher MCP) ─────────────────
+
+export const listScholars = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const scholars = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .collect();
+
+    return scholars.map((s) => ({
+      id: s._id,
+      name: s.name ?? "Scholar",
+      readingLevel: s.readingLevel ?? null,
+    }));
   },
 });

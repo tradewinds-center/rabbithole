@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
-import { FiLogOut, FiSettings, FiUser } from "react-icons/fi";
+import { FiLogOut, FiSettings, FiUser, FiEye } from "react-icons/fi";
 import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 
@@ -15,6 +15,8 @@ interface AccountMenuProps {
   lastMessageAt?: number | null;
   /** Show "Admin Tools" link when true */
   isAdmin?: boolean;
+  /** Current view context — enables view toggle */
+  currentView?: "scholar" | "parent";
 }
 
 export function AccountMenu({
@@ -25,6 +27,7 @@ export function AccountMenu({
   pulseScore,
   lastMessageAt,
   isAdmin,
+  currentView,
 }: AccountMenuProps) {
   const showOrb = pulseScore !== undefined;
 
@@ -70,6 +73,27 @@ export function AccountMenu({
             </>
           )}
           <Menu.Separator />
+          {/* View toggle */}
+          {currentView === "scholar" && (
+            <Menu.Item
+              value="parent-view"
+              cursor="pointer"
+              onClick={() => { window.location.href = "/parent"; }}
+            >
+              <FiEye />
+              Parent View
+            </Menu.Item>
+          )}
+          {currentView === "parent" && (
+            <Menu.Item
+              value="student-view"
+              cursor="pointer"
+              onClick={() => { window.location.href = "/scholar"; }}
+            >
+              <FiEye />
+              Student View
+            </Menu.Item>
+          )}
           {isAdmin && (
             <Menu.Item
               value="admin"

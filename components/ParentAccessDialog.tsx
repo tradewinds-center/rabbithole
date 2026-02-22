@@ -21,10 +21,13 @@ import {
 import { FiX, FiPlus, FiTrash2, FiCopy, FiCheck } from "react-icons/fi";
 
 interface ParentAccessDialogProps {
-  scholarId: string;
+  /** Scholar whose tokens to manage (teacher view) or undefined for self-service */
+  scholarId?: string;
   scholarName: string;
   open: boolean;
   onClose: () => void;
+  /** "teacher" = managing a scholar's tokens; "self" = managing your own */
+  mode?: "teacher" | "self";
 }
 
 export function ParentAccessDialog({
@@ -32,32 +35,45 @@ export function ParentAccessDialog({
   scholarName,
   open,
   onClose,
+  mode = "teacher",
 }: ParentAccessDialogProps) {
-  const tokens =
-    useQuery(api.parentAccess.listTokens, {
-      scholarId: scholarId as Id<"users">,
-    }) ?? [];
-  const createToken = useMutation(api.parentAccess.createToken);
-  const revokeToken = useMutation(api.parentAccess.revokeToken);
+  const isSelf = mode === "self";
 
-  const [parentName, setParentName] = useState("");
-  const [parentEmail, setParentEmail] = useState("");
+  // Query tokens: self-service or for a specific scholar
+  const selfTokens = useQuery(
+    api.tokens.myTokens,
+    isSelf ? {} : "skip"
+  );
+  const scholarTokens = useQuery(
+    api.tokens.listForScholar,
+    !isSelf && scholarId ? { scholarId: scholarId as Id<"users"> } : "skip"
+  );
+  const tokens = (isSelf ? selfTokens : scholarTokens) ?? [];
+
+  const createMyToken = useMutation(api.tokens.createMyToken);
+  const createForScholar = useMutation(api.tokens.createForScholar);
+  const revokeToken = useMutation(api.tokens.revokeToken);
+
+  const [label, setLabel] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!parentName.trim()) return;
+    if (!label.trim()) return;
     setIsCreating(true);
     try {
-      const result = await createToken({
-        scholarId: scholarId as Id<"users">,
-        parentName: parentName.trim(),
-        parentEmail: parentEmail.trim() || undefined,
-      });
+      let result;
+      if (isSelf) {
+        result = await createMyToken({ label: label.trim() });
+      } else {
+        result = await createForScholar({
+          scholarId: scholarId as Id<"users">,
+          label: label.trim(),
+        });
+      }
       setNewToken(result.token);
-      setParentName("");
-      setParentEmail("");
+      setLabel("");
     } catch (error) {
       console.error("Error creating token:", error);
     } finally {
@@ -67,7 +83,7 @@ export function ParentAccessDialog({
 
   const handleRevoke = async (tokenId: string) => {
     try {
-      await revokeToken({ tokenId: tokenId as Id<"parentTokens"> });
+      await revokeToken({ tokenId: tokenId as Id<"tokens"> });
     } catch (error) {
       console.error("Error revoking token:", error);
     }
@@ -79,20 +95,17 @@ export function ParentAccessDialog({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
+  const mcpUrl = newToken
+    ? `https://learn.tradewinds.school/api/mcp?token=${newToken}`
+    : "";
 
   const claudeDesktopConfig = newToken
     ? JSON.stringify(
         {
           mcpServers: {
-            "tradewinds-parent": {
-              command: "npx",
-              args: ["tsx", "src/index.ts"],
-              cwd: "<path-to-rabbithole>/mcp-server",
-              env: {
-                PARENT_TOKEN: newToken,
-                CONVEX_URL: convexUrl,
-              },
+            "tradewinds-learn": {
+              type: "http",
+              url: mcpUrl,
             },
           },
         },
@@ -102,8 +115,10 @@ export function ParentAccessDialog({
     : "";
 
   const claudeCodeCmd = newToken
-    ? `claude mcp add tradewinds-parent -e PARENT_TOKEN=${newToken} -e CONVEX_URL=${convexUrl} -- npx tsx src/index.ts`
+    ? `claude mcp add --transport http tradewinds-learn ${mcpUrl}`
     : "";
+
+  const dialogTitle = isSelf ? "MCP Access" : `Parent Access — ${scholarName}`;
 
   return (
     <Dialog.Root
@@ -129,7 +144,7 @@ export function ParentAccessDialog({
                 fontSize="lg"
                 flex={1}
               >
-                Parent Access — {scholarName}
+                {dialogTitle}
               </Dialog.Title>
               <Dialog.CloseTrigger asChild>
                 <IconButton
@@ -170,25 +185,15 @@ export function ParentAccessDialog({
                           borderRadius="md"
                           gap={3}
                         >
-                          <VStack gap={0} align="start" flex={1}>
-                            <Text
-                              fontFamily="heading"
-                              fontSize="sm"
-                              fontWeight="500"
-                              color="navy.500"
-                            >
-                              {t.parentName}
-                            </Text>
-                            {t.parentEmail && (
-                              <Text
-                                fontSize="xs"
-                                color="charcoal.400"
-                                fontFamily="heading"
-                              >
-                                {t.parentEmail}
-                              </Text>
-                            )}
-                          </VStack>
+                          <Text
+                            fontFamily="heading"
+                            fontSize="sm"
+                            fontWeight="500"
+                            color="navy.500"
+                            flex={1}
+                          >
+                            {t.label}
+                          </Text>
                           <Text
                             fontSize="xs"
                             color="charcoal.300"
@@ -245,19 +250,11 @@ export function ParentAccessDialog({
                     <VStack gap={2} align="stretch">
                       <Input
                         size="sm"
-                        placeholder="Parent name (e.g., Mom, Dad, Tutu)"
+                        placeholder={isSelf ? 'Label (e.g., "Claude Desktop", "Mom\'s MCP")' : 'Label (e.g., "Mom", "Dad", "Tutu")'}
                         fontFamily="heading"
                         fontSize="sm"
-                        value={parentName}
-                        onChange={(e) => setParentName(e.target.value)}
-                      />
-                      <Input
-                        size="sm"
-                        placeholder="Email (optional)"
-                        fontFamily="heading"
-                        fontSize="sm"
-                        value={parentEmail}
-                        onChange={(e) => setParentEmail(e.target.value)}
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
                       />
                       <Button
                         size="sm"
@@ -266,7 +263,7 @@ export function ParentAccessDialog({
                         _hover={{ bg: "violet.600" }}
                         fontFamily="heading"
                         fontSize="sm"
-                        disabled={!parentName.trim() || isCreating}
+                        disabled={!label.trim() || isCreating}
                         onClick={handleCreate}
                       >
                         <FiPlus style={{ marginRight: "4px" }} />
@@ -358,9 +355,8 @@ export function ParentAccessDialog({
                             color="charcoal.500"
                             fontFamily="heading"
                           >
-                            Add this to your Claude Desktop config
-                            (~/Library/Application
-                            Support/Claude/claude_desktop_config.json):
+                            Add to your Claude Desktop config
+                            (Settings → Developer → Edit Config):
                           </Text>
                           <Box
                             position="relative"
@@ -410,7 +406,7 @@ export function ParentAccessDialog({
                             color="charcoal.500"
                             fontFamily="heading"
                           >
-                            Run this command in the mcp-server directory:
+                            Run this command in your terminal:
                           </Text>
                           <Box
                             position="relative"

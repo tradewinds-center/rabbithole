@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, authedMutation, teacherQuery } from "./lib/customFunctions";
+import { authedQuery, authedMutation } from "./lib/customFunctions";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 /**
@@ -73,9 +73,12 @@ export const deleteArtifact = authedMutation({
  * Get all artifacts across all projects for a scholar (teacher-only).
  * Returns artifacts enriched with project title and ID, sorted newest first.
  */
-export const getByScholar = teacherQuery({
+export const getByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
+
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", args.scholarId))

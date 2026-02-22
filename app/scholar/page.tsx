@@ -350,6 +350,7 @@ function TopBar({
           pulseScore={pulseScore}
           lastMessageAt={lastMessageAt}
           isAdmin={isAdmin}
+          currentView="scholar"
         />
       )}
     </Flex>
