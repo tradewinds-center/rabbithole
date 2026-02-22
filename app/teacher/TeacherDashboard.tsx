@@ -140,7 +140,7 @@ export default function TeacherDashboardInner() {
   // Derive tab state from URL
   const VALID_TABS: Tab[] = ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
-  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["dossier", "mastery", "standards", "seeds", "strengths", "documents", "observations", "reports", "reading"];
+  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "standards", "strengths", "documents", "notes", "dossier", "reading"];
   const rawTab = searchParams.get("tab");
   const rawSub = searchParams.get("sub");
   const rawScholar = searchParams.get("scholar");
@@ -149,7 +149,7 @@ export default function TeacherDashboardInner() {
   const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "live";
   const curriculumSubTab: CurriculumSubTab = VALID_SUB_TABS.includes(rawSub as CurriculumSubTab) ? (rawSub as CurriculumSubTab) : "units";
   const selectedScholarId: string | null = activeTab === "scholars" && rawScholar ? rawScholar : null;
-  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "dossier";
+  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "activity";
   const selectedUnitId: string | null = activeTab === "live" ? rawUnit : null;
 
   const pushUrl = useCallback((params: URLSearchParams) => {
@@ -433,9 +433,9 @@ export default function TeacherDashboardInner() {
                         >
                           {scholar.name}
                         </Text>
-                        {scholar.username && (
+                        {scholar.lastMessageAt && (
                           <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
-                            @{scholar.username}
+                            {timeAgo(scholar.lastMessageAt)}
                           </Text>
                         )}
                       </VStack>

@@ -439,14 +439,15 @@ function ScholarProjectInner() {
           <ProjectInterface
             projectId={projectId}
             onProjectUpdate={() => {}}
-            onOpenSidebar={() => setIsSidebarOpen(true)}
-            onSignOut={isRemoteMode ? undefined : () => signOut()}
+            onOpenSidebar={isRemoteMode ? undefined : () => setIsSidebarOpen(true)}
+            onSignOut={() => signOut()}
             userName={displayName}
             userUsername={displayUsername}
             userImage={displayImage}
             isTestMode={isTestMode}
             isAdmin={user?.role === "admin"}
             isRemoteMode={isRemoteMode}
+            scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
           />
         ) : (
           <Flex

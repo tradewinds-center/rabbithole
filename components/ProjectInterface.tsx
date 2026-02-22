@@ -58,6 +58,7 @@ interface ProjectInterfaceProps {
   isTestMode?: boolean;
   isAdmin?: boolean;
   isRemoteMode?: boolean;
+  scholarName?: string | null;
 }
 
 export function ProjectInterface({
@@ -71,6 +72,7 @@ export function ProjectInterface({
   isTestMode,
   isAdmin,
   isRemoteMode,
+  scholarName,
 }: ProjectInterfaceProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -500,6 +502,8 @@ export function ProjectInterface({
         mobileAttachmentCount={isTouchDevice ? rightPanelItemCount : undefined}
         onMobileAttachmentClick={isTouchDevice && hasRightPanelContent ? () => setMobileDrawerOpen(true) : undefined}
         isMobile={isTouchDevice}
+        isRemoteMode={isRemoteMode}
+        scholarName={scholarName}
       />
 
       {/* Focus mismatch banner — read-only mode */}

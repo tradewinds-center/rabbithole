@@ -27,13 +27,15 @@ import {
   FiTrash2,
   FiBookOpen,
   FiFileText,
-  FiExternalLink,
   FiUser,
   FiFolder,
   FiEdit3,
   FiCpu,
   FiClipboard,
   FiShare2,
+  FiClock,
+  FiMessageSquare,
+  FiActivity,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -42,7 +44,7 @@ import { SeedsTab } from "@/components/SeedsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 
-export type ScholarTabKey = "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "observations" | "reports" | "reading";
+export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "notes" | "reading";
 type TabKey = ScholarTabKey;
 
 interface ScholarProfileProps {
@@ -73,14 +75,14 @@ const READING_LEVELS = [
 ];
 
 const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
-  { key: "dossier", label: "Dossier", icon: FiUser },
+  { key: "activity", label: "Activity", icon: FiActivity },
   { key: "mastery", label: "Mastery", icon: FiCpu },
-  { key: "standards", label: "Standards", icon: FiClipboard },
   { key: "seeds", label: "Seeds", icon: Plant },
+  { key: "standards", label: "Standards", icon: FiClipboard },
   { key: "strengths", label: "Strengths", icon: ShootingStar },
   { key: "documents", label: "Documents", icon: FiFolder },
-  { key: "observations", label: "Notes", icon: FiFileText },
-  { key: "reports", label: "Reports", icon: Notebook },
+  { key: "notes", label: "Notes", icon: FiFileText },
+  { key: "dossier", label: "Dossier", icon: FiUser },
   { key: "reading", label: "Reading Level", icon: FiBookOpen },
 ];
 
@@ -107,6 +109,8 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   // masteryByDomain moved to MasteryTab component
   const dossierContent = useQuery(api.dossier.getForTeacher, { scholarId: scholarId as Id<"users"> });
   const artifacts = useQuery(api.artifacts.getByScholar, { scholarId: scholarId as Id<"users"> });
+  const scholarProjects = useQuery(api.projects.list, { userId: scholarId as Id<"users"> });
+  const recentMessages = useQuery(api.messages.getRecentByScholar, { scholarId: scholarId as Id<"users"> });
   const reports = useQuery(api.reports.list, { scholarId: scholarId as Id<"users"> }) ?? [];
   const createReport = useMutation(api.reports.create);
   const removeReport = useMutation(api.reports.remove);
@@ -121,7 +125,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
 
   const isLoading = profile === undefined;
 
-  const [internalTab, setInternalTab] = useState<TabKey>("dossier");
+  const [internalTab, setInternalTab] = useState<TabKey>("activity");
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = onTabChange ?? setInternalTab;
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
@@ -237,30 +241,12 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
               {scholar?.name}
             </Text>
-            {scholar?.readingLevel && (
-              <Text color="charcoal.400" fontSize="xs" fontFamily="heading">
-                Reading level: {scholar.readingLevel}
+            {scholar?.username && (
+              <Text color="charcoal.300" fontSize="xs" fontFamily="heading">
+                @{scholar.username}
               </Text>
             )}
           </VStack>
-        </HStack>
-
-        {/* Inline stats */}
-        <HStack gap={5}>
-          {[
-            { value: stats.projectCount, label: "Projects" },
-            { value: stats.messageCount, label: "Messages" },
-            { value: stats.observationCount, label: "Concepts" },
-          ].map((stat) => (
-            <HStack key={stat.label} gap={1}>
-              <Text fontSize="lg" fontWeight="bold" fontFamily="heading" color="navy.500">
-                {stat.value}
-              </Text>
-              <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                {stat.label}
-              </Text>
-            </HStack>
-          ))}
         </HStack>
 
         <HStack ml="auto" gap={1}>
@@ -290,18 +276,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
               >
                 <FiShare2 style={{ marginRight: "4px" }} />
                 Parent Access
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                color="violet.500"
-                fontFamily="heading"
-                fontSize="xs"
-                _hover={{ bg: "violet.50" }}
-                onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
-              >
-                <FiExternalLink style={{ marginRight: "4px" }} />
-                Remote View
               </Button>
               {isAdmin && (
                 <Button
@@ -354,6 +328,138 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
 
       {/* Tab content */}
       <Box flex={1} overflow="auto" p={4}>
+        {activeTab === "activity" && (
+          <VStack gap={4} align="stretch" maxW="800px">
+            {/* Projects */}
+            <Box>
+              <HStack mb={2} justify="space-between">
+                <HStack>
+                  <FiFolder color="#AD60BF" />
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                    Projects ({stats.projectCount})
+                  </Text>
+                </HStack>
+                {!isParentMode && (
+                  <Text
+                    fontSize="xs"
+                    color="violet.500"
+                    fontFamily="heading"
+                    cursor="pointer"
+                    _hover={{ textDecoration: "underline" }}
+                    onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
+                  >
+                    Show all
+                  </Text>
+                )}
+              </HStack>
+              {scholarProjects === undefined ? (
+                <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
+              ) : scholarProjects.length === 0 ? (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
+                  No projects yet.
+                </Text>
+              ) : (
+                <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(220px, 1fr))" gap={3}>
+                  {scholarProjects.slice(0, 6).map((project) => (
+                    <Box
+                      key={project._id}
+                      bg="white"
+                      borderRadius="lg"
+                      p={3}
+                      shadow="xs"
+                      cursor="pointer"
+                      _hover={{ shadow: "sm", borderColor: "violet.200" }}
+                      border="1px solid"
+                      borderColor="gray.100"
+                      onClick={() =>
+                        window.open(`/scholar/${String(project._id)}?remote=${scholarId}`, "_blank")
+                      }
+                    >
+                      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" lineClamp={1}>
+                        {project.title}
+                      </Text>
+                      {project.unitTitle && (
+                        <Text fontSize="xs" color="violet.500" fontFamily="heading" mt={0.5}>
+                          {project.unitEmoji ? `${project.unitEmoji} ` : ""}{project.unitTitle}
+                        </Text>
+                      )}
+                      <HStack mt={2} gap={3}>
+                        <HStack gap={1}>
+                          <FiMessageSquare size={11} color="#888" />
+                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">{project.messageCount}</Text>
+                        </HStack>
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                          {timeAgo(project._creationTime)}
+                        </Text>
+                      </HStack>
+                      {project.analysisSummary && (
+                        <Text fontSize="xs" color="charcoal.500" fontFamily="body" mt={1.5} lineClamp={2}>
+                          {project.analysisSummary}
+                        </Text>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            {/* Messages */}
+            <Box>
+              <HStack mb={2}>
+                <FiClock color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Messages ({stats.messageCount})
+                </Text>
+              </HStack>
+              {recentMessages === undefined ? (
+                <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
+              ) : recentMessages.length === 0 ? (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
+                  No messages yet.
+                </Text>
+              ) : (
+                <VStack gap={2} align="stretch">
+                  {recentMessages.map((msg) => (
+                    <Box
+                      key={msg._id}
+                      bg="white"
+                      borderRadius="md"
+                      p={3}
+                      shadow="xs"
+                      cursor="pointer"
+                      _hover={{ shadow: "sm" }}
+                      onClick={() =>
+                        window.open(`/scholar/${String(msg.projectId)}?remote=${scholarId}`, "_blank")
+                      }
+                    >
+                      <HStack justify="space-between" mb={1}>
+                        <HStack gap={2}>
+                          <Badge
+                            bg={msg.role === "user" ? "cyan.100" : "violet.100"}
+                            color={msg.role === "user" ? "cyan.700" : "violet.700"}
+                            fontSize="xs"
+                          >
+                            {msg.role === "user" ? "scholar" : "ai"}
+                          </Badge>
+                          <Text fontSize="xs" color="violet.500" fontFamily="heading">
+                            {msg.projectTitle}
+                          </Text>
+                        </HStack>
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                          {timeAgo(msg._creationTime)}
+                        </Text>
+                      </HStack>
+                      <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineClamp={2}>
+                        {msg.content.slice(0, 200)}
+                      </Text>
+                    </Box>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+          </VStack>
+        )}
+
         {activeTab === "dossier" && (
           <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
             <HStack mb={2}>
@@ -459,221 +565,231 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
           </VStack>
         )}
 
-        {activeTab === "observations" && (
-          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
-            <HStack mb={3}>
-              <FiFileText color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                Observations
-              </Text>
-            </HStack>
-
-            {/* Add new observation */}
-            <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
-              <select
-                value={newObservation.type}
-                onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
-                style={{
-                  padding: "5px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                  fontSize: "12px",
-                  fontFamily: "inherit",
-                  width: "140px",
-                  marginBottom: "8px",
-                }}
-              >
-                <option value="praise">Praise</option>
-                <option value="concern">Concern</option>
-                <option value="suggestion">Suggestion</option>
-                <option value="intervention">Intervention</option>
-              </select>
-              <Textarea
-                size="sm"
-                placeholder="Record an observation..."
-                value={newObservation.note}
-                onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
-                rows={2}
-                bg="white"
-                fontFamily="body"
-                mb={2}
-              />
-              <Flex justify="flex-end">
-                <Button
-                  size="sm"
-                  bg="violet.500"
-                  color="white"
-                  _hover={{ bg: "violet.600" }}
-                  fontFamily="heading"
-                  onClick={handleAddObservation}
-                  disabled={isAddingObservation || !newObservation.note.trim()}
-                >
-                  Save
-                </Button>
-              </Flex>
-            </Box>
-
-            {/* Existing observations */}
-            {observations.length > 0 ? (
-              <VStack gap={2} align="stretch">
-                {observations.map((obs) => (
-                  <Box
-                    key={obs._id}
-                    p={3}
-                    bg="gray.50"
-                    borderRadius="md"
-                  >
-                    <HStack justify="space-between" align="start">
-                      <VStack gap={1} align="start" flex={1}>
-                        <HStack>
-                          <Badge
-                            bg={
-                              obs.type === "praise" ? "green.100" :
-                              obs.type === "concern" ? "red.100" :
-                              obs.type === "suggestion" ? "blue.100" :
-                              "orange.100"
-                            }
-                            color={
-                              obs.type === "praise" ? "green.700" :
-                              obs.type === "concern" ? "red.700" :
-                              obs.type === "suggestion" ? "blue.700" :
-                              "orange.700"
-                            }
-                            fontSize="xs"
-                          >
-                            {obs.type}
-                          </Badge>
-                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                            {new Date(obs._creationTime).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </Text>
-                        </HStack>
-                        <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
-                          {obs.note}
-                        </Text>
-                      </VStack>
-                      <IconButton
-                        aria-label="Delete"
-                        size="xs"
-                        variant="ghost"
-                        color="red.400"
-                        _hover={{ bg: "red.50", color: "red.600" }}
-                        onClick={() => handleDeleteObservation(obs._id)}
-                      >
-                        <FiTrash2 />
-                      </IconButton>
-                    </HStack>
-                  </Box>
-                ))}
-              </VStack>
-            ) : (
-              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
-                No observations yet.
-              </Text>
-            )}
-          </Box>
-        )}
-
-        {activeTab === "reports" && (
-          <Box maxW="700px">
-            {/* Add new report */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs" mb={4}>
+        {activeTab === "notes" && (
+          <VStack gap={4} align="stretch" maxW="700px">
+            {/* Observations section */}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
               <HStack mb={3}>
-                <Notebook size={16} color="#AD60BF" />
+                <FiFileText color="#AD60BF" />
                 <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  New Report
+                  Observations
                 </Text>
               </HStack>
-              <Box p={3} bg="gray.50" borderRadius="md">
-                <Input
-                  size="sm"
-                  placeholder="Report title"
-                  value={newReport.title}
-                  onChange={(e) => setNewReport((prev) => ({ ...prev, title: e.target.value }))}
-                  bg="white"
-                  fontFamily="heading"
-                  mb={2}
-                />
-                <Textarea
-                  size="sm"
-                  placeholder="Write your report..."
-                  value={newReport.content}
-                  onChange={(e) => setNewReport((prev) => ({ ...prev, content: e.target.value }))}
-                  rows={8}
-                  bg="white"
-                  fontFamily="body"
-                  mb={2}
-                />
-                <Flex justify="space-between" align="center">
-                  <Text fontSize="xs" color="charcoal.400" fontFamily="body">
-                    Reports auto-append to the AI dossier.
-                  </Text>
-                  <Button
-                    size="sm"
-                    bg="violet.500"
-                    color="white"
-                    _hover={{ bg: "violet.600" }}
-                    fontFamily="heading"
-                    onClick={handleAddReport}
-                    disabled={isAddingReport || !newReport.title.trim() || !newReport.content.trim()}
+
+              {/* Add new observation */}
+              {!isParentMode && (
+                <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
+                  <select
+                    value={newObservation.type}
+                    onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
+                    style={{
+                      padding: "5px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #e2e8f0",
+                      fontSize: "12px",
+                      fontFamily: "inherit",
+                      width: "140px",
+                      marginBottom: "8px",
+                    }}
                   >
-                    Save
-                  </Button>
-                </Flex>
-              </Box>
+                    <option value="praise">Praise</option>
+                    <option value="concern">Concern</option>
+                    <option value="suggestion">Suggestion</option>
+                    <option value="intervention">Intervention</option>
+                  </select>
+                  <Textarea
+                    size="sm"
+                    placeholder="Record an observation..."
+                    value={newObservation.note}
+                    onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
+                    rows={2}
+                    bg="white"
+                    fontFamily="body"
+                    mb={2}
+                  />
+                  <Flex justify="flex-end">
+                    <Button
+                      size="sm"
+                      bg="violet.500"
+                      color="white"
+                      _hover={{ bg: "violet.600" }}
+                      fontFamily="heading"
+                      onClick={handleAddObservation}
+                      disabled={isAddingObservation || !newObservation.note.trim()}
+                    >
+                      Save
+                    </Button>
+                  </Flex>
+                </Box>
+              )}
+
+              {/* Existing observations */}
+              {observations.length > 0 ? (
+                <VStack gap={2} align="stretch">
+                  {observations.map((obs) => (
+                    <Box
+                      key={obs._id}
+                      p={3}
+                      bg="gray.50"
+                      borderRadius="md"
+                    >
+                      <HStack justify="space-between" align="start">
+                        <VStack gap={1} align="start" flex={1}>
+                          <HStack>
+                            <Badge
+                              bg={
+                                obs.type === "praise" ? "green.100" :
+                                obs.type === "concern" ? "red.100" :
+                                obs.type === "suggestion" ? "blue.100" :
+                                "orange.100"
+                              }
+                              color={
+                                obs.type === "praise" ? "green.700" :
+                                obs.type === "concern" ? "red.700" :
+                                obs.type === "suggestion" ? "blue.700" :
+                                "orange.700"
+                              }
+                              fontSize="xs"
+                            >
+                              {obs.type}
+                            </Badge>
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                              {new Date(obs._creationTime).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
+                            {obs.note}
+                          </Text>
+                        </VStack>
+                        {!isParentMode && (
+                          <IconButton
+                            aria-label="Delete"
+                            size="xs"
+                            variant="ghost"
+                            color="red.400"
+                            _hover={{ bg: "red.50", color: "red.600" }}
+                            onClick={() => handleDeleteObservation(obs._id)}
+                          >
+                            <FiTrash2 />
+                          </IconButton>
+                        )}
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              ) : (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
+                  No observations yet.
+                </Text>
+              )}
             </Box>
 
-            {/* Existing reports */}
-            {reports.length > 0 ? (
-              <VStack gap={3} align="stretch">
-                {reports.map((report) => (
-                  <Box
-                    key={report._id}
-                    bg="white"
-                    borderRadius="lg"
-                    p={4}
-                    shadow="xs"
-                    borderLeft="3px solid"
-                    borderColor="violet.400"
-                  >
-                    <HStack justify="space-between" align="start" mb={1}>
-                      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
-                        {report.title}
-                      </Text>
-                      <HStack gap={2}>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading" whiteSpace="nowrap">
-                          {new Date(report._creationTime).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </Text>
-                        <IconButton
-                          aria-label="Delete report"
-                          size="xs"
-                          variant="ghost"
-                          color="red.400"
-                          _hover={{ bg: "red.50", color: "red.600" }}
-                          onClick={() => handleDeleteReport(report._id)}
-                        >
-                          <FiTrash2 />
-                        </IconButton>
-                      </HStack>
-                    </HStack>
-                    <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.5" whiteSpace="pre-wrap">
-                      {report.content}
+            {/* Reports section */}
+            <Box>
+              {/* Add new report */}
+              {!isParentMode && (
+                <Box bg="white" borderRadius="lg" p={4} shadow="xs" mb={4}>
+                  <HStack mb={3}>
+                    <Notebook size={16} color="#AD60BF" />
+                    <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                      New Report
                     </Text>
+                  </HStack>
+                  <Box p={3} bg="gray.50" borderRadius="md">
+                    <Input
+                      size="sm"
+                      placeholder="Report title"
+                      value={newReport.title}
+                      onChange={(e) => setNewReport((prev) => ({ ...prev, title: e.target.value }))}
+                      bg="white"
+                      fontFamily="heading"
+                      mb={2}
+                    />
+                    <Textarea
+                      size="sm"
+                      placeholder="Write your report..."
+                      value={newReport.content}
+                      onChange={(e) => setNewReport((prev) => ({ ...prev, content: e.target.value }))}
+                      rows={8}
+                      bg="white"
+                      fontFamily="body"
+                      mb={2}
+                    />
+                    <Flex justify="space-between" align="center">
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                        Reports auto-append to the AI dossier.
+                      </Text>
+                      <Button
+                        size="sm"
+                        bg="violet.500"
+                        color="white"
+                        _hover={{ bg: "violet.600" }}
+                        fontFamily="heading"
+                        onClick={handleAddReport}
+                        disabled={isAddingReport || !newReport.title.trim() || !newReport.content.trim()}
+                      >
+                        Save
+                      </Button>
+                    </Flex>
                   </Box>
-                ))}
-              </VStack>
-            ) : (
-              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={8}>
-                No reports yet. Reports are permanent records that also feed into the AI dossier.
-              </Text>
-            )}
-          </Box>
+                </Box>
+              )}
+
+              {/* Existing reports */}
+              {reports.length > 0 ? (
+                <VStack gap={3} align="stretch">
+                  {reports.map((report) => (
+                    <Box
+                      key={report._id}
+                      bg="white"
+                      borderRadius="lg"
+                      p={4}
+                      shadow="xs"
+                      borderLeft="3px solid"
+                      borderColor="violet.400"
+                    >
+                      <HStack justify="space-between" align="start" mb={1}>
+                        <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+                          {report.title}
+                        </Text>
+                        <HStack gap={2}>
+                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading" whiteSpace="nowrap">
+                            {new Date(report._creationTime).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </Text>
+                          {!isParentMode && (
+                            <IconButton
+                              aria-label="Delete report"
+                              size="xs"
+                              variant="ghost"
+                              color="red.400"
+                              _hover={{ bg: "red.50", color: "red.600" }}
+                              onClick={() => handleDeleteReport(report._id)}
+                            >
+                              <FiTrash2 />
+                            </IconButton>
+                          )}
+                        </HStack>
+                      </HStack>
+                      <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.5" whiteSpace="pre-wrap">
+                        {report.content}
+                      </Text>
+                    </Box>
+                  ))}
+                </VStack>
+              ) : (
+                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
+                  No reports yet.
+                </Text>
+              )}
+            </Box>
+          </VStack>
         )}
 
         {activeTab === "reading" && (

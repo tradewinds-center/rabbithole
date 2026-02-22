@@ -145,6 +145,66 @@ export const insertWhisper = internalMutation({
 });
 
 /**
+ * Recent messages across all of a scholar's projects (for Activity tab).
+ * Returns last 10 user/assistant messages with project context.
+ */
+export const getRecentByScholar = authedQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && ctx.user._id !== args.scholarId) return [];
+
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
+      .collect();
+
+    // Gather recent messages from each project, then sort globally
+    const allMessages: {
+      _id: string;
+      role: string;
+      content: string;
+      projectId: string;
+      projectTitle: string;
+      unitTitle: string | null;
+      _creationTime: number;
+    }[] = [];
+
+    for (const project of projects) {
+      let unitTitle: string | null = null;
+      if (project.unitId) {
+        const unit = await ctx.db.get(project.unitId);
+        unitTitle = unit?.title ?? null;
+      }
+
+      const msgs = await ctx.db
+        .query("messages")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .order("desc")
+        .take(10);
+
+      for (const m of msgs) {
+        if (m.role === "user" || m.role === "assistant") {
+          allMessages.push({
+            _id: m._id,
+            role: m.role,
+            content: m.content,
+            projectId: project._id,
+            projectTitle: project.title,
+            unitTitle,
+            _creationTime: m._creationTime,
+          });
+        }
+      }
+    }
+
+    // Sort by creation time descending, take 10
+    allMessages.sort((a, b) => b._creationTime - a._creationTime);
+    return allMessages.slice(0, 10);
+  },
+});
+
+/**
  * Update streaming message content (called periodically during stream).
  */
 export const updateStreamContent = internalMutation({

@@ -11,8 +11,8 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { ScholarProfile, type ScholarTabKey } from "@/components/ScholarProfile";
 
 const VALID_TABS: ScholarTabKey[] = [
-  "dossier", "mastery", "standards", "seeds", "strengths",
-  "documents", "observations", "reports", "reading",
+  "activity", "mastery", "seeds", "standards", "strengths",
+  "documents", "notes", "dossier", "reading",
 ];
 
 export default function ParentPage() {
@@ -39,7 +39,7 @@ function ParentView() {
   const activeTab: ScholarTabKey =
     tabSegment && VALID_TABS.includes(tabSegment as ScholarTabKey)
       ? (tabSegment as ScholarTabKey)
-      : "dossier";
+      : "activity";
 
   useEffect(() => {
     if (isLoading) return;

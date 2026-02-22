@@ -41,6 +41,8 @@ interface ProjectHeaderProps {
   isMobile?: boolean;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
+  isRemoteMode?: boolean;
+  scholarName?: string | null;
 }
 
 export function ProjectHeader({
@@ -63,6 +65,8 @@ export function ProjectHeader({
   isMobile,
   pulseScore,
   lastMessageAt,
+  isRemoteMode,
+  scholarName,
 }: ProjectHeaderProps) {
   // Inline title editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -97,7 +101,7 @@ export function ProjectHeader({
     >
       {/* Row 1: Hamburger | Title | User info */}
       <Flex px={5} py={2} align="center" gap={3} minH="44px">
-        {onMenuClick && (
+        {onMenuClick && !isRemoteMode && (
           <IconButton
             aria-label="Open sidebar"
             size="sm"
@@ -108,6 +112,18 @@ export function ProjectHeader({
           >
             <FiMenu />
           </IconButton>
+        )}
+
+        {isRemoteMode && scholarName && (
+          <Text
+            fontWeight="600"
+            fontFamily="heading"
+            color="violet.500"
+            fontSize="sm"
+            flexShrink={0}
+          >
+            {scholarName}
+          </Text>
         )}
 
         {isEditingTitle && onProjectRename ? (

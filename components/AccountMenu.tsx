@@ -2,36 +2,47 @@
 
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
 import { FiLogOut, FiSettings, FiUser, FiEye } from "react-icons/fi";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 
 interface AccountMenuProps {
-  userName: string;
+  /** Override display name (falls back to current user) */
+  userName?: string;
   userUsername?: string;
   userImage?: string;
   onSignOut: () => void;
   onOpenProfile?: () => void;
-  /** Optional StatusOrb data (scholar view) */
+  /** Optional StatusOrb data — only displayed for scholar role */
   pulseScore?: number | null;
   lastMessageAt?: number | null;
-  /** Show "Admin Tools" link when true */
+  /** @deprecated — derived from current user now */
   isAdmin?: boolean;
   /** Current view context — enables view toggle */
   currentView?: "scholar" | "parent";
 }
 
 export function AccountMenu({
-  userName,
-  userUsername,
-  userImage,
+  userName: userNameProp,
+  userUsername: userUsernameProp,
+  userImage: userImageProp,
   onSignOut,
   onOpenProfile,
   pulseScore,
   lastMessageAt,
-  isAdmin,
+  isAdmin: isAdminProp,
   currentView,
 }: AccountMenuProps) {
-  const showOrb = pulseScore !== undefined;
+  const { user } = useCurrentUser();
+  const role = user?.role;
+  const isScholar = role === "scholar";
+  const isAdmin = isAdminProp ?? role === "admin";
+  const userName = userNameProp ?? user?.name ?? "User";
+  const userUsername = userUsernameProp ?? user?.username;
+  const userImage = userImageProp ?? user?.image;
+
+  // Only show pulse orb for scholars
+  const showOrb = isScholar && pulseScore !== undefined;
 
   return (
     <Menu.Root positioning={{ placement: "bottom-end" }}>
