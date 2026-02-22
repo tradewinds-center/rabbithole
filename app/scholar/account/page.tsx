@@ -174,7 +174,7 @@ function AccountForm() {
 
           {/* Avatar upload */}
           <Box position="relative" cursor="pointer" onClick={() => fileRef.current?.click()}>
-            <Avatar size="lg" name={name || user.name} src={avatarPreview} />
+            <Avatar size="lg" name={name || user.name} src={avatarPreview} colorKey={user.username} />
             <Box
               position="absolute"
               bottom={0}

@@ -6,6 +6,8 @@ interface AvatarProps {
   name?: string;
   src?: string;
   size?: "xs" | "sm" | "md" | "lg";
+  /** Stable key for color hashing (e.g. username). Falls back to name. */
+  colorKey?: string;
 }
 
 const sizeMap = {
@@ -15,7 +17,7 @@ const sizeMap = {
   lg: { container: 16, text: "xl" },
 };
 
-export function Avatar({ name, src, size = "md" }: AvatarProps) {
+export function Avatar({ name, src, size = "md", colorKey }: AvatarProps) {
   const dimensions = sizeMap[size];
 
   // Get initials from name
@@ -36,8 +38,9 @@ export function Avatar({ name, src, size = "md" }: AvatarProps) {
     "green.500",
     "navy.500",
   ];
-  const colorIndex = name
-    ? name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+  const hashSource = colorKey || name;
+  const colorIndex = hashSource
+    ? hashSource.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
       colors.length
     : 0;
 

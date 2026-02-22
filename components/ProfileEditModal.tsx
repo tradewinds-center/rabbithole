@@ -153,7 +153,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
               <HStack gap={4} w="full">
                 {/* Avatar upload */}
                 <Box position="relative" cursor="pointer" flexShrink={0} onClick={() => fileRef.current?.click()}>
-                  <Avatar size="lg" name={name || user.name} src={avatarPreview} />
+                  <Avatar size="lg" name={name || user.name} src={avatarPreview} colorKey={user.username} />
                   <Box
                     position="absolute"
                     bottom={0}
