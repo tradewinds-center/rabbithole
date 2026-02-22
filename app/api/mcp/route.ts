@@ -51,6 +51,27 @@ async function validateToken(token: string): Promise<TokenAuth | null> {
   }
 }
 
+// ── Response formatters (keep MCP responses compact) ─────────────────
+
+const BLOOM_LABELS = ["remember", "understand", "apply", "analyze", "evaluate", "create"];
+
+function formatMastery(data: Record<string, { concept: string; level: number; evidence: string }[]>): string {
+  const lines: string[] = [];
+  for (const [domain, concepts] of Object.entries(data)) {
+    lines.push(`## ${domain}`);
+    for (const c of concepts) {
+      const label = BLOOM_LABELS[Math.round(c.level)] ?? `${c.level}`;
+      lines.push(`- ${c.concept}: ${c.level.toFixed(1)} (${label})`);
+    }
+  }
+  return lines.length > 0 ? lines.join("\n") : "No mastery observations yet.";
+}
+
+function formatSeeds(data: { topic: string; domain?: string | null; rationale: string; status: string }[]): string {
+  if (!Array.isArray(data) || data.length === 0) return "No exploration topics yet.";
+  return data.map((s) => `- [${s.status}] ${s.topic}${s.domain ? ` (${s.domain})` : ""}`).join("\n");
+}
+
 // ── Build MCP server based on role ───────────────────────────────────
 
 function createParentServer(token: string) {
@@ -88,9 +109,9 @@ function createParentServer(token: string) {
     "Get your child's concept mastery by domain (math, science, language arts, etc.) with Bloom's taxonomy levels (0-5 scale: remember → create).",
     {},
     async () => {
-      const mastery = await parentApi(token, "mastery");
+      const mastery = await parentApi(token, "mastery") as Record<string, { concept: string; level: number; evidence: string }[]>;
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(mastery, null, 2) }],
+        content: [{ type: "text" as const, text: formatMastery(mastery) }],
       };
     }
   );
@@ -112,9 +133,9 @@ function createParentServer(token: string) {
     "See what topics the teacher suggests your child explore next — seeds for deeper learning.",
     {},
     async () => {
-      const seeds = await parentApi(token, "seeds");
+      const seeds = await parentApi(token, "seeds") as { topic: string; domain?: string | null; rationale: string; status: string }[];
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(seeds, null, 2) }],
+        content: [{ type: "text" as const, text: formatSeeds(seeds) }],
       };
     }
   );
@@ -124,9 +145,12 @@ function createParentServer(token: string) {
     "Read recent teacher observations about your child: praise, areas of concern, suggestions, and interventions.",
     {},
     async () => {
-      const observations = await parentApi(token, "observations");
+      const observations = await parentApi(token, "observations") as { note: string; type: string; createdAt: number }[];
+      const text = Array.isArray(observations) && observations.length > 0
+        ? observations.map((o) => `- [${o.type}] ${o.note}`).join("\n")
+        : "No teacher observations yet.";
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(observations, null, 2) }],
+        content: [{ type: "text" as const, text }],
       };
     }
   );
@@ -183,9 +207,9 @@ function createTeacherServer(token: string) {
     "Get a scholar's concept mastery by domain (math, science, language arts, etc.) with Bloom's taxonomy levels (0-5 scale: remember → create).",
     scholarIdSchema,
     async ({ scholarId }) => {
-      const mastery = await parentApi(token, "mastery", { scholarId });
+      const mastery = await parentApi(token, "mastery", { scholarId }) as Record<string, { concept: string; level: number; evidence: string }[]>;
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(mastery, null, 2) }],
+        content: [{ type: "text" as const, text: formatMastery(mastery) }],
       };
     }
   );
@@ -207,9 +231,12 @@ function createTeacherServer(token: string) {
     "Read teacher observations about a scholar: praise, areas of concern, suggestions, and interventions.",
     scholarIdSchema,
     async ({ scholarId }) => {
-      const observations = await parentApi(token, "observations", { scholarId });
+      const observations = await parentApi(token, "observations", { scholarId }) as { note: string; type: string; createdAt: number }[];
+      const text = Array.isArray(observations) && observations.length > 0
+        ? observations.map((o) => `- [${o.type}] ${o.note}`).join("\n")
+        : "No teacher observations yet.";
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(observations, null, 2) }],
+        content: [{ type: "text" as const, text }],
       };
     }
   );
@@ -219,9 +246,9 @@ function createTeacherServer(token: string) {
     "See what exploration topics are suggested for a scholar — seeds for deeper learning.",
     scholarIdSchema,
     async ({ scholarId }) => {
-      const seeds = await parentApi(token, "seeds", { scholarId });
+      const seeds = await parentApi(token, "seeds", { scholarId }) as { topic: string; domain?: string | null; rationale: string; status: string }[];
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(seeds, null, 2) }],
+        content: [{ type: "text" as const, text: formatSeeds(seeds) }],
       };
     }
   );
