@@ -115,7 +115,7 @@ export function ParentAccessDialog({
     : "";
 
   const claudeCodeCmd = newToken
-    ? `claude mcp add --transport http tradewinds-learn ${mcpUrl}`
+    ? `claude mcp add --transport http tradewinds-learn "${mcpUrl}"`
     : "";
 
   const dialogTitle = isSelf ? "MCP Access" : `Parent Access — ${scholarName}`;
