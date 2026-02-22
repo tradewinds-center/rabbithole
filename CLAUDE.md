@@ -217,8 +217,8 @@ pnpm db:reset:prod   # Same but for production (be careful!)
 **To type-check Convex functions without deploying:**
 
 ```bash
-# 1. Generate types (needs CONVEX_DEPLOYMENT env var — the slug from the URL)
-CONVEX_DEPLOYMENT=perceptive-husky-735 npx convex codegen
+# 1. Generate types (needs CONVEX_DEPLOYMENT env var — the slug from your Convex URL)
+CONVEX_DEPLOYMENT=<your-deployment-slug> npx convex codegen
 
 # 2. Type-check Convex backend
 npx tsc --noEmit --project convex/tsconfig.json
@@ -227,7 +227,7 @@ npx tsc --noEmit --project convex/tsconfig.json
 npx tsc --noEmit
 ```
 
-The deployment slug (`perceptive-husky-735`) comes from `NEXT_PUBLIC_CONVEX_URL` in `.env.local` — strip `https://` and `.convex.cloud`.
+The deployment slug comes from `NEXT_PUBLIC_CONVEX_URL` in `.env.local` — strip `https://` and `.convex.cloud`.
 
 **To deploy:** Andy runs `npx convex dev` in a terminal (interactive), or `npx convex deploy` for production.
 

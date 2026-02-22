@@ -3,8 +3,10 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { z } from "zod";
 
 // Derive Convex .site URL from the .cloud URL
-const CONVEX_CLOUD_URL =
-  process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://perceptive-husky-735.convex.cloud";
+const CONVEX_CLOUD_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
+if (!CONVEX_CLOUD_URL) {
+  throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is required");
+}
 const CONVEX_SITE_URL = CONVEX_CLOUD_URL.replace(".cloud", ".site");
 
 // ── API helper ───────────────────────────────────────────────────────

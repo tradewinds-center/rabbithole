@@ -17,6 +17,11 @@ const path = require("path");
 const isProd = process.argv.includes("--prod");
 const prodFlag = isProd ? " --prod" : "";
 
+if (!process.env.CONVEX_DEPLOYMENT) {
+  console.error("CONVEX_DEPLOYMENT env var is required. Get it from NEXT_PUBLIC_CONVEX_URL in .env.local (strip https:// and .convex.cloud).");
+  process.exit(1);
+}
+
 const VIDEOS = [
   {
     title: "Egg Drop From Space",
@@ -101,7 +106,7 @@ async function main() {
   // First seed the Video Reflection process
   console.log("\nSeeding Video Reflection process...");
   execSync(
-    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT || "perceptive-husky-735"} npx convex run seed:seedVideoReflection${prodFlag}`,
+    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seed:seedVideoReflection${prodFlag}`,
     { stdio: "inherit" }
   );
 
@@ -112,7 +117,7 @@ async function main() {
   fs.writeFileSync(argsFile, argsJson);
 
   execSync(
-    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT || "perceptive-husky-735"} npx convex run seed:seedVideoUnits "$(cat ${argsFile})"${prodFlag}`,
+    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seed:seedVideoUnits "$(cat ${argsFile})"${prodFlag}`,
     { stdio: "inherit" }
   );
 
