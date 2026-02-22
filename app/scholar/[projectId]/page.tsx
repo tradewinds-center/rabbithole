@@ -444,6 +444,8 @@ function ScholarProjectInner() {
             isTestMode={isTestMode}
             isRemoteMode={isRemoteMode}
             scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
+            scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
+            remoteUserId={remoteUserId}
           />
         ) : (
           <Flex

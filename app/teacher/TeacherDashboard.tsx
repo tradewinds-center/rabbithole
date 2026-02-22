@@ -55,6 +55,7 @@ import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
 import type { ScholarTabKey } from "@/components";
 import { AppLogo } from "@/components/AppLogo";
+import { AppHeader } from "@/components/AppHeader";
 import { StatusOrb } from "@/components/StatusOrb";
 import { buildDimensionParams } from "@/lib/dimensions";
 import {
@@ -240,7 +241,7 @@ export default function TeacherDashboardInner() {
   return (
     <Flex h="100dvh" bg="gray.50" direction="column">
       {/* Tab Bar with logo + account */}
-      <Flex bg="white" borderBottom="1px solid" borderColor="gray.200" shadow="0 1px 3px rgba(0,0,0,0.06)" px={6} align="center">
+      <AppHeader>
         {/* Logo */}
         <Box mr={6}>
           <AppLogo variant="dark" size={28} />
@@ -286,7 +287,7 @@ export default function TeacherDashboardInner() {
             }}
           />
         </Box>
-      </Flex>
+      </AppHeader>
 
       {/* Content */}
       <Flex flex={1} overflow="hidden">

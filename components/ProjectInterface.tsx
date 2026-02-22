@@ -55,6 +55,8 @@ interface ProjectInterfaceProps {
   isTestMode?: boolean;
   isRemoteMode?: boolean;
   scholarName?: string | null;
+  scholarImage?: string | null;
+  remoteUserId?: string | null;
 }
 
 export function ProjectInterface({
@@ -65,6 +67,8 @@ export function ProjectInterface({
   isTestMode,
   isRemoteMode,
   scholarName,
+  scholarImage,
+  remoteUserId,
 }: ProjectInterfaceProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -492,6 +496,8 @@ export function ProjectInterface({
         isMobile={isTouchDevice}
         isRemoteMode={isRemoteMode}
         scholarName={scholarName}
+        scholarImage={scholarImage}
+        remoteUserId={remoteUserId}
       />
 
       {/* Focus mismatch banner — read-only mode */}

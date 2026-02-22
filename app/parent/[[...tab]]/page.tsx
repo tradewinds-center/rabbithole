@@ -7,6 +7,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Box, Flex, Spinner } from "@chakra-ui/react";
 import { AppLogo } from "@/components/AppLogo";
+import { AppHeader } from "@/components/AppHeader";
 import { AccountMenu } from "@/components/AccountMenu";
 import { ScholarProfile, type ScholarTabKey } from "@/components/ScholarProfile";
 
@@ -59,21 +60,13 @@ function ParentView() {
   return (
     <Flex minH="100vh" bg="gray.50" flexDir="column">
       {/* Top bar */}
-      <Flex
-        px={{ base: 4, md: 6 }}
-        py={3}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        bg="white"
-        align="center"
-        justify="space-between"
-        flexShrink={0}
-      >
+      <AppHeader>
         <AppLogo variant="dark" />
+        <Box flex={1} />
         <AccountMenu
           onSignOut={() => signOut()}
         />
-      </Flex>
+      </AppHeader>
 
       {/* Scholar profile in parent mode */}
       <Box flex={1} overflow="auto">

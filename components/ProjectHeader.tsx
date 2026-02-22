@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Box,
+  Breadcrumb,
   Flex,
   HStack,
   Text,
@@ -12,8 +13,11 @@ import {
   Input,
 } from "@chakra-ui/react";
 import { FiMenu, FiPaperclip } from "react-icons/fi";
-import { CloudCheck, SquaresFour, SidebarSimple } from "@phosphor-icons/react";
+import { CloudCheck, SidebarSimple } from "@phosphor-icons/react";
 import { AccountMenu } from "./AccountMenu";
+import { AppHeader } from "./AppHeader";
+import { AppLogo } from "./AppLogo";
+import { Avatar } from "./Avatar";
 
 interface UnitInfo {
   id: string;
@@ -39,6 +43,8 @@ interface ProjectHeaderProps {
   lastMessageAt?: number | null;
   isRemoteMode?: boolean;
   scholarName?: string | null;
+  scholarImage?: string | null;
+  remoteUserId?: string | null;
 }
 
 export function ProjectHeader({
@@ -59,6 +65,8 @@ export function ProjectHeader({
   lastMessageAt,
   isRemoteMode,
   scholarName,
+  scholarImage,
+  remoteUserId,
 }: ProjectHeaderProps) {
   // Inline title editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -85,85 +93,132 @@ export function ProjectHeader({
   };
 
   return (
-    <Box
-      bg="white"
-      borderBottom="0.5px solid"
-      borderColor="gray.200"
-      shadow="0 1px 3px rgba(0,0,0,0.06)"
-    >
-      {/* Row 1: Hamburger | Title | User info */}
-      <Flex px={5} py={2} align="center" gap={3} minH="44px">
-        {onMenuClick && !isRemoteMode && (
-          <IconButton
-            aria-label="Open sidebar"
-            size="sm"
-            variant="ghost"
-            color="charcoal.400"
-            _hover={{ bg: "gray.100" }}
-            onClick={onMenuClick}
-          >
-            <FiMenu />
-          </IconButton>
-        )}
-
-        {isRemoteMode && scholarName && (
-          <Text
-            fontWeight="600"
-            fontFamily="heading"
-            color="violet.500"
-            fontSize="sm"
-            flexShrink={0}
-          >
-            {scholarName}
-          </Text>
-        )}
-
-        {isEditingTitle && onProjectRename ? (
-          <Input
-            ref={titleInputRef}
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitTitle();
-              if (e.key === "Escape") { setIsEditingTitle(false); setEditTitle(projectTitle); }
-            }}
-            flex={1}
-            fontWeight="600"
-            fontFamily="heading"
-            color="navy.500"
-            fontSize="sm"
-            size="sm"
-            variant="flushed"
-            borderColor="violet.300"
-            px={0}
-          />
+    <AppHeader>
+      <Flex flex={1} align="center" gap={3}>
+        {/* Remote mode: breadcrumb navigation */}
+        {isRemoteMode && scholarName ? (
+          <Breadcrumb.Root>
+            <Breadcrumb.List fontFamily="heading" fontSize="sm" gap={2.5}>
+              <Breadcrumb.Item>
+                <Breadcrumb.Link href="/teacher" css={{ display: "flex", alignItems: "center" }}>
+                  <AppLogo variant="dark" size={24} />
+                </Breadcrumb.Link>
+              </Breadcrumb.Item>
+              <Breadcrumb.Separator color="charcoal.300" />
+              <Breadcrumb.Item>
+                <Breadcrumb.Link
+                  href={`/scholar?remote=${remoteUserId}`}
+                  css={{ display: "flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
+                  _hover={{ color: "navy.500" }}
+                  color="charcoal.500"
+                  fontWeight="500"
+                >
+                  <Avatar size="xs" name={scholarName} src={scholarImage || undefined} />
+                  {scholarName}
+                </Breadcrumb.Link>
+              </Breadcrumb.Item>
+              <Breadcrumb.Separator color="charcoal.300" />
+              <Breadcrumb.Item>
+                <Breadcrumb.CurrentLink
+                  fontWeight="600"
+                  color="navy.500"
+                  cursor={onProjectRename ? "text" : "default"}
+                  onClick={onProjectRename ? () => setIsEditingTitle(true) : undefined}
+                  _hover={onProjectRename ? { color: "violet.500" } : undefined}
+                >
+                  {isEditingTitle && onProjectRename ? (
+                    <Input
+                      ref={titleInputRef}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onBlur={commitTitle}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitTitle();
+                        if (e.key === "Escape") { setIsEditingTitle(false); setEditTitle(projectTitle); }
+                      }}
+                      fontWeight="600"
+                      fontFamily="heading"
+                      color="navy.500"
+                      fontSize="sm"
+                      size="sm"
+                      variant="flushed"
+                      borderColor="violet.300"
+                      px={0}
+                      w="auto"
+                      minW="120px"
+                    />
+                  ) : projectTitle}
+                </Breadcrumb.CurrentLink>
+              </Breadcrumb.Item>
+            </Breadcrumb.List>
+          </Breadcrumb.Root>
         ) : (
-          <Box flex={1} minW={0}>
-            <Text
-              fontWeight="600"
-              fontFamily="heading"
-              color="navy.500"
-              fontSize="sm"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              whiteSpace="nowrap"
-              cursor={onProjectRename ? "text" : "default"}
-              onClick={onProjectRename ? () => setIsEditingTitle(true) : undefined}
-              _hover={onProjectRename ? { color: "violet.500" } : undefined}
-            >
-              {projectTitle}
-            </Text>
-            {!isMobile && unitId && (() => {
-              const activeUnit = unitOptions.find((u) => u.id === unitId);
-              return activeUnit ? (
-                <Text fontSize="xs" color="charcoal.400" fontFamily="heading" lineHeight="1.2" mt={0.5}>
-                  {activeUnit.emoji || "📚"} {activeUnit.title}
+          <>
+            {/* Normal mode: hamburger + title */}
+            {onMenuClick && (
+              <IconButton
+                aria-label="Open sidebar"
+                size="sm"
+                variant="ghost"
+                color="charcoal.400"
+                _hover={{ bg: "gray.100" }}
+                onClick={onMenuClick}
+              >
+                <FiMenu />
+              </IconButton>
+            )}
+
+            {isEditingTitle && onProjectRename ? (
+              <Input
+                ref={titleInputRef}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitTitle();
+                  if (e.key === "Escape") { setIsEditingTitle(false); setEditTitle(projectTitle); }
+                }}
+                flex={1}
+                fontWeight="600"
+                fontFamily="heading"
+                color="navy.500"
+                fontSize="sm"
+                size="sm"
+                variant="flushed"
+                borderColor="violet.300"
+                px={0}
+              />
+            ) : (
+              <Box flex={1} minW={0}>
+                <Text
+                  fontWeight="600"
+                  fontFamily="heading"
+                  color="navy.500"
+                  fontSize="sm"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                  cursor={onProjectRename ? "text" : "default"}
+                  onClick={onProjectRename ? () => setIsEditingTitle(true) : undefined}
+                  _hover={onProjectRename ? { color: "violet.500" } : undefined}
+                >
+                  {projectTitle}
                 </Text>
-              ) : null;
-            })()}
-          </Box>
+                {!isMobile && unitId && (() => {
+                  const activeUnit = unitOptions.find((u) => u.id === unitId);
+                  return activeUnit ? (
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading" lineHeight="1.2" mt={0.5}>
+                      {activeUnit.emoji || "📚"} {activeUnit.title}
+                    </Text>
+                  ) : null;
+                })()}
+              </Box>
+            )}
+          </>
         )}
+
+        {/* Spacer to push right-side controls to edge */}
+        {isRemoteMode && <Box flex={1} />}
 
         {!isMobile && isSynced !== undefined && (
           <Tooltip.Root openDelay={400} closeDelay={0}>
@@ -186,7 +241,7 @@ export function ProjectHeader({
           </Tooltip.Root>
         )}
 
-        {isTestMode && (
+        {isTestMode && !isRemoteMode && (
           <a href="/teacher" style={{ textDecoration: "none", flexShrink: 0 }}>
             <HStack
               gap={1.5}
@@ -200,8 +255,7 @@ export function ProjectHeader({
               _hover={{ bg: "gray.100", color: "navy.500" }}
               cursor="pointer"
             >
-              <SquaresFour size={14} weight="bold" />
-              <Text>Teacher Dashboard</Text>
+              <Text>Dashboard</Text>
             </HStack>
           </a>
         )}
@@ -263,6 +317,6 @@ export function ProjectHeader({
           />
         )}
       </Flex>
-    </Box>
+    </AppHeader>
   );
 }

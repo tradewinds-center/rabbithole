@@ -10,6 +10,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Box,
+  Breadcrumb,
   Flex,
   HStack,
   Text,
@@ -17,7 +18,9 @@ import {
   SimpleGrid,
 } from "@chakra-ui/react";
 import { AppLogo } from "@/components/AppLogo";
+import { AppHeader } from "@/components/AppHeader";
 import { AccountMenu } from "@/components/AccountMenu";
+import { Avatar } from "@/components/Avatar";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { FiPlus, FiMessageSquare, FiClock, FiLock } from "react-icons/fi";
@@ -148,6 +151,7 @@ function ScholarHome() {
       <TopBar
         isRemoteMode={isRemoteMode}
         scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
+        scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
         onSignOut={() => signOut()}
         onOpenProfile={() => setProfileModalOpen(true)}
         pulseScore={pulseScore}
@@ -314,6 +318,7 @@ function ScholarHome() {
 function TopBar({
   isRemoteMode,
   scholarName,
+  scholarImage,
   onSignOut,
   onOpenProfile,
   pulseScore,
@@ -321,29 +326,39 @@ function TopBar({
 }: {
   isRemoteMode: boolean;
   scholarName?: string | null;
+  scholarImage?: string | null;
   onSignOut: () => void;
   onOpenProfile: () => void;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
 }) {
   return (
-    <Flex
-      px={{ base: 4, md: 6 }}
-      py={3}
-      borderBottom="1px solid"
-      borderColor="gray.200"
-      bg="white"
-      align="center"
-      justify="space-between"
-      flexShrink={0}
-    >
+    <AppHeader>
       {isRemoteMode && scholarName ? (
-        <Text fontWeight="600" fontFamily="heading" color="violet.500" fontSize="sm">
-          {scholarName}
-        </Text>
+        <Breadcrumb.Root>
+          <Breadcrumb.List fontFamily="heading" fontSize="sm" gap={2.5}>
+            <Breadcrumb.Item>
+              <Breadcrumb.Link href="/teacher" css={{ display: "flex", alignItems: "center" }}>
+                <AppLogo variant="dark" size={24} />
+              </Breadcrumb.Link>
+            </Breadcrumb.Item>
+            <Breadcrumb.Separator color="charcoal.300" />
+            <Breadcrumb.Item>
+              <Breadcrumb.CurrentLink
+                css={{ display: "flex", alignItems: "center", gap: "6px" }}
+                fontWeight="600"
+                color="charcoal.500"
+              >
+                <Avatar size="xs" name={scholarName} src={scholarImage || undefined} />
+                {scholarName}
+              </Breadcrumb.CurrentLink>
+            </Breadcrumb.Item>
+          </Breadcrumb.List>
+        </Breadcrumb.Root>
       ) : (
         <AppLogo variant="dark" />
       )}
+      <Box flex={1} />
       {isRemoteMode ? (
         <AccountMenu onSignOut={onSignOut} />
       ) : (
@@ -354,6 +369,6 @@ function TopBar({
           lastMessageAt={lastMessageAt}
         />
       )}
-    </Flex>
+    </AppHeader>
   );
 }
