@@ -1,11 +1,12 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Box, Button, Container, Heading, Input, Text, VStack } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { api } from "@/convex/_generated/api";
 
 interface AuthFormProps {
   mode: "signIn" | "signUp";
@@ -32,7 +33,7 @@ const config = {
     autoComplete: "new-password" as const,
     linkText: "Already have an account? Sign in",
     linkHref: "/sign-in",
-    errorMessage: "Username already taken",
+    errorMessage: "Invalid invite code or username already taken",
   },
 };
 
@@ -40,9 +41,11 @@ export function AuthForm({ mode }: AuthFormProps) {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
   const { user, isLoading: userLoading } = useCurrentUser();
+  const registerWithCode = useMutation(api.users.registerWithCode);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -82,6 +85,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         }
         window.location.href = "/";
       } else {
+        // Pre-register with invite code, then create auth account
+        await registerWithCode({ username: trimmed, code: inviteCode });
         await signIn("password", { email, password, flow: "signUp" });
         window.location.href = "/";
       }
@@ -166,6 +171,23 @@ export function AuthForm({ mode }: AuthFormProps) {
               _focusVisible={{ boxShadow: "none", outline: "none" }}
               autoComplete={c.autoComplete}
             />
+            {mode === "signUp" && (
+              <Input
+                placeholder="Invite code"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                bg="gray.50"
+                border="1px solid"
+                borderColor="gray.300"
+                borderRadius="lg"
+                fontFamily="body"
+                h={12}
+                _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+                _focusVisible={{ boxShadow: "none", outline: "none" }}
+                autoComplete="off"
+              />
+            )}
 
             {error && (
               <Text fontSize="sm" color="red.500" fontFamily="body">

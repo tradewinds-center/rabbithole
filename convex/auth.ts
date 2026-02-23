@@ -30,6 +30,12 @@ export const { auth, signIn, signOut, store } = convexAuth({
         return existing._id;
       }
 
+      // Block new user creation when invite code is required.
+      // Users must be pre-created via registerWithCode mutation or by a teacher.
+      if (process.env.SIGNUP_CODE) {
+        throw new Error("Registration requires an invite code");
+      }
+
       // First user to sign up gets admin role; everyone else is a scholar.
       // Admins can promote others to teacher/admin via /admin.
       const userCount = (await ctx.db.query("users").collect()).length;

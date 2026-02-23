@@ -5,6 +5,46 @@ import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
+ * Pre-register a user with an invite code.
+ * Creates the user record so that the auth callback finds it by username
+ * instead of trying to create a new one (which is blocked when SIGNUP_CODE is set).
+ */
+export const registerWithCode = mutation({
+  args: {
+    username: v.string(),
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expected = process.env.SIGNUP_CODE;
+    if (!expected) {
+      // No code required — nothing to do, auth callback will create the user
+      return;
+    }
+    if (args.code.toLowerCase() !== expected.toLowerCase()) {
+      throw new Error("Invalid invite code");
+    }
+    const username = args.username.trim();
+    if (!username) throw new Error("Username is required");
+
+    // Check if user already exists
+    const existing = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("username"), username))
+      .unique();
+    if (existing) {
+      // Already exists (seeded or previously registered) — that's fine
+      return;
+    }
+
+    await ctx.db.insert("users", {
+      username,
+      name: username,
+      role: "scholar",
+    });
+  },
+});
+
+/**
  * Get the current authenticated user document.
  */
 export const currentUser = query({
