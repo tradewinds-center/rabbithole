@@ -16,8 +16,7 @@ import {
   IconButton,
   Badge,
 } from "@chakra-ui/react";
-import { FiPlus, FiX, FiChevronDown, FiChevronRight } from "react-icons/fi";
-import { Scroll } from "@phosphor-icons/react";
+import { FiPlus, FiX } from "react-icons/fi";
 import { STRAND_CONFIG, STRAND_ORDER, type Strand } from "@/lib/constants";
 import { LessonCard } from "./LessonCard";
 
@@ -45,14 +44,7 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
   const eus = unit.enduringUnderstandings ?? [];
   const [newEU, setNewEU] = useState("");
 
-  // Unit prompt
-  const [unitPrompt, setUnitPrompt] = useState(unit.systemPrompt ?? "");
-  const [promptExpanded, setPromptExpanded] = useState(false);
-
-  // Sync when unit updates from server (e.g. AI tool writes the prompt)
-  useEffect(() => {
-    setUnitPrompt(unit.systemPrompt ?? "");
-  }, [unit.systemPrompt]);
+  // Sync when unit updates from server (e.g. AI tool writes fields)
   useEffect(() => {
     setBigIdea(unit.bigIdea ?? "");
   }, [unit.bigIdea]);
@@ -108,12 +100,6 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
     const updated = eus.filter((_, i) => i !== idx);
     await updateUnit({ id: unit._id, enduringUnderstandings: updated });
   }, [eus, unit._id, updateUnit]);
-
-  const handleUnitPromptBlur = useCallback(() => {
-    if (unitPrompt !== (unit.systemPrompt ?? "")) {
-      updateUnit({ id: unit._id, systemPrompt: unitPrompt || undefined });
-    }
-  }, [unitPrompt, unit.systemPrompt, unit._id, updateUnit]);
 
   const handleAddLesson = useCallback(async (strand: Strand) => {
     const trimmed = newLessonTitle.trim();
@@ -280,58 +266,6 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
               </IconButton>
             </Flex>
           </VStack>
-        </Box>
-
-        {/* Unit Prompt */}
-        <Box
-          borderWidth="1px"
-          borderColor={unitPrompt ? "violet.200" : "gray.200"}
-          borderRadius="lg"
-          overflow="hidden"
-        >
-          <Flex
-            px={3}
-            py={2}
-            align="center"
-            gap={2}
-            cursor="pointer"
-            bg={unitPrompt ? "violet.50" : "gray.50"}
-            onClick={() => setPromptExpanded(!promptExpanded)}
-            _hover={{ bg: unitPrompt ? "violet.100" : "gray.100" }}
-            transition="background 0.15s"
-          >
-            <Box color="charcoal.400" flexShrink={0}>
-              {promptExpanded ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
-            </Box>
-            <Scroll size={16} weight="bold" color="#AD60BF" />
-            <Text fontSize="xs" fontFamily="heading" fontWeight="600" color="navy.500" flex={1}>
-              Unit Prompt
-            </Text>
-            {unitPrompt ? (
-              <Badge bg="green.100" color="green.700" fontSize="xs">{unitPrompt.length} chars</Badge>
-            ) : (
-              <Badge bg="gray.200" color="charcoal.400" fontSize="xs">empty</Badge>
-            )}
-          </Flex>
-          {promptExpanded && (
-            <Box px={3} py={2} borderTop="1px solid" borderColor="gray.100">
-              <Textarea
-                value={unitPrompt}
-                onChange={(e) => setUnitPrompt(e.target.value)}
-                onBlur={handleUnitPromptBlur}
-                placeholder="System prompt for this unit — instructions for the AI tutor when a scholar works on this unit. Can be AI-generated via chat or written manually."
-                rows={8}
-                fontSize="xs"
-                fontFamily="mono"
-                borderColor="gray.200"
-                _focus={{ borderColor: "violet.400", boxShadow: "none" }}
-                _focusVisible={{ boxShadow: "none", outline: "none" }}
-              />
-              <Text fontSize="xs" color="charcoal.300" mt={1}>
-                Tip: Ask the AI chat to "generate a unit prompt" or write one manually.
-              </Text>
-            </Box>
-          )}
         </Box>
 
         {/* Lessons by Strand */}

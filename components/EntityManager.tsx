@@ -277,18 +277,20 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                   )}
 
                   <HStack gap={2} mt={1}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      fontFamily="heading"
-                      color="violet.500"
-                      borderColor="violet.200"
-                      _hover={{ bg: "violet.50", borderColor: "violet.400" }}
-                      onClick={() => handleEdit(entity)}
-                    >
-                      <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
-                      Edit Prompt
-                    </Button>
+                    {entityType !== "unit" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        fontFamily="heading"
+                        color="violet.500"
+                        borderColor="violet.200"
+                        _hover={{ bg: "violet.50", borderColor: "violet.400" }}
+                        onClick={() => handleEdit(entity)}
+                      >
+                        <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
+                        Edit Prompt
+                      </Button>
+                    )}
                     {entityType === "unit" && entity.isActive && (
                       <>
                         <Button
