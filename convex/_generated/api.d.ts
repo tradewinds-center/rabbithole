@@ -19,6 +19,7 @@ import type * as dossier from "../dossier.js";
 import type * as files from "../files.js";
 import type * as focus from "../focus.js";
 import type * as http from "../http.js";
+import type * as lessons from "../lessons.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
 import type * as masteryObservations from "../masteryObservations.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   focus: typeof focus;
   http: typeof http;
+  lessons: typeof lessons;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
   masteryObservations: typeof masteryObservations;

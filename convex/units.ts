@@ -25,6 +25,11 @@ export const list = authedQuery({
         const persona = u.personaId ? await ctx.db.get(u.personaId) : null;
         const perspective = u.perspectiveId ? await ctx.db.get(u.perspectiveId) : null;
         const process = u.processId ? await ctx.db.get(u.processId) : null;
+        // Count lessons
+        const lessons = await ctx.db
+          .query("lessons")
+          .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+          .collect();
         return {
           ...u,
           id: u._id,
@@ -35,6 +40,7 @@ export const list = authedQuery({
           perspectiveIcon: perspective?.icon ?? null,
           processTitle: process?.title ?? null,
           processEmoji: process?.emoji ?? null,
+          lessonCount: lessons.length,
           createdAt: u._creationTime,
         };
       })
@@ -62,6 +68,11 @@ export const create = teacherMutation({
     personaId: v.optional(v.id("personas")),
     perspectiveId: v.optional(v.id("perspectives")),
     processId: v.optional(v.id("processes")),
+    bigIdea: v.optional(v.string()),
+    essentialQuestions: v.optional(v.array(v.string())),
+    enduringUnderstandings: v.optional(v.array(v.string())),
+    subject: v.optional(v.string()),
+    gradeLevel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("units", {
@@ -77,6 +88,11 @@ export const create = teacherMutation({
       personaId: args.personaId,
       perspectiveId: args.perspectiveId,
       processId: args.processId,
+      bigIdea: args.bigIdea?.trim() || undefined,
+      essentialQuestions: args.essentialQuestions,
+      enduringUnderstandings: args.enduringUnderstandings,
+      subject: args.subject?.trim() || undefined,
+      gradeLevel: args.gradeLevel?.trim() || undefined,
       isActive: true,
     });
   },
@@ -96,6 +112,11 @@ export const update = teacherMutation({
     personaId: v.optional(v.union(v.id("personas"), v.null())),
     perspectiveId: v.optional(v.union(v.id("perspectives"), v.null())),
     processId: v.optional(v.union(v.id("processes"), v.null())),
+    bigIdea: v.optional(v.union(v.string(), v.null())),
+    essentialQuestions: v.optional(v.union(v.array(v.string()), v.null())),
+    enduringUnderstandings: v.optional(v.union(v.array(v.string()), v.null())),
+    subject: v.optional(v.union(v.string(), v.null())),
+    gradeLevel: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -121,6 +142,16 @@ export const update = teacherMutation({
       cleaned.perspectiveId = updates.perspectiveId ?? undefined;
     if (updates.processId !== undefined)
       cleaned.processId = updates.processId ?? undefined;
+    if (updates.bigIdea !== undefined)
+      cleaned.bigIdea = updates.bigIdea?.trim() || undefined;
+    if (updates.essentialQuestions !== undefined)
+      cleaned.essentialQuestions = updates.essentialQuestions ?? undefined;
+    if (updates.enduringUnderstandings !== undefined)
+      cleaned.enduringUnderstandings = updates.enduringUnderstandings ?? undefined;
+    if (updates.subject !== undefined)
+      cleaned.subject = updates.subject?.trim() || undefined;
+    if (updates.gradeLevel !== undefined)
+      cleaned.gradeLevel = updates.gradeLevel?.trim() || undefined;
 
     await ctx.db.patch(id, cleaned);
   },

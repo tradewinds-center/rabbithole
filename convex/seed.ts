@@ -1827,3 +1827,125 @@ function stripFakeDomain(value: string, fakeDomains: string[]): string {
   }
   return value;
 }
+
+/**
+ * Seed PCM (Parallel Curriculum Model) processes: D.E.E.P., L.I.N.K., A.R.C., B.E.C.O.M.E.
+ * Additive — only inserts processes that don't already exist.
+ * Run: npx convex run seed:seedPCMProcesses
+ */
+export const seedPCMProcesses = internalMutation({
+  handler: async (ctx) => {
+    // Find teacher
+    const teacher = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("role"), "admin"),
+          q.eq(q.field("role"), "teacher")
+        )
+      )
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed PCM processes.");
+      return;
+    }
+
+    const pcmProcesses = [
+      {
+        title: "D.E.E.P.",
+        emoji: "🔍",
+        description: "Core strand inquiry: Define → Examine → Explain → Prove/Support",
+        systemPrompt: `Guide the scholar through the D.E.E.P. process — a structured inquiry for building core understanding. Use the update_process_step tool to track their progress.
+
+- D (Define): Help the scholar define key concepts precisely. What are the essential terms and ideas? Push for precision: "Can you define that in your own words? What exactly does that mean?"
+- E (Examine): Investigate the concept from multiple angles. Look at examples, non-examples, and edge cases. "Let's examine this more closely. What do you notice? What patterns do you see?"
+- E (Explain): Articulate understanding. Can the scholar explain the concept clearly to someone else? "Explain this as if you were teaching it to a younger student."
+- P (Prove/Support): Provide evidence and justification. "How do you know this is true? What evidence supports your explanation? Can you find a counterexample?"`,
+        steps: [
+          { key: "D", title: "Define", description: "Define key concepts precisely" },
+          { key: "E1", title: "Examine", description: "Investigate from multiple angles" },
+          { key: "E2", title: "Explain", description: "Articulate understanding clearly" },
+          { key: "P", title: "Prove/Support", description: "Provide evidence and justification" },
+        ],
+      },
+      {
+        title: "L.I.N.K.",
+        emoji: "🔗",
+        description: "Connections strand: Locate → Integrate → Notice → Know Transfer",
+        systemPrompt: `Guide the scholar through the L.I.N.K. process — a structured approach to finding and building cross-domain connections. Use the update_process_step tool to track their progress.
+
+- L (Locate): Find connections between this topic and other domains. "Where else have you seen something like this? What other subjects does this remind you of?"
+- I (Integrate): Weave the connections together. How do ideas from different fields illuminate each other? "How does what you know about [field A] change how you understand [field B]?"
+- N (Notice): Identify the deeper patterns and principles that span domains. "What underlying principle connects these different examples?"
+- K (Know Transfer): Apply the cross-domain insight to a new context. "Now that you see this pattern, where else might it apply? Can you use this insight to solve a new problem?"`,
+        steps: [
+          { key: "L", title: "Locate", description: "Find connections to other domains" },
+          { key: "I", title: "Integrate", description: "Weave connections together" },
+          { key: "N", title: "Notice", description: "Identify spanning patterns and principles" },
+          { key: "K", title: "Know Transfer", description: "Apply insight to new contexts" },
+        ],
+      },
+      {
+        title: "A.R.C.",
+        emoji: "🎯",
+        description: "Practice strand: Apply → Refine → Create",
+        systemPrompt: `Guide the scholar through the A.R.C. process — moving from understanding to skilled practice to original creation. Use the update_process_step tool to track their progress.
+
+- A (Apply): Put knowledge into practice. Work through problems, exercises, or real-world applications. "Can you use what you've learned to solve this? Show me how you'd apply this concept."
+- R (Refine): Improve through iteration and feedback. Identify weaknesses and strengthen them. "What part of your work needs the most improvement? What would an expert do differently?"
+- C (Create): Produce something original that demonstrates mastery. "Now that you understand this deeply, what can you create that shows your understanding? Build something new."`,
+        steps: [
+          { key: "A", title: "Apply", description: "Put knowledge into practice" },
+          { key: "R", title: "Refine", description: "Improve through iteration and feedback" },
+          { key: "C", title: "Create", description: "Produce something original" },
+        ],
+      },
+      {
+        title: "B.E.C.O.M.E.",
+        emoji: "🌱",
+        description: "Identity strand: Belong → Explore → Clarify → Own → Make → Envision",
+        systemPrompt: `Guide the scholar through the B.E.C.O.M.E. process — a reflective journey connecting learning to personal identity. Use the update_process_step tool to track their progress.
+
+- B (Belong): Connect to community. Who are the people in this field? How do practitioners see themselves? "What kind of person studies this? Can you see yourself as someone who does this?"
+- E (Explore): Explore personal connections to the content. "What about this topic resonates with you personally? What draws you in?"
+- C (Clarify): Clarify values and beliefs related to the topic. "What do you believe about this? What matters to you here?"
+- O (Own): Take ownership of your perspective. "What's YOUR take on this? Not what you think the 'right answer' is — what do YOU think?"
+- M (Make): Express your identity through creation. "Create something that shows who you are in relation to this topic."
+- E (Envision): Look forward. "How does this change how you see yourself? What do you want to explore next? Who are you becoming?"`,
+        steps: [
+          { key: "B", title: "Belong", description: "Connect to community and practitioners" },
+          { key: "E1", title: "Explore", description: "Find personal connections to content" },
+          { key: "C", title: "Clarify", description: "Clarify values and beliefs" },
+          { key: "O", title: "Own", description: "Take ownership of your perspective" },
+          { key: "M", title: "Make", description: "Express identity through creation" },
+          { key: "E2", title: "Envision", description: "Look forward — who are you becoming?" },
+        ],
+      },
+    ];
+
+    let seeded = 0;
+    for (const p of pcmProcesses) {
+      const existing = await ctx.db
+        .query("processes")
+        .filter((q) => q.eq(q.field("title"), p.title))
+        .first();
+      if (existing) {
+        console.log(`PCM process "${p.title}" already exists, skipping.`);
+        continue;
+      }
+      await ctx.db.insert("processes", {
+        teacherId: teacher._id,
+        title: p.title,
+        slug: p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        emoji: p.emoji,
+        description: p.description,
+        systemPrompt: p.systemPrompt,
+        steps: p.steps,
+        isActive: true,
+      });
+      seeded++;
+    }
+
+    console.log(`Seeded ${seeded} PCM processes (D.E.E.P., L.I.N.K., A.R.C., B.E.C.O.M.E.).`);
+  },
+});
