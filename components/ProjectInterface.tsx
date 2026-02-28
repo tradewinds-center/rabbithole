@@ -89,10 +89,14 @@ export function ProjectInterface({
   const processes = useQuery(api.processes.list) ?? [];
   const personas = useQuery(api.personas.list) ?? [];
 
-  // Focus lock from teacher (Phase 1: only unitId)
+  // Focus lock from teacher
   const currentFocus = useQuery(api.focus.getCurrent);
   const focusLock = currentFocus?.isActive
-    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    ? {
+        unitId: currentFocus.unitId ? String(currentFocus.unitId) : null,
+        lessonId: currentFocus.lessonId ? String(currentFocus.lessonId) : null,
+        lessonTitle: currentFocus.lessonTitle ?? null,
+      }
     : null;
 
   const unitOptions: DimensionOption[] = units.map((u) => ({
@@ -238,9 +242,12 @@ export function ProjectInterface({
     }
   }, [isLoading, projectId]);
 
-  // Focus mismatch: teacher locked a unit but this project has a different one
-  const isFocusMismatch = !isTestMode && focusLock?.unitId != null &&
-    String(projectData?.project?.unitId ?? "") !== focusLock.unitId;
+  // Focus mismatch: teacher locked a unit/lesson but this project has a different one
+  const isFocusMismatch = !isTestMode && focusLock?.unitId != null && (
+    String(projectData?.project?.unitId ?? "") !== focusLock.unitId ||
+    (focusLock.lessonId != null &&
+      String(projectData?.project?.lessonId ?? "") !== focusLock.lessonId)
+  );
 
   // Handle unit change via Convex mutation
   const handleUnitChange = async (value: string | null) => {
@@ -515,7 +522,7 @@ export function ProjectInterface({
           >
             <FiLock size={16} color="var(--chakra-colors-orange-600)" />
             <Text fontSize="sm" fontFamily="heading" color="orange.800" flex={1}>
-              Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title})` : ""}. You can read this project but not add messages.
+              Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title}${focusLock?.lessonTitle ? ` — ${focusLock.lessonTitle}` : ""})` : ""}. You can read this project but not add messages.
             </Text>
             <Box
               as="button"

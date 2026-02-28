@@ -1,6 +1,30 @@
 import { v } from "convex/values";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, teacherQuery, teacherMutation } from "./lib/customFunctions";
 import { internalQuery } from "./_generated/server";
+
+/** Lean query accessible to all authenticated users (scholars need this for UnitPickerDialog). */
+export const listByUnitPublic = authedQuery({
+  args: { unitId: v.id("units") },
+  handler: async (ctx, args) => {
+    const lessons = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", args.unitId))
+      .collect();
+    return Promise.all(
+      lessons.sort((a, b) => a.order - b.order).map(async (l) => {
+        const process = l.processId ? await ctx.db.get(l.processId) : null;
+        return {
+          _id: l._id,
+          title: l.title,
+          strand: l.strand ?? null,
+          processTitle: process?.title ?? null,
+          processEmoji: process?.emoji ?? null,
+          durationMinutes: l.durationMinutes ?? null,
+        };
+      })
+    );
+  },
+});
 
 export const listByUnit = teacherQuery({
   args: { unitId: v.id("units") },

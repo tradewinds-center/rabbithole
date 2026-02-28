@@ -24,7 +24,6 @@ import {
   FiSmile,
   FiEye,
   FiLayers,
-  FiPlay,
   FiEdit3,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
@@ -307,22 +306,6 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                         >
                           <FiEdit3 size={14} style={{ marginRight: "6px" }} />
                           Design
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          fontFamily="heading"
-                          color="teal.600"
-                          borderColor="teal.200"
-                          _hover={{ bg: "teal.50", borderColor: "teal.400" }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const slug = entity.slug || entity.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-                            window.open(`/scholar/new?unit=${slug}&demo=1`, "_blank");
-                          }}
-                        >
-                          <FiPlay size={14} style={{ marginRight: "6px" }} />
-                          Test
                         </Button>
                       </>
                     )}

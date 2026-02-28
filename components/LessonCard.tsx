@@ -16,14 +16,15 @@ import {
   Textarea,
   Button,
 } from "@chakra-ui/react";
-import { FiTrash2, FiChevronDown, FiChevronRight, FiClock } from "react-icons/fi";
+import { FiTrash2, FiChevronDown, FiChevronRight, FiClock, FiPlay } from "react-icons/fi";
 import { STRAND_CONFIG } from "@/lib/constants";
 
 interface LessonCardProps {
   lesson: Doc<"lessons"> & { processTitle: string | null; processEmoji: string | null };
+  unitSlug?: string;
 }
 
-export function LessonCard({ lesson }: LessonCardProps) {
+export function LessonCard({ lesson, unitSlug }: LessonCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(lesson.title);
@@ -136,6 +137,21 @@ export function LessonCard({ lesson }: LessonCardProps) {
           )}
         </HStack>
 
+        {unitSlug && (
+          <IconButton
+            aria-label="Test lesson"
+            size="xs"
+            variant="ghost"
+            color="teal.500"
+            _hover={{ color: "teal.600", bg: "teal.50" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(`/scholar/new?unit=${unitSlug}&lesson=${lesson._id}&demo=1`, "_blank");
+            }}
+          >
+            <FiPlay size={12} />
+          </IconButton>
+        )}
         <IconButton
           aria-label="Delete lesson"
           size="xs"

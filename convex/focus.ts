@@ -29,7 +29,9 @@ export const getCurrent = authedQuery({
     ) {
       return null;
     }
-    return active;
+    // Enrich with lesson title for banner display
+    const lesson = active.lessonId ? await ctx.db.get(active.lessonId) : null;
+    return { ...active, lessonTitle: lesson?.title ?? null };
   },
 });
 
@@ -42,6 +44,7 @@ export const getCurrent = authedQuery({
 export const set = teacherMutation({
   args: {
     unitId: v.optional(v.id("units")),
+    lessonId: v.optional(v.id("lessons")),
     scholarIds: v.optional(v.array(v.id("users"))),
     endsAt: v.optional(v.number()),
   },
@@ -55,8 +58,14 @@ export const set = teacherMutation({
       await ctx.db.patch(row._id, { isActive: false, completedAt: Date.now() });
     }
 
-    // Compute endsAt: explicit override > unit.durationMinutes > undefined
+    // Compute endsAt: explicit override > lesson.durationMinutes > unit.durationMinutes > undefined
     let endsAt = args.endsAt;
+    if (!endsAt && args.lessonId) {
+      const lesson = await ctx.db.get(args.lessonId);
+      if (lesson?.durationMinutes) {
+        endsAt = Date.now() + lesson.durationMinutes * 60_000;
+      }
+    }
     if (!endsAt && args.unitId) {
       const unit = await ctx.db.get(args.unitId);
       if (unit?.durationMinutes) {
@@ -68,6 +77,7 @@ export const set = teacherMutation({
     const focusId = await ctx.db.insert("focusSettings", {
       teacherId: ctx.user._id,
       unitId: args.unitId,
+      lessonId: args.lessonId,
       scholarIds: args.scholarIds,
       isActive: true,
       endsAt,
@@ -141,10 +151,11 @@ export const listCompleted = teacherQuery({
       (f) => !f.isActive && f.completedAt && f.completedAt >= todayStart
     );
 
-    // Enrich with unit info + scholar count
+    // Enrich with unit info + lesson title + scholar count
     return Promise.all(
       todayCompleted.map(async (f) => {
         const unit = f.unitId ? await ctx.db.get(f.unitId) : null;
+        const lesson = f.lessonId ? await ctx.db.get(f.lessonId) : null;
 
         // Count projects linked to this activity
         const projects = await ctx.db
@@ -155,8 +166,10 @@ export const listCompleted = teacherQuery({
         return {
           _id: f._id,
           unitId: f.unitId,
+          lessonId: f.lessonId,
           unitTitle: unit?.title ?? "Unknown",
           unitEmoji: unit?.emoji ?? null,
+          lessonTitle: lesson?.title ?? null,
           startedAt: f._creationTime,
           completedAt: f.completedAt!,
           endsAt: f.endsAt,
@@ -178,8 +191,10 @@ export const getWithProjects = teacherQuery({
     if (!focus) throw new Error("Activity not found");
 
     const unit = focus.unitId ? await ctx.db.get(focus.unitId) : null;
-    const process =
-      unit?.processId ? await ctx.db.get(unit.processId) : null;
+    const lesson = focus.lessonId ? await ctx.db.get(focus.lessonId) : null;
+    // Lesson's process takes priority over unit's process
+    const effectiveProcessId = lesson?.processId ?? unit?.processId ?? null;
+    const process = effectiveProcessId ? await ctx.db.get(effectiveProcessId) : null;
 
     // Get all projects linked to this activity
     const projects = await ctx.db
@@ -223,13 +238,15 @@ export const getWithProjects = teacherQuery({
     return {
       _id: focus._id,
       unitId: focus.unitId,
+      lessonId: focus.lessonId,
       unitTitle: unit?.title ?? "Unknown",
       unitEmoji: unit?.emoji ?? null,
       unitDescription: unit?.description ?? null,
+      lessonTitle: lesson?.title ?? null,
       startedAt: focus._creationTime,
       completedAt: focus.completedAt,
       endsAt: focus.endsAt,
-      processId: unit?.processId ?? null,
+      processId: effectiveProcessId,
       process: process
         ? {
             title: process.title,

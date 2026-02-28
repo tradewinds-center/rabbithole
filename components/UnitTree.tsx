@@ -296,7 +296,7 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
 
               <VStack align="stretch" gap={1.5} mb={2}>
                 {strandLessons.map((lesson) => (
-                  <LessonCard key={String(lesson._id)} lesson={lesson} />
+                  <LessonCard key={String(lesson._id)} lesson={lesson} unitSlug={unit.slug} />
                 ))}
 
                 {addingStrand === strand ? (

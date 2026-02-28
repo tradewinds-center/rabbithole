@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   Box,
   Flex,
@@ -8,11 +11,14 @@ import {
   HStack,
   Text,
   Button,
+  Badge,
   Dialog,
   IconButton,
   Portal,
+  Spinner,
 } from "@chakra-ui/react";
-import { FiLock, FiX } from "react-icons/fi";
+import { FiChevronDown, FiChevronRight, FiLock, FiX } from "react-icons/fi";
+import { STRAND_CONFIG, STRAND_ORDER, type Strand } from "@/lib/constants";
 
 interface UnitOption {
   id: string;
@@ -24,9 +30,9 @@ interface UnitOption {
 interface UnitPickerDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (unitId: string | null) => void;
+  onSelect: (unitId: string | null, lessonId: string | null) => void;
   units: UnitOption[];
-  focusLock?: { unitId?: string | null } | null;
+  focusLock?: { unitId?: string | null; lessonId?: string | null; lessonTitle?: string | null } | null;
   isCreating?: boolean;
 }
 
@@ -39,20 +45,59 @@ export function UnitPickerDialog({
   isCreating = false,
 }: UnitPickerDialogProps) {
   const lockedUnitId = focusLock?.unitId ?? null;
+  const lockedLessonId = focusLock?.lessonId ?? null;
   const [selected, setSelected] = useState<string | null>(lockedUnitId);
+  const [expandedUnit, setExpandedUnit] = useState<string | null>(lockedUnitId);
+  const [selectedLesson, setSelectedLesson] = useState<string | null>(lockedLessonId);
+
+  // Query lessons for the expanded unit
+  const lessons = useQuery(
+    api.lessons.listByUnitPublic,
+    expandedUnit ? { unitId: expandedUnit as Id<"units"> } : "skip"
+  );
 
   // Reset selection when dialog opens
   const handleOpenChange = (details: { open: boolean }) => {
     if (details.open) {
       setSelected(lockedUnitId);
+      setExpandedUnit(lockedUnitId);
+      setSelectedLesson(lockedLessonId);
     } else {
       onClose();
     }
   };
 
-  const handleConfirm = () => {
-    onSelect(selected);
+  const handleUnitClick = (unitId: string) => {
+    if (expandedUnit === unitId) {
+      // Collapse — clear lesson selection if it was for this unit
+      setExpandedUnit(null);
+      setSelectedLesson(null);
+      setSelected(unitId);
+    } else {
+      setExpandedUnit(unitId);
+      setSelected(unitId);
+      setSelectedLesson(null);
+    }
   };
+
+  const handleLessonClick = (unitId: string, lessonId: string) => {
+    setSelected(unitId);
+    setSelectedLesson(lessonId);
+  };
+
+  const handleConfirm = () => {
+    onSelect(selected, selectedLesson);
+  };
+
+  // Focus lock banner text
+  const focusBannerText = (() => {
+    if (!lockedUnitId) return null;
+    const unit = units.find((u) => u.id === lockedUnitId);
+    const lessonName = focusLock?.lessonTitle;
+    if (lessonName) return `Your teacher has set a focus: ${lessonName}`;
+    if (unit) return `Your teacher has set a focus: ${unit.title}`;
+    return "Your teacher has set a focus";
+  })();
 
   return (
     <Dialog.Root
@@ -90,7 +135,7 @@ export function UnitPickerDialog({
 
             <Dialog.Body px={6} py={3}>
               {/* Focus lock banner */}
-              {lockedUnitId && (
+              {focusBannerText && (
                 <HStack
                   gap={2}
                   bg="orange.50"
@@ -103,24 +148,27 @@ export function UnitPickerDialog({
                 >
                   <FiLock size={14} color="var(--chakra-colors-orange-500)" />
                   <Text fontSize="xs" fontFamily="heading" color="orange.700" fontWeight="500">
-                    Your teacher has set a focus
+                    {focusBannerText}
                   </Text>
                 </HStack>
               )}
 
-              <VStack gap={2} align="stretch" maxH="360px" overflowY="auto">
+              <VStack gap={2} align="stretch" maxH="400px" overflowY="auto">
                 {/* Focused unit first when focus lock is active */}
                 {lockedUnitId && (() => {
                   const focusedUnit = units.find((u) => u.id === lockedUnitId);
                   return focusedUnit ? (
-                    <UnitCard
+                    <UnitWithLessons
                       key={focusedUnit.id}
-                      emoji={focusedUnit.emoji || "📚"}
-                      title={focusedUnit.title}
-                      description={focusedUnit.description ?? undefined}
+                      unit={focusedUnit}
                       isSelected={selected === focusedUnit.id}
+                      isExpanded={expandedUnit === focusedUnit.id}
                       isDisabled={false}
-                      onClick={() => setSelected(focusedUnit.id)}
+                      lessons={expandedUnit === focusedUnit.id ? lessons : undefined}
+                      selectedLesson={selectedLesson}
+                      lockedLessonId={lockedLessonId}
+                      onUnitClick={() => handleUnitClick(focusedUnit.id)}
+                      onLessonClick={(lessonId) => handleLessonClick(focusedUnit.id, lessonId)}
                     />
                   ) : null;
                 })()}
@@ -130,23 +178,30 @@ export function UnitPickerDialog({
                   emoji="📓"
                   title="Independent Study"
                   description="Explore any topic freely"
-                  isSelected={selected === null}
+                  isSelected={selected === null && selectedLesson === null}
                   isDisabled={!!lockedUnitId}
-                  onClick={() => setSelected(null)}
+                  onClick={() => {
+                    setSelected(null);
+                    setSelectedLesson(null);
+                    setExpandedUnit(null);
+                  }}
                 />
 
                 {/* Remaining unit cards (skip focused unit if already shown) */}
                 {units
                   .filter((unit) => !lockedUnitId || unit.id !== lockedUnitId)
                   .map((unit) => (
-                    <UnitCard
+                    <UnitWithLessons
                       key={unit.id}
-                      emoji={unit.emoji || "📚"}
-                      title={unit.title}
-                      description={unit.description ?? undefined}
+                      unit={unit}
                       isSelected={selected === unit.id}
+                      isExpanded={expandedUnit === unit.id}
                       isDisabled={!!lockedUnitId && lockedUnitId !== unit.id}
-                      onClick={() => setSelected(unit.id)}
+                      lessons={expandedUnit === unit.id ? lessons : undefined}
+                      selectedLesson={selectedLesson}
+                      lockedLessonId={lockedLessonId}
+                      onUnitClick={() => handleUnitClick(unit.id)}
+                      onLessonClick={(lessonId) => handleLessonClick(unit.id, lessonId)}
                     />
                   ))}
               </VStack>
@@ -172,6 +227,230 @@ export function UnitPickerDialog({
         </Dialog.Positioner>
       </Portal>
     </Dialog.Root>
+  );
+}
+
+function UnitWithLessons({
+  unit,
+  isSelected,
+  isExpanded,
+  isDisabled,
+  lessons,
+  selectedLesson,
+  lockedLessonId,
+  onUnitClick,
+  onLessonClick,
+}: {
+  unit: UnitOption;
+  isSelected: boolean;
+  isExpanded: boolean;
+  isDisabled: boolean;
+  lessons: { _id: string; title: string; strand: string | null; processTitle: string | null; processEmoji: string | null; durationMinutes: number | null }[] | undefined;
+  selectedLesson: string | null;
+  lockedLessonId: string | null;
+  onUnitClick: () => void;
+  onLessonClick: (lessonId: string) => void;
+}) {
+  const hasLessons = lessons && lessons.length > 0;
+  const isLoading = isExpanded && lessons === undefined;
+
+  return (
+    <Box>
+      <Box
+        px={3}
+        py={2.5}
+        borderRadius="lg"
+        cursor={isDisabled ? "default" : "pointer"}
+        opacity={isDisabled ? 0.4 : 1}
+        bg={isSelected ? "violet.50" : "transparent"}
+        _hover={isDisabled ? undefined : { bg: isSelected ? "violet.50" : "gray.50" }}
+        transition="all 0.12s"
+        onClick={isDisabled ? undefined : onUnitClick}
+      >
+        <HStack gap={2.5} align="start">
+          <Text fontSize="lg" lineHeight="1.3" flexShrink={0}>{unit.emoji || "📚"}</Text>
+          <Box flex={1} minW={0}>
+            <HStack gap={1.5}>
+              <Text
+                fontFamily="heading"
+                fontWeight="600"
+                color="navy.500"
+                fontSize="sm"
+                flex={1}
+              >
+                {unit.title}
+              </Text>
+              {isExpanded ? (
+                <FiChevronDown size={14} color="var(--chakra-colors-charcoal-400)" />
+              ) : (
+                <FiChevronRight size={14} color="var(--chakra-colors-charcoal-400)" />
+              )}
+            </HStack>
+            {unit.description && !isExpanded && (
+              <Text
+                fontSize="xs"
+                color="charcoal.400"
+                fontFamily="body"
+                lineHeight="1.4"
+                overflow="hidden"
+                css={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }}
+              >
+                {unit.description}
+              </Text>
+            )}
+          </Box>
+        </HStack>
+      </Box>
+
+      {/* Expanded lesson list */}
+      {isExpanded && !isDisabled && (
+        <Box pl={10} pr={3} pb={2}>
+          {isLoading ? (
+            <Flex py={2} justify="center">
+              <Spinner size="sm" color="violet.400" />
+            </Flex>
+          ) : hasLessons ? (
+            <LessonList
+              lessons={lessons}
+              selectedLesson={selectedLesson}
+              lockedLessonId={lockedLessonId}
+              onLessonClick={onLessonClick}
+            />
+          ) : (
+            <Text fontSize="xs" color="charcoal.300" fontFamily="heading" py={1}>
+              No lessons yet
+            </Text>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function LessonList({
+  lessons,
+  selectedLesson,
+  lockedLessonId,
+  onLessonClick,
+}: {
+  lessons: { _id: string; title: string; strand: string | null; processTitle: string | null; processEmoji: string | null; durationMinutes: number | null }[];
+  selectedLesson: string | null;
+  lockedLessonId: string | null;
+  onLessonClick: (lessonId: string) => void;
+}) {
+  // Group by strand
+  const byStrand = new Map<string, typeof lessons>();
+  const unstrandedLessons: typeof lessons = [];
+  for (const l of lessons) {
+    if (l.strand) {
+      if (!byStrand.has(l.strand)) byStrand.set(l.strand, []);
+      byStrand.get(l.strand)!.push(l);
+    } else {
+      unstrandedLessons.push(l);
+    }
+  }
+
+  // If no strands, show flat list
+  const hasStrands = byStrand.size > 0;
+
+  if (!hasStrands) {
+    return (
+      <VStack gap={1} align="stretch">
+        {lessons.map((l) => (
+          <LessonItem
+            key={l._id}
+            lesson={l}
+            isSelected={selectedLesson === l._id}
+            isLocked={!!lockedLessonId && lockedLessonId !== l._id}
+            onClick={() => onLessonClick(l._id)}
+          />
+        ))}
+      </VStack>
+    );
+  }
+
+  return (
+    <VStack gap={2} align="stretch">
+      {STRAND_ORDER.map((strand) => {
+        const strandLessons = byStrand.get(strand);
+        if (!strandLessons || strandLessons.length === 0) return null;
+        const cfg = STRAND_CONFIG[strand as Strand];
+        return (
+          <Box key={strand}>
+            <Text fontSize="2xs" fontFamily="heading" color={`${cfg.color}.600`} fontWeight="600" textTransform="uppercase" letterSpacing="wider" mb={0.5}>
+              {cfg.emoji} {cfg.label}
+            </Text>
+            <VStack gap={0.5} align="stretch">
+              {strandLessons.map((l) => (
+                <LessonItem
+                  key={l._id}
+                  lesson={l}
+                  isSelected={selectedLesson === l._id}
+                  isLocked={!!lockedLessonId && lockedLessonId !== l._id}
+                  onClick={() => onLessonClick(l._id)}
+                />
+              ))}
+            </VStack>
+          </Box>
+        );
+      })}
+      {unstrandedLessons.length > 0 && (
+        <VStack gap={0.5} align="stretch">
+          {unstrandedLessons.map((l) => (
+            <LessonItem
+              key={l._id}
+              lesson={l}
+              isSelected={selectedLesson === l._id}
+              isLocked={!!lockedLessonId && lockedLessonId !== l._id}
+              onClick={() => onLessonClick(l._id)}
+            />
+          ))}
+        </VStack>
+      )}
+    </VStack>
+  );
+}
+
+function LessonItem({
+  lesson,
+  isSelected,
+  isLocked,
+  onClick,
+}: {
+  lesson: { _id: string; title: string; processEmoji: string | null; processTitle: string | null; durationMinutes: number | null };
+  isSelected: boolean;
+  isLocked: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <HStack
+      px={2}
+      py={1.5}
+      borderRadius="md"
+      cursor={isLocked ? "default" : "pointer"}
+      opacity={isLocked ? 0.4 : 1}
+      bg={isSelected ? "violet.100" : "transparent"}
+      _hover={isLocked ? undefined : { bg: isSelected ? "violet.100" : "gray.50" }}
+      transition="all 0.1s"
+      onClick={isLocked ? undefined : onClick}
+      gap={2}
+    >
+      <Text fontSize="xs" fontFamily="heading" fontWeight="500" color="navy.500" flex={1}>
+        {lesson.title}
+      </Text>
+      {lesson.processEmoji && (
+        <Text fontSize="2xs" color="charcoal.300">{lesson.processEmoji}</Text>
+      )}
+      {lesson.durationMinutes && (
+        <Badge bg="gray.100" color="charcoal.400" fontSize="2xs" px={1}>
+          {lesson.durationMinutes}m
+        </Badge>
+      )}
+    </HStack>
   );
 }
 
