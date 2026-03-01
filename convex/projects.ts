@@ -111,6 +111,7 @@ export const create = authedMutation({
   args: {
     userId: v.optional(v.id("users")), // For teacher remote mode
     unitId: v.optional(v.id("units")),
+    lessonId: v.optional(v.id("lessons")),
     activityId: v.optional(v.id("focusSettings")),
   },
   handler: async (ctx, args) => {
@@ -130,15 +131,25 @@ export const create = authedMutation({
       }
     }
 
+    // Lesson overrides: use lesson title and process when present
+    if (args.lessonId) {
+      const lesson = await ctx.db.get(args.lessonId);
+      if (lesson) {
+        title = lesson.title;
+        if (lesson.processId) processId = lesson.processId;
+      }
+    }
+
     const id = await ctx.db.insert("projects", {
       userId: ownerUserId,
       unitId: args.unitId,
+      lessonId: args.lessonId,
       activityId: args.activityId,
       title,
       isArchived: false,
     });
 
-    // Initialize process state if unit has a process
+    // Initialize process state if unit/lesson has a process
     if (processId) {
       await ctx.scheduler.runAfter(0, internal.processState.initialize, {
         projectId: id,

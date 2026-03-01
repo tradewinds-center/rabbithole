@@ -46,6 +46,24 @@ export const getProjectContext = internalQuery({
         rubric: unit.rubric ?? null,
         youtubeUrl: unit.youtubeUrl ?? null,
         videoTranscript: unit.videoTranscript ?? null,
+        bigIdea: unit.bigIdea ?? null,
+        essentialQuestions: unit.essentialQuestions ?? null,
+        enduringUnderstandings: unit.enduringUnderstandings ?? null,
+      };
+    }
+
+    // Get lesson context when project has a lessonId
+    let lessonContext = null;
+    const lesson = project.lessonId ? await ctx.db.get(project.lessonId) : null;
+    if (lesson) {
+      const lessonProcess = lesson.processId ? await ctx.db.get(lesson.processId) : null;
+      lessonContext = {
+        title: lesson.title,
+        strand: lesson.strand ?? null,
+        systemPrompt: lesson.systemPrompt ?? null,
+        durationMinutes: lesson.durationMinutes ?? null,
+        processTitle: lessonProcess?.title ?? null,
+        processEmoji: lessonProcess?.emoji ?? null,
       };
     }
 
@@ -75,11 +93,13 @@ export const getProjectContext = internalQuery({
       }
     }
 
-    // Get process context + state (from unit's building block ref)
+    // Get process context + state
+    // Lesson's processId takes priority over unit's processId
     let processContext = null;
     let processStateData = null;
-    if (unit?.processId) {
-      const process = await ctx.db.get(unit.processId);
+    const resolvedProcessId = lesson?.processId ?? unit?.processId;
+    if (resolvedProcessId) {
+      const process = await ctx.db.get(resolvedProcessId);
       if (process) {
         processContext = {
           title: process.title,
@@ -224,6 +244,7 @@ export const getProjectContext = internalQuery({
       masteryContext,
       signalContext,
       unitContext,
+      lessonContext,
       personaContext,
       perspectiveContext,
       processContext,
@@ -331,6 +352,9 @@ export function buildSystemPrompt(
     rubric: string | null;
     youtubeUrl: string | null;
     videoTranscript: string | null;
+    bigIdea: string | null;
+    essentialQuestions: string[] | null;
+    enduringUnderstandings: string[] | null;
   } | null,
   personaContext: {
     title: string;
@@ -379,6 +403,14 @@ export function buildSystemPrompt(
     unitEndsAt: number | null;
     projectStartedAt: number;
     unitDurationMinutes: number | null;
+  } | null = null,
+  lessonContext: {
+    title: string;
+    strand: string | null;
+    systemPrompt: string | null;
+    durationMinutes: number | null;
+    processTitle: string | null;
+    processEmoji: string | null;
   } | null = null
 ): string {
   const parts: string[] = [];
@@ -486,6 +518,15 @@ Do NOT update the dossier on every message — only when you have a genuine new 
   // Unit context
   if (unitContext) {
     parts.push(`\n\nUNIT: "${unitContext.title}"`);
+    if (unitContext.bigIdea) {
+      parts.push(`Big Idea: ${unitContext.bigIdea}`);
+    }
+    if (unitContext.essentialQuestions && unitContext.essentialQuestions.length > 0) {
+      parts.push(`Essential Questions:\n${unitContext.essentialQuestions.map((q) => `  - ${q}`).join("\n")}`);
+    }
+    if (unitContext.enduringUnderstandings && unitContext.enduringUnderstandings.length > 0) {
+      parts.push(`Enduring Understandings:\n${unitContext.enduringUnderstandings.map((eu) => `  - ${eu}`).join("\n")}`);
+    }
     if (unitContext.systemPrompt) {
       parts.push(`Instructions: ${unitContext.systemPrompt}`);
     }
@@ -499,6 +540,23 @@ Use this as the basis for discussion. Reference specific moments by timestamp.
 Do NOT summarize — engage the scholar: ask what they noticed, what surprised them, what they agree/disagree with, what connections they see.
 
 ${unitContext.videoTranscript}`);
+    }
+  }
+
+  // Lesson context (specific lesson within a unit)
+  if (lessonContext) {
+    parts.push(`\n\nLESSON: "${lessonContext.title}"`);
+    if (lessonContext.strand) {
+      parts.push(`Strand: ${lessonContext.strand}`);
+    }
+    if (lessonContext.processTitle) {
+      parts.push(`Process: ${lessonContext.processEmoji ?? ""} ${lessonContext.processTitle}`);
+    }
+    if (lessonContext.systemPrompt) {
+      parts.push(`Lesson Instructions: ${lessonContext.systemPrompt}`);
+    }
+    if (lessonContext.durationMinutes) {
+      parts.push(`Target Duration: ~${lessonContext.durationMinutes} minutes`);
     }
   }
 

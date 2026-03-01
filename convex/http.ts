@@ -67,7 +67,8 @@ http.route({
       project.seeds.length > 0 ? project.seeds : null,
       project.masteryContext,
       project.signalContext,
-      project.timingContext
+      project.timingContext,
+      project.lessonContext
     );
 
     const encoder = new TextEncoder();
@@ -193,6 +194,9 @@ http.route({
                   `data: ${JSON.stringify({ processStepUpdate: { step: input.step, status, commentary: input.commentary } })}\n\n`
                 )
               );
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "update_process_step", result: `Step "${input.step}" → ${status}` } })}\n\n`)
+              );
               const label = status === "completed" ? `Completed step: ${input.step}` : `Started step: ${input.step}`;
               const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                 currentMessageId: assistantMsgId as Id<"messages">,
@@ -267,6 +271,9 @@ http.route({
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
                   );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Document created" } })}\n\n`)
+                  );
                   const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                     currentMessageId: assistantMsgId as Id<"messages">,
                     projectId: projId,
@@ -289,6 +296,9 @@ http.route({
                     });
                     if (!artifact || Array.isArray(artifact)) return "Error: Document not found.";
                     const lines = artifact.content.split("\n");
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: `Viewed "${artifact.title}"` } })}\n\n`)
+                    );
                     return `[${String(artifact._id)}] Title: ${artifact.title}\n` + lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
                   }
                   // No document_id — return all documents
@@ -299,6 +309,9 @@ http.route({
                     return "No documents exist yet. Use create to make one.";
                   }
                   const docs = Array.isArray(allDocs) ? allDocs : [allDocs];
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Viewed documents" } })}\n\n`)
+                  );
                   return docs.map((doc: { _id: Id<"artifacts">; title: string; content: string }) => {
                     const lines = doc.content.split("\n");
                     const preview = lines.slice(0, 5).map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
@@ -315,6 +328,9 @@ http.route({
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: `Renamed to "${newTitle}"` } })}\n\n`)
                   );
                   return `Document renamed to "${newTitle}".`;
                 }
@@ -333,6 +349,9 @@ http.route({
                   if (result.error) return result.error;
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Text replaced" } })}\n\n`)
                   );
                   {
                     const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
@@ -364,6 +383,9 @@ http.route({
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Text inserted" } })}\n\n`)
                   );
                   {
                     const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
@@ -415,6 +437,9 @@ http.route({
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
               );
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "create_code", result: `Created "${input.title}"` } })}\n\n`)
+              );
               const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                 currentMessageId: assistantMsgId as Id<"messages">,
                 projectId: projId,
@@ -449,6 +474,9 @@ http.route({
                 scholarId: project.scholarId,
                 content: input.content,
               });
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "update_dossier", result: "Profile updated" } })}\n\n`)
+              );
               return "Dossier updated successfully.";
             },
           });
@@ -538,6 +566,9 @@ http.route({
                 });
 
                 controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "generate_image", result: "Image generated" } })}\n\n`)
+                );
+                controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ generatedImage: true, newAssistantMsg: String(newId) })}\n\n`
                   )
@@ -579,7 +610,11 @@ http.route({
             // Nested iteration: outer = turns, inner = streaming events
             for await (const messageStream of runner) {
               for await (const event of messageStream) {
-                if (event.type === "message_start") {
+                if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                  );
+                } else if (event.type === "message_start") {
                   model = event.message.model;
                 } else if (event.type === "content_block_delta") {
                   const delta = event.delta;
@@ -778,6 +813,10 @@ http.route({
       return match ?? null;
     };
 
+    // Shared emit function — set once the ReadableStream starts
+    const encoder = new TextEncoder();
+    let emitSSE: (data: Record<string, unknown>) => void = () => {};
+
     // Define tools
     const listScholarsTool = betaTool({
       name: "list_scholars",
@@ -791,6 +830,7 @@ http.route({
         const scholars = await ctx.runQuery(
           internal.curriculumAssistant.listScholarsInternal, {}
         );
+        emitSSE({ toolComplete: { name: "list_scholars", result: `Found ${scholars.length} scholars` } });
         return JSON.stringify(scholars);
       },
     });
@@ -815,6 +855,7 @@ http.route({
           internal.curriculumAssistant.getScholarDossier,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_dossier", result: `Loaded ${scholar.name}'s profile` } });
         return `Dossier for ${scholar.name}:\n${dossier}`;
       },
     });
@@ -839,6 +880,7 @@ http.route({
           internal.curriculumAssistant.getScholarMastery,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_mastery", result: `Loaded ${scholar.name}'s mastery data` } });
         return JSON.stringify({ scholar: scholar.name, mastery });
       },
     });
@@ -863,6 +905,7 @@ http.route({
           internal.curriculumAssistant.getScholarSignals,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_signals", result: `Loaded ${scholar.name}'s signals` } });
         return JSON.stringify({ scholar: scholar.name, signals });
       },
     });
@@ -887,6 +930,7 @@ http.route({
           internal.curriculumAssistant.getScholarSeeds,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_seeds", result: `Loaded ${scholar.name}'s seeds` } });
         return JSON.stringify({ scholar: scholar.name, seeds });
       },
     });
@@ -911,6 +955,7 @@ http.route({
           internal.curriculumAssistant.getScholarObservations,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_observations", result: `Loaded ${scholar.name}'s observations` } });
         return JSON.stringify({ scholar: scholar.name, observations });
       },
     });
@@ -927,6 +972,7 @@ http.route({
         const units = await ctx.runQuery(
           internal.curriculumAssistant.listUnitsInternal, {}
         );
+        emitSSE({ toolComplete: { name: "list_units", result: `Found ${units.length} units` } });
         return JSON.stringify(units);
       },
     });
@@ -951,6 +997,7 @@ http.route({
           internal.curriculumAssistant.getUnitDetails,
           { unitId: unit.id as Id<"units"> }
         );
+        emitSSE({ toolComplete: { name: "get_unit_details", result: `Loaded "${unit.title}"` } });
         return JSON.stringify(details);
       },
     });
@@ -966,10 +1013,9 @@ http.route({
       getUnitDetailsTool,
     ];
 
-    const encoder = new TextEncoder();
-
     const stream = new ReadableStream({
       async start(controller) {
+        emitSSE = (data) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         try {
           let fullContent = "";
           let model = "";
@@ -994,7 +1040,11 @@ http.route({
 
           for await (const messageStream of runner) {
             for await (const event of messageStream) {
-              if (event.type === "message_start") {
+              if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                );
+              } else if (event.type === "message_start") {
                 model = event.message.model;
               } else if (event.type === "content_block_delta") {
                 const delta = event.delta;
@@ -1534,6 +1584,466 @@ http.route({
 
 http.route({
   path: "/parent-api/observations",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }),
+});
+
+// ── Unit Designer streaming endpoint ──────────────────────────────────────
+
+const UNIT_DESIGNER_SYSTEM_PROMPT = `You are a unit designer AI for teachers at Tradewinds School, a gifted elementary school in Honolulu.
+
+Your job: help teachers design curriculum units using the Parallel Curriculum Model (PCM). You work within a specific unit and have tools to create lessons, update the unit structure, and generate lesson system prompts.
+
+PCM Framework:
+- **Big Idea**: The overarching concept or theme that transfers across contexts
+- **Essential Questions**: Open-ended questions that guide inquiry (no single right answer)
+- **Enduring Understandings**: What students should understand long after the unit is over
+
+PCM Strands (each lesson belongs to one):
+- **Core** (🔍): Build foundational understanding of the discipline's key concepts
+- **Connections** (🔗): Link concepts across disciplines and to the real world
+- **Practice** (🎯): Apply knowledge through authentic, practitioner-like work
+- **Identity** (🌱): Connect learning to personal identity, values, and purpose (optional)
+
+Available Processes (guided step workflows):
+{PROCESSES}
+
+Kaplan's Depth & Complexity Icons (use these to calibrate lesson depth):
+- Language of the Discipline, Details, Patterns, Rules, Trends, Ethics, Big Ideas, Unanswered Questions, Multiple Perspectives, Across Disciplines, Over Time
+
+Bloom's Taxonomy levels (low to high):
+Remember → Understand → Apply → Analyze → Evaluate → Create
+
+When designing lessons:
+1. Ask about the learning goal and target Bloom's level
+2. Suggest which Depth & Complexity icons are relevant
+3. Recommend an appropriate process (if any)
+4. Consider what happens in the AI chat vs. physical classroom
+5. Generate a system prompt that gives the AI tutor clear instructions
+
+When generating system prompts for lessons, include:
+- The learning objectives (what the scholar should understand/be able to do)
+- Which D&C icons to emphasize
+- The AI tutor's role and approach
+- How to use the process steps (if a process is assigned)
+- Assessment indicators (how to know if the scholar is getting it)
+
+Current unit structure is provided via the read_unit_structure tool. Use it to understand context before making changes.
+
+Be concise and practical. Speak as a colleague.`;
+
+http.route({
+  path: "/unit-designer-stream",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const { teacherId, unitId, streamId, assistantMsgId } = body as {
+      teacherId: string;
+      unitId: string;
+      streamId: string;
+      assistantMsgId: string;
+    };
+
+    const context = await ctx.runQuery(
+      internal.curriculumAssistant.getUnitDesignerContext,
+      { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+    );
+
+    if (!context) {
+      return new Response(
+        `data: ${JSON.stringify({ error: "Context not found" })}\n\n`,
+        { status: 404, headers: { "Content-Type": "text/event-stream" } }
+      );
+    }
+
+    const { Anthropic } = await import("@anthropic-ai/sdk");
+    const { betaTool } = await import("@anthropic-ai/sdk/helpers/beta/json-schema");
+
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
+    // Build system prompt with available processes
+    const processesDesc = context.processes.map(
+      (p) => `- ${p.emoji} ${p.title} (id: ${p.id}): ${p.steps}`
+    ).join("\n");
+    const systemPrompt = UNIT_DESIGNER_SYSTEM_PROMPT.replace("{PROCESSES}", processesDesc);
+
+    // Shared emit function — set once the ReadableStream starts
+    const udEncoder = new TextEncoder();
+    let udEmit: (data: Record<string, unknown>) => void = () => {};
+
+    // ── Define tools ────────────────────────────────────────────────
+
+    const readUnitStructureTool = betaTool({
+      name: "read_unit_structure",
+      description: "Read the full unit structure: Big Idea, EQs, EUs, and all lessons with their strands, processes, and prompts.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {},
+        required: [] as const,
+      },
+      run: async () => {
+        // Re-fetch fresh data
+        const freshCtx = await ctx.runQuery(
+          internal.curriculumAssistant.getUnitDesignerContext,
+          { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+        );
+        if (!freshCtx) return "Unit not found.";
+        const u = freshCtx.unit;
+        const lines = [
+          `Unit: ${u.title}`,
+          u.subject ? `Subject: ${u.subject}` : null,
+          u.gradeLevel ? `Grade: ${u.gradeLevel}` : null,
+          u.bigIdea ? `Big Idea: ${u.bigIdea}` : "Big Idea: (not set)",
+          u.essentialQuestions?.length
+            ? `Essential Questions:\n${u.essentialQuestions.map((q: string) => `  - ${q}`).join("\n")}`
+            : "Essential Questions: (none)",
+          u.enduringUnderstandings?.length
+            ? `Enduring Understandings:\n${u.enduringUnderstandings.map((eu: string) => `  - ${eu}`).join("\n")}`
+            : "Enduring Understandings: (none)",
+          "",
+          `Lessons (${freshCtx.lessons.length}):`,
+          ...freshCtx.lessons.map((l) =>
+            `  [${l.strand ?? "none"}] ${l.title}${l.processTitle ? ` (${l.processEmoji} ${l.processTitle}, processId: ${l.processId})` : " (no process)"}${l.systemPrompt ? " ✓prompt" : " ✗no prompt"}`
+          ),
+          "",
+          "Available processes:",
+          ...freshCtx.processes.map((p) => `  - ${p.emoji} ${p.title} (id: ${p.id})`),
+        ].filter(Boolean);
+        udEmit({ toolComplete: { name: "read_unit_structure", result: `${freshCtx.lessons.length} lessons loaded` } });
+        return lines.join("\n");
+      },
+    });
+
+    const updateUnitTool = betaTool({
+      name: "update_unit",
+      description: "Update unit fields: Big Idea, Essential Questions, Enduring Understandings, subject, grade level.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          bigIdea: { type: "string" as const, description: "The unit's Big Idea" },
+          essentialQuestions: {
+            type: "array" as const,
+            items: { type: "string" as const },
+            description: "Essential Questions (replaces all existing)",
+          },
+          enduringUnderstandings: {
+            type: "array" as const,
+            items: { type: "string" as const },
+            description: "Enduring Understandings (replaces all existing)",
+          },
+          subject: { type: "string" as const, description: "Subject area" },
+          gradeLevel: { type: "string" as const, description: "Grade level" },
+        },
+        required: [] as const,
+      },
+      run: async (input) => {
+        const updates: Record<string, unknown> = {};
+        if (input.bigIdea !== undefined) updates.bigIdea = input.bigIdea || null;
+        if (input.essentialQuestions !== undefined) updates.essentialQuestions = input.essentialQuestions;
+        if (input.enduringUnderstandings !== undefined) updates.enduringUnderstandings = input.enduringUnderstandings;
+        if (input.subject !== undefined) updates.subject = input.subject || null;
+        if (input.gradeLevel !== undefined) updates.gradeLevel = input.gradeLevel || null;
+
+        await ctx.runMutation(internal.curriculumAssistant.updateUnitInternal, {
+          unitId: unitId as Id<"units">,
+          ...updates,
+        });
+        udEmit({ toolComplete: { name: "update_unit", result: "Unit updated" } });
+        return "Unit updated successfully.";
+      },
+    });
+
+    const createLessonTool = betaTool({
+      name: "create_lesson",
+      description: "Create a new lesson in this unit.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          title: { type: "string" as const, description: "Lesson title" },
+          strand: {
+            type: "string" as const,
+            enum: ["core", "connections", "practice", "identity"] as const,
+            description: "PCM strand",
+          },
+          processId: { type: "string" as const, description: "Process ID (from available processes)" },
+          systemPrompt: { type: "string" as const, description: "System prompt for the AI tutor" },
+          durationMinutes: { type: "number" as const, description: "Expected duration in minutes" },
+        },
+        required: ["title", "strand"] as const,
+      },
+      run: async (input) => {
+        await ctx.runMutation(internal.curriculumAssistant.createLessonInternal, {
+          unitId: unitId as Id<"units">,
+          title: input.title,
+          strand: input.strand as "core" | "connections" | "practice" | "identity",
+          processId: input.processId as Id<"processes"> | undefined,
+          systemPrompt: input.systemPrompt,
+          durationMinutes: input.durationMinutes,
+        });
+        udEmit({ toolComplete: { name: "create_lesson", result: `Created "${input.title}"` } });
+        return `Lesson "${input.title}" created in ${input.strand} strand.`;
+      },
+    });
+
+    const updateLessonTool = betaTool({
+      name: "update_lesson",
+      description: "Update an existing lesson's fields.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          lessonTitle: { type: "string" as const, description: "Title of the lesson to update (case-insensitive match)" },
+          title: { type: "string" as const, description: "New title" },
+          strand: {
+            type: "string" as const,
+            enum: ["core", "connections", "practice", "identity"] as const,
+            description: "New strand",
+          },
+          processId: { type: "string" as const, description: "New process ID (empty string to remove)" },
+          systemPrompt: { type: "string" as const, description: "New system prompt" },
+          durationMinutes: { type: "number" as const, description: "New duration in minutes" },
+        },
+        required: ["lessonTitle"] as const,
+      },
+      run: async (input) => {
+        // Find lesson by title
+        const freshCtx = await ctx.runQuery(
+          internal.curriculumAssistant.getUnitDesignerContext,
+          { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+        );
+        if (!freshCtx) return "Unit not found.";
+        const lower = input.lessonTitle.toLowerCase();
+        const lesson = freshCtx.lessons.find(
+          (l) => l.title.toLowerCase().includes(lower)
+        );
+        if (!lesson) return `No lesson found matching "${input.lessonTitle}".`;
+
+        const updates: Record<string, unknown> = {};
+        if (input.title) updates.title = input.title;
+        if (input.strand) updates.strand = input.strand;
+        if (input.processId !== undefined) updates.processId = input.processId || null;
+        if (input.systemPrompt !== undefined) updates.systemPrompt = input.systemPrompt || null;
+        if (input.durationMinutes !== undefined) updates.durationMinutes = input.durationMinutes;
+
+        await ctx.runMutation(internal.curriculumAssistant.updateLessonInternal, {
+          lessonId: lesson._id,
+          ...updates,
+        });
+        udEmit({ toolComplete: { name: "update_lesson", result: `Updated "${lesson.title}"` } });
+        return `Lesson "${lesson.title}" updated.`;
+      },
+    });
+
+    const deleteLessonTool = betaTool({
+      name: "delete_lesson",
+      description: "Delete a lesson from this unit.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          lessonTitle: { type: "string" as const, description: "Title of the lesson to delete (case-insensitive match)" },
+        },
+        required: ["lessonTitle"] as const,
+      },
+      run: async (input) => {
+        const freshCtx = await ctx.runQuery(
+          internal.curriculumAssistant.getUnitDesignerContext,
+          { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+        );
+        if (!freshCtx) return "Unit not found.";
+        const lower = input.lessonTitle.toLowerCase();
+        const lesson = freshCtx.lessons.find(
+          (l) => l.title.toLowerCase().includes(lower)
+        );
+        if (!lesson) return `No lesson found matching "${input.lessonTitle}".`;
+
+        await ctx.runMutation(internal.curriculumAssistant.deleteLessonInternal, {
+          lessonId: lesson._id,
+        });
+        udEmit({ toolComplete: { name: "delete_lesson", result: `Deleted "${lesson.title}"` } });
+        return `Lesson "${lesson.title}" deleted.`;
+      },
+    });
+
+    const generateLessonPromptTool = betaTool({
+      name: "generate_lesson_prompt",
+      description: "Generate a system prompt for a specific lesson based on the unit context and lesson details. Writes the prompt directly to the lesson.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          lessonTitle: { type: "string" as const, description: "Title of the lesson" },
+          prompt: { type: "string" as const, description: "The generated system prompt to save" },
+        },
+        required: ["lessonTitle", "prompt"] as const,
+      },
+      run: async (input) => {
+        const freshCtx = await ctx.runQuery(
+          internal.curriculumAssistant.getUnitDesignerContext,
+          { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+        );
+        if (!freshCtx) return "Unit not found.";
+        const lower = input.lessonTitle.toLowerCase();
+        const lesson = freshCtx.lessons.find(
+          (l) => l.title.toLowerCase().includes(lower)
+        );
+        if (!lesson) return `No lesson found matching "${input.lessonTitle}".`;
+
+        await ctx.runMutation(internal.curriculumAssistant.updateLessonInternal, {
+          lessonId: lesson._id,
+          systemPrompt: input.prompt,
+        });
+        udEmit({ toolComplete: { name: "generate_lesson_prompt", result: `Prompt saved for "${lesson.title}"` } });
+        return `System prompt saved for "${lesson.title}".`;
+      },
+    });
+
+    const generateAllPromptsTool = betaTool({
+      name: "generate_all_prompts",
+      description: "Batch generate system prompts for all lessons that don't have one yet. Returns a list of lessons that need prompts — you should then generate each one.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {},
+        required: [] as const,
+      },
+      run: async () => {
+        const freshCtx = await ctx.runQuery(
+          internal.curriculumAssistant.getUnitDesignerContext,
+          { teacherId: teacherId as Id<"users">, unitId: unitId as Id<"units"> }
+        );
+        if (!freshCtx) return "Unit not found.";
+        const missing = freshCtx.lessons.filter((l) => !l.systemPrompt?.trim());
+        if (missing.length === 0) {
+          udEmit({ toolComplete: { name: "generate_all_prompts", result: "All lessons have prompts" } });
+          return "All lessons already have system prompts.";
+        }
+        udEmit({ toolComplete: { name: "generate_all_prompts", result: `${missing.length} lessons need prompts` } });
+        return `${missing.length} lessons need prompts:\n${missing.map((l) => `- ${l.title} [${l.strand ?? "none"}]${l.processTitle ? ` (${l.processTitle})` : ""}`).join("\n")}\n\nGenerate a prompt for each using the generate_lesson_prompt tool.`;
+      },
+    });
+
+    const tools = [
+      readUnitStructureTool,
+      updateUnitTool,
+      createLessonTool,
+      updateLessonTool,
+      deleteLessonTool,
+      generateLessonPromptTool,
+      generateAllPromptsTool,
+    ];
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        udEmit = (data) => controller.enqueue(udEncoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        try {
+          let fullContent = "";
+          let model = "";
+          let tokensUsed = 0;
+          let lastPersistLength = 0;
+
+          const apiMessages = context.messages
+            .filter((m) => m.content.trim() !== "")
+            .map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+
+          const runner = anthropic.beta.messages.toolRunner({
+            model: "claude-sonnet-4-5-20250929",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: apiMessages,
+            tools,
+            stream: true,
+          });
+
+          for await (const messageStream of runner) {
+            for await (const event of messageStream) {
+              if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                controller.enqueue(
+                  udEncoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                );
+              } else if (event.type === "message_start") {
+                model = event.message.model;
+              } else if (event.type === "content_block_delta") {
+                const delta = event.delta;
+                if ("text" in delta) {
+                  fullContent += delta.text;
+                  controller.enqueue(
+                    udEncoder.encode(
+                      `data: ${JSON.stringify({ text: delta.text })}\n\n`
+                    )
+                  );
+                  if (fullContent.length - lastPersistLength > 200) {
+                    lastPersistLength = fullContent.length;
+                    await ctx.runMutation(
+                      internal.curriculumAssistant.updateStreamContent,
+                      {
+                        messageId: assistantMsgId as Id<"curriculumMessages">,
+                        content: fullContent,
+                      }
+                    );
+                  }
+                }
+              } else if (event.type === "message_delta") {
+                if (event.usage) {
+                  tokensUsed += event.usage.output_tokens;
+                }
+              }
+            }
+          }
+
+          // Finalize
+          await ctx.runMutation(
+            internal.curriculumAssistant.finalizeStream,
+            {
+              messageId: assistantMsgId as Id<"curriculumMessages">,
+              content: fullContent,
+              model,
+              tokensUsed,
+            }
+          );
+
+          controller.enqueue(
+            udEncoder.encode(
+              `data: ${JSON.stringify({ done: true })}\n\n`
+            )
+          );
+          controller.close();
+        } catch (error) {
+          console.error("Unit designer stream error:", error);
+          controller.enqueue(
+            udEncoder.encode(
+              `data: ${JSON.stringify({ error: "Stream error" })}\n\n`
+            )
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }),
+});
+
+// CORS preflight for unit-designer-stream
+http.route({
+  path: "/unit-designer-stream",
   method: "OPTIONS",
   handler: httpAction(async () => {
     return new Response(null, {

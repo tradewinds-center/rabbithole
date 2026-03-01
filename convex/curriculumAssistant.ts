@@ -53,6 +53,116 @@ export const clearHistory = teacherMutation({
   },
 });
 
+// ── Unit-scoped messages (for Unit Designer chat) ───────────────────
+
+export const getMessagesByUnit = teacherQuery({
+  args: { unitId: v.id("units") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_teacher_unit", (q) =>
+        q.eq("teacherId", ctx.user._id).eq("unitId", args.unitId)
+      )
+      .order("asc")
+      .take(200);
+    return messages;
+  },
+});
+
+export const sendMessageForUnit = teacherMutation({
+  args: { message: v.string(), unitId: v.id("units") },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      unitId: args.unitId,
+      role: "user",
+      content: args.message,
+    });
+
+    const streamId = crypto.randomUUID();
+    const assistantMsgId = await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      unitId: args.unitId,
+      role: "assistant",
+      content: "",
+      streamId,
+    });
+
+    return { streamId, assistantMsgId: String(assistantMsgId) };
+  },
+});
+
+export const clearHistoryForUnit = teacherMutation({
+  args: { unitId: v.id("units") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_teacher_unit", (q) =>
+        q.eq("teacherId", ctx.user._id).eq("unitId", args.unitId)
+      )
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+  },
+});
+
+export const getUnitDesignerContext = internalQuery({
+  args: { teacherId: v.id("users"), unitId: v.id("units") },
+  handler: async (ctx, args) => {
+    const teacher = await ctx.db.get(args.teacherId);
+    const unit = await ctx.db.get(args.unitId);
+    if (!unit) return null;
+
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_teacher_unit", (q) =>
+        q.eq("teacherId", args.teacherId).eq("unitId", args.unitId)
+      )
+      .order("asc")
+      .take(200);
+
+    // Get lessons for this unit
+    const lessons = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", args.unitId))
+      .collect();
+
+    const lessonsWithProcess = await Promise.all(
+      lessons.sort((a, b) => a.order - b.order).map(async (l) => {
+        const process = l.processId ? await ctx.db.get(l.processId) : null;
+        return {
+          ...l,
+          processTitle: process?.title ?? null,
+          processEmoji: process?.emoji ?? null,
+        };
+      })
+    );
+
+    // Get available processes
+    const processes = await ctx.db
+      .query("processes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    return {
+      teacherName: teacher?.name ?? "Teacher",
+      unit,
+      lessons: lessonsWithProcess,
+      processes: processes.map((p) => ({
+        id: String(p._id),
+        title: p.title,
+        emoji: p.emoji ?? "",
+        steps: p.steps.map((s) => s.title).join(" → "),
+      })),
+      messages: messages.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    };
+  },
+});
+
 // ── Internal (called by HTTP action) ────────────────────────────────
 
 export const getContext = internalQuery({
@@ -252,6 +362,92 @@ export const listUnitsInternal = internalQuery({
       });
     }
     return result;
+  },
+});
+
+// ── Internal mutations (called by unit-designer-stream HTTP action) ───
+
+export const updateUnitInternal = internalMutation({
+  args: {
+    unitId: v.id("units"),
+    bigIdea: v.optional(v.union(v.string(), v.null())),
+    essentialQuestions: v.optional(v.array(v.string())),
+    enduringUnderstandings: v.optional(v.array(v.string())),
+    subject: v.optional(v.union(v.string(), v.null())),
+    gradeLevel: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const { unitId, ...fields } = args;
+    const updates: Record<string, unknown> = {};
+    if (fields.bigIdea !== undefined) updates.bigIdea = fields.bigIdea ?? undefined;
+    if (fields.essentialQuestions !== undefined) updates.essentialQuestions = fields.essentialQuestions;
+    if (fields.enduringUnderstandings !== undefined) updates.enduringUnderstandings = fields.enduringUnderstandings;
+    if (fields.subject !== undefined) updates.subject = fields.subject ?? undefined;
+    if (fields.gradeLevel !== undefined) updates.gradeLevel = fields.gradeLevel ?? undefined;
+    await ctx.db.patch(unitId, updates);
+  },
+});
+
+export const createLessonInternal = internalMutation({
+  args: {
+    unitId: v.id("units"),
+    title: v.string(),
+    strand: v.optional(v.union(
+      v.literal("core"), v.literal("connections"),
+      v.literal("practice"), v.literal("identity")
+    )),
+    processId: v.optional(v.id("processes")),
+    systemPrompt: v.optional(v.string()),
+    durationMinutes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", args.unitId))
+      .collect();
+    const maxOrder = existing.reduce((max, l) => Math.max(max, l.order), -1);
+
+    return await ctx.db.insert("lessons", {
+      unitId: args.unitId,
+      title: args.title.trim(),
+      strand: args.strand,
+      systemPrompt: args.systemPrompt?.trim() || undefined,
+      processId: args.processId,
+      order: maxOrder + 1,
+      durationMinutes: args.durationMinutes,
+    });
+  },
+});
+
+export const updateLessonInternal = internalMutation({
+  args: {
+    lessonId: v.id("lessons"),
+    title: v.optional(v.string()),
+    strand: v.optional(v.union(
+      v.literal("core"), v.literal("connections"),
+      v.literal("practice"), v.literal("identity"),
+      v.null()
+    )),
+    processId: v.optional(v.union(v.id("processes"), v.null())),
+    systemPrompt: v.optional(v.union(v.string(), v.null())),
+    durationMinutes: v.optional(v.union(v.number(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const { lessonId, ...fields } = args;
+    const updates: Record<string, unknown> = {};
+    if (fields.title !== undefined) updates.title = fields.title.trim();
+    if (fields.strand !== undefined) updates.strand = fields.strand ?? undefined;
+    if (fields.processId !== undefined) updates.processId = fields.processId ?? undefined;
+    if (fields.systemPrompt !== undefined) updates.systemPrompt = fields.systemPrompt?.trim() || undefined;
+    if (fields.durationMinutes !== undefined) updates.durationMinutes = fields.durationMinutes ?? undefined;
+    await ctx.db.patch(lessonId, updates);
+  },
+});
+
+export const deleteLessonInternal = internalMutation({
+  args: { lessonId: v.id("lessons") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.lessonId);
   },
 });
 

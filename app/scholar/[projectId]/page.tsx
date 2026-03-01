@@ -70,8 +70,9 @@ function ScholarProjectInner() {
   const remoteUserId = searchParams.get("remote");
   const isRemoteMode = !!(remoteUserId && user && (user.role === "teacher" || user.role === "admin"));
 
-  // Unit param from URL (for pre-setting unit on new projects)
+  // Unit/lesson params from URL (for pre-setting unit on new projects)
   const urlUnit = searchParams.get("unit");
+  const urlLesson = searchParams.get("lesson");
   const hasDimensionParams = !!urlUnit;
 
   // Fetch projects reactively via Convex
@@ -113,7 +114,11 @@ function ScholarProjectInner() {
   );
 
   const focusLock = !isTestMode && currentFocus?.isActive
-    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    ? {
+        unitId: currentFocus.unitId ? String(currentFocus.unitId) : null,
+        lessonId: currentFocus.lessonId ? String(currentFocus.lessonId) : null,
+        lessonTitle: currentFocus.lessonTitle ?? null,
+      }
     : null;
 
   // Unit picker dialog state
@@ -140,9 +145,11 @@ function ScholarProjectInner() {
     // Wait for unit list to load if we have a unit param
     if (urlUnit && units.length === 0) return;
 
-    // Check if scholar already has a project for this unit (join, don't duplicate)
+    // Check if scholar already has a project for this unit+lesson (join, don't duplicate)
     if (resolvedUnitId && projects.length > 0) {
-      const existing = projects.find((p) => p.unitId === resolvedUnitId);
+      const existing = urlLesson
+        ? projects.find((p) => p.unitId === resolvedUnitId && String(p.lessonId ?? "") === urlLesson)
+        : projects.find((p) => p.unitId === resolvedUnitId);
       if (existing) {
         newProjectCreatedRef.current = true;
         const queryParts: string[] = [];
@@ -160,6 +167,7 @@ function ScholarProjectInner() {
       createArgs.userId = remoteUserId as Id<"users">;
     }
     if (resolvedUnitId) createArgs.unitId = resolvedUnitId;
+    if (urlLesson) createArgs.lessonId = urlLesson as Id<"lessons">;
 
     createProject(createArgs as Parameters<typeof createProject>[0])
       .then((result) => {
@@ -182,8 +190,8 @@ function ScholarProjectInner() {
     setDialogOpen(true);
   }, []);
 
-  // Create project after unit selection from dialog
-  const handleUnitSelected = useCallback(async (unitId: string | null) => {
+  // Create project after unit+lesson selection from dialog
+  const handleUnitSelected = useCallback(async (unitId: string | null, lessonId: string | null) => {
     setIsCreatingViaDialog(true);
     const createArgs: Record<string, unknown> = {};
     if (isRemoteMode && remoteUserId) {
@@ -191,6 +199,9 @@ function ScholarProjectInner() {
     }
     if (unitId) {
       createArgs.unitId = unitId as Id<"units">;
+    }
+    if (lessonId) {
+      createArgs.lessonId = lessonId as Id<"lessons">;
     }
     try {
       const result = await createProject(createArgs as Parameters<typeof createProject>[0]);

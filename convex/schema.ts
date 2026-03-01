@@ -39,8 +39,7 @@ export default defineSchema({
   projects: defineTable({
     userId: v.id("users"),
     unitId: v.optional(v.id("units")),
-    // personaId, perspectiveId, processId REMOVED in Phase 1
-    // — all dimensions now come from the unit's building-block refs
+    lessonId: v.optional(v.id("lessons")),
     title: v.string(),
     analysisSummary: v.optional(v.string()),
     pulseScore: v.optional(v.number()),
@@ -60,6 +59,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])
     .index("by_unit", ["unitId"])
+    .index("by_lesson", ["lessonId"])
     .index("by_activity", ["activityId"]),
 
   messages: defineTable({
@@ -280,6 +280,12 @@ export default defineSchema({
     videoTranscript: v.optional(v.string()),
     // null = teacher-created; set = scholar-created independent study unit
     scholarId: v.optional(v.id("users")),
+    // PCM curriculum fields
+    bigIdea: v.optional(v.string()),
+    essentialQuestions: v.optional(v.array(v.string())),
+    enduringUnderstandings: v.optional(v.array(v.string())),
+    subject: v.optional(v.string()),
+    gradeLevel: v.optional(v.string()),
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])
@@ -287,11 +293,26 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_scholar", ["scholarId"]),
 
+  lessons: defineTable({
+    unitId: v.id("units"),
+    title: v.string(),
+    strand: v.optional(v.union(
+      v.literal("core"), v.literal("connections"),
+      v.literal("practice"), v.literal("identity")
+    )),
+    systemPrompt: v.optional(v.string()),
+    processId: v.optional(v.id("processes")),
+    order: v.number(),
+    durationMinutes: v.optional(v.number()),
+  })
+    .index("by_unit", ["unitId"])
+    .index("by_unit_strand", ["unitId", "strand"]),
+
   focusSettings: defineTable({
     teacherId: v.id("users"),
     unitId: v.optional(v.id("units")),
+    lessonId: v.optional(v.id("lessons")),
     scholarIds: v.optional(v.array(v.id("users"))), // targeted scholars (empty/undefined = all)
-    // Phase 1: simplified — only unitId, individual dims removed
     isActive: v.boolean(),
     endsAt: v.optional(v.number()), // auto-expire: computed from unit.durationMinutes or teacher override
     completedAt: v.optional(v.number()), // timestamp when activity was completed/released
@@ -342,6 +363,7 @@ export default defineSchema({
 
   curriculumMessages: defineTable({
     teacherId: v.id("users"),
+    unitId: v.optional(v.id("units")),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     model: v.optional(v.string()),
@@ -349,6 +371,7 @@ export default defineSchema({
     streamId: v.optional(v.string()),
   })
     .index("by_teacher", ["teacherId"])
+    .index("by_teacher_unit", ["teacherId", "unitId"])
     .index("by_stream", ["streamId"]),
 
   tokens: defineTable({

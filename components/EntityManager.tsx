@@ -24,8 +24,9 @@ import {
   FiSmile,
   FiEye,
   FiLayers,
-  FiPlay,
+  FiEdit3,
 } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 import { Scroll } from "@phosphor-icons/react";
 import { DimensionEditModal } from "./DimensionEditModal";
 import type { DimensionType, DimensionEditData } from "./DimensionEditModal";
@@ -47,6 +48,7 @@ interface Entity {
   personaId?: string | null;
   perspectiveId?: string | null;
   processId?: string | null;
+  lessonCount?: number;
 }
 
 interface EntityManagerProps {
@@ -67,6 +69,7 @@ const CONFIG: Record<DimensionType, {
 };
 
 export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
+  const router = useRouter();
   const config = CONFIG[entityType];
   const Icon = config.icon;
 
@@ -86,13 +89,20 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
   const deactivateUnit = useMutation(api.units.deactivate);
   const deactivatePerspective = useMutation(api.perspectives.deactivate);
   const deactivateProcess = useMutation(api.processes.deactivate);
+  const createUnit = useMutation(api.units.create);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<DimensionEditData | null>(null);
 
   const isLoading = entities === undefined;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    // For units, create a blank unit and navigate to the designer
+    if (entityType === "unit") {
+      const unitId = await createUnit({ title: "New Unit" });
+      router.push(`/teacher/unit/${unitId}`);
+      return;
+    }
     setEditData(null);
     setModalOpen(true);
   };
@@ -215,6 +225,11 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                             {entity.steps.length} steps
                           </Badge>
                         )}
+                        {entityType === "unit" && entity.lessonCount !== undefined && entity.lessonCount > 0 && (
+                          <Badge bg="violet.100" color="violet.700" fontSize="xs">
+                            {entity.lessonCount} lesson{entity.lessonCount !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
                       </VStack>
                     </HStack>
                     {entity.isActive && (
@@ -261,35 +276,38 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                   )}
 
                   <HStack gap={2} mt={1}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      fontFamily="heading"
-                      color="violet.500"
-                      borderColor="violet.200"
-                      _hover={{ bg: "violet.50", borderColor: "violet.400" }}
-                      onClick={() => handleEdit(entity)}
-                    >
-                      <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
-                      Edit Prompt
-                    </Button>
-                    {entityType === "unit" && entity.isActive && (
+                    {entityType !== "unit" && (
                       <Button
                         variant="outline"
                         size="sm"
                         fontFamily="heading"
-                        color="teal.600"
-                        borderColor="teal.200"
-                        _hover={{ bg: "teal.50", borderColor: "teal.400" }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const slug = entity.slug || entity.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-                          window.open(`/scholar/new?unit=${slug}&demo=1`, "_blank");
-                        }}
+                        color="violet.500"
+                        borderColor="violet.200"
+                        _hover={{ bg: "violet.50", borderColor: "violet.400" }}
+                        onClick={() => handleEdit(entity)}
                       >
-                        <FiPlay size={14} style={{ marginRight: "6px" }} />
-                        Test
+                        <Scroll size={14} weight="bold" style={{ marginRight: "6px" }} />
+                        Edit Prompt
                       </Button>
+                    )}
+                    {entityType === "unit" && entity.isActive && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          fontFamily="heading"
+                          color="navy.500"
+                          borderColor="navy.200"
+                          _hover={{ bg: "navy.50", borderColor: "navy.400" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/teacher/unit/${entity._id}`);
+                          }}
+                        >
+                          <FiEdit3 size={14} style={{ marginRight: "6px" }} />
+                          Design
+                        </Button>
+                      </>
                     )}
                   </HStack>
                 </VStack>

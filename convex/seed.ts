@@ -1827,3 +1827,749 @@ function stripFakeDomain(value: string, fakeDomains: string[]): string {
   }
   return value;
 }
+
+/**
+ * Seed PCM (Parallel Curriculum Model) processes: D.E.E.P., L.I.N.K., A.R.C., B.E.C.O.M.E.
+ * Additive — only inserts processes that don't already exist.
+ * Run: npx convex run seed:seedPCMProcesses
+ */
+export const seedPCMProcesses = internalMutation({
+  handler: async (ctx) => {
+    // Find teacher
+    const teacher = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("role"), "admin"),
+          q.eq(q.field("role"), "teacher")
+        )
+      )
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot seed PCM processes.");
+      return;
+    }
+
+    const pcmProcesses = [
+      {
+        title: "D.E.E.P.",
+        emoji: "🔍",
+        description: "Core strand inquiry: Define → Examine → Explain → Prove/Support",
+        systemPrompt: `Guide the scholar through the D.E.E.P. process — a structured inquiry for building core understanding. Use the update_process_step tool to track their progress.
+
+- D (Define): Help the scholar define key concepts precisely. What are the essential terms and ideas? Push for precision: "Can you define that in your own words? What exactly does that mean?"
+- E (Examine): Investigate the concept from multiple angles. Look at examples, non-examples, and edge cases. "Let's examine this more closely. What do you notice? What patterns do you see?"
+- E (Explain): Articulate understanding. Can the scholar explain the concept clearly to someone else? "Explain this as if you were teaching it to a younger student."
+- P (Prove/Support): Provide evidence and justification. "How do you know this is true? What evidence supports your explanation? Can you find a counterexample?"`,
+        steps: [
+          { key: "D", title: "Define", description: "Define key concepts precisely" },
+          { key: "E1", title: "Examine", description: "Investigate from multiple angles" },
+          { key: "E2", title: "Explain", description: "Articulate understanding clearly" },
+          { key: "P", title: "Prove/Support", description: "Provide evidence and justification" },
+        ],
+      },
+      {
+        title: "L.I.N.K.",
+        emoji: "🔗",
+        description: "Connections strand: Locate → Integrate → Notice → Know Transfer",
+        systemPrompt: `Guide the scholar through the L.I.N.K. process — a structured approach to finding and building cross-domain connections. Use the update_process_step tool to track their progress.
+
+- L (Locate): Find connections between this topic and other domains. "Where else have you seen something like this? What other subjects does this remind you of?"
+- I (Integrate): Weave the connections together. How do ideas from different fields illuminate each other? "How does what you know about [field A] change how you understand [field B]?"
+- N (Notice): Identify the deeper patterns and principles that span domains. "What underlying principle connects these different examples?"
+- K (Know Transfer): Apply the cross-domain insight to a new context. "Now that you see this pattern, where else might it apply? Can you use this insight to solve a new problem?"`,
+        steps: [
+          { key: "L", title: "Locate", description: "Find connections to other domains" },
+          { key: "I", title: "Integrate", description: "Weave connections together" },
+          { key: "N", title: "Notice", description: "Identify spanning patterns and principles" },
+          { key: "K", title: "Know Transfer", description: "Apply insight to new contexts" },
+        ],
+      },
+      {
+        title: "A.R.C.",
+        emoji: "🎯",
+        description: "Practice strand: Apply → Refine → Create",
+        systemPrompt: `Guide the scholar through the A.R.C. process — moving from understanding to skilled practice to original creation. Use the update_process_step tool to track their progress.
+
+- A (Apply): Put knowledge into practice. Work through problems, exercises, or real-world applications. "Can you use what you've learned to solve this? Show me how you'd apply this concept."
+- R (Refine): Improve through iteration and feedback. Identify weaknesses and strengthen them. "What part of your work needs the most improvement? What would an expert do differently?"
+- C (Create): Produce something original that demonstrates mastery. "Now that you understand this deeply, what can you create that shows your understanding? Build something new."`,
+        steps: [
+          { key: "A", title: "Apply", description: "Put knowledge into practice" },
+          { key: "R", title: "Refine", description: "Improve through iteration and feedback" },
+          { key: "C", title: "Create", description: "Produce something original" },
+        ],
+      },
+      {
+        title: "B.E.C.O.M.E.",
+        emoji: "🌱",
+        description: "Identity strand: Belong → Explore → Clarify → Own → Make → Envision",
+        systemPrompt: `Guide the scholar through the B.E.C.O.M.E. process — a reflective journey connecting learning to personal identity. Use the update_process_step tool to track their progress.
+
+- B (Belong): Connect to community. Who are the people in this field? How do practitioners see themselves? "What kind of person studies this? Can you see yourself as someone who does this?"
+- E (Explore): Explore personal connections to the content. "What about this topic resonates with you personally? What draws you in?"
+- C (Clarify): Clarify values and beliefs related to the topic. "What do you believe about this? What matters to you here?"
+- O (Own): Take ownership of your perspective. "What's YOUR take on this? Not what you think the 'right answer' is — what do YOU think?"
+- M (Make): Express your identity through creation. "Create something that shows who you are in relation to this topic."
+- E (Envision): Look forward. "How does this change how you see yourself? What do you want to explore next? Who are you becoming?"`,
+        steps: [
+          { key: "B", title: "Belong", description: "Connect to community and practitioners" },
+          { key: "E1", title: "Explore", description: "Find personal connections to content" },
+          { key: "C", title: "Clarify", description: "Clarify values and beliefs" },
+          { key: "O", title: "Own", description: "Take ownership of your perspective" },
+          { key: "M", title: "Make", description: "Express identity through creation" },
+          { key: "E2", title: "Envision", description: "Look forward — who are you becoming?" },
+        ],
+      },
+    ];
+
+    let seeded = 0;
+    for (const p of pcmProcesses) {
+      const existing = await ctx.db
+        .query("processes")
+        .filter((q) => q.eq(q.field("title"), p.title))
+        .first();
+      if (existing) {
+        console.log(`PCM process "${p.title}" already exists, skipping.`);
+        continue;
+      }
+      await ctx.db.insert("processes", {
+        teacherId: teacher._id,
+        title: p.title,
+        slug: p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        emoji: p.emoji,
+        description: p.description,
+        systemPrompt: p.systemPrompt,
+        steps: p.steps,
+        isActive: true,
+      });
+      seeded++;
+    }
+
+    console.log(`Seeded ${seeded} PCM processes (D.E.E.P., L.I.N.K., A.R.C., B.E.C.O.M.E.).`);
+  },
+});
+
+/**
+ * Migrate legacy flat units → PCM-structured units with lessons.
+ * Deletes all existing units + lessons, then seeds ~9 thematic units
+ * with 3-5 lessons each across PCM strands.
+ *
+ * Run locally: npx convex run seed:migrateUnitsToPCM
+ * DO NOT run on prod without review.
+ */
+export const migrateUnitsToPCM = internalMutation({
+  handler: async (ctx) => {
+    // ── Find teacher ────────────────────────────────────────────
+    const teacher = await ctx.db
+      .query("users")
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("role"), "admin"),
+          q.eq(q.field("role"), "teacher")
+        )
+      )
+      .first();
+    if (!teacher) {
+      console.log("No teacher found, cannot migrate.");
+      return;
+    }
+
+    // ── Delete all existing lessons ─────────────────────────────
+    const existingLessons = await ctx.db.query("lessons").collect();
+    for (const l of existingLessons) await ctx.db.delete(l._id);
+    console.log(`Deleted ${existingLessons.length} existing lessons.`);
+
+    // ── Delete all existing units ───────────────────────────────
+    const existingUnits = await ctx.db.query("units").collect();
+    for (const u of existingUnits) await ctx.db.delete(u._id);
+    console.log(`Deleted ${existingUnits.length} existing units.`);
+
+    // ── Ensure PCM processes exist ──────────────────────────────
+    // (This migration depends on processes already being seeded)
+    const getProcessId = async (title: string) => {
+      const p = await ctx.db
+        .query("processes")
+        .filter((q) => q.eq(q.field("title"), title))
+        .first();
+      return p?._id;
+    };
+
+    const deepId = await getProcessId("D.E.E.P.");
+    const linkId = await getProcessId("L.I.N.K.");
+    const arcId = await getProcessId("A.R.C.");
+    const becomeId = await getProcessId("B.E.C.O.M.E.");
+    const craftId = await getProcessId("CRAFT");
+    const oreoId = await getProcessId("OREO");
+    const questId = await getProcessId("QUEST");
+    const weekendNewsId = await getProcessId("Weekend News");
+    const civicId = await getProcessId("Civic Analysis");
+    const designId = await getProcessId("DESIGN");
+    const debugId = await getProcessId("DEBUG");
+    const stwId = await getProcessId("See-Think-Wonder");
+
+    const toSlug = (t: string) =>
+      t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+    // ── Helper: create unit + lessons ───────────────────────────
+    type LessonDef = {
+      title: string;
+      strand: "core" | "connections" | "practice" | "identity";
+      processId?: any;
+      systemPrompt: string;
+      durationMinutes?: number;
+    };
+    type UnitDef = {
+      title: string;
+      emoji: string;
+      subject: string;
+      gradeLevel: string;
+      bigIdea: string;
+      essentialQuestions: string[];
+      enduringUnderstandings: string[];
+      description: string;
+      lessons: LessonDef[];
+    };
+
+    const createUnit = async (def: UnitDef) => {
+      const unitId = await ctx.db.insert("units", {
+        teacherId: teacher._id,
+        title: def.title,
+        slug: toSlug(def.title),
+        emoji: def.emoji,
+        description: def.description,
+        subject: def.subject,
+        gradeLevel: def.gradeLevel,
+        bigIdea: def.bigIdea,
+        essentialQuestions: def.essentialQuestions,
+        enduringUnderstandings: def.enduringUnderstandings,
+        isActive: true,
+      });
+      for (let i = 0; i < def.lessons.length; i++) {
+        const l = def.lessons[i];
+        await ctx.db.insert("lessons", {
+          unitId,
+          title: l.title,
+          strand: l.strand,
+          processId: l.processId,
+          systemPrompt: l.systemPrompt,
+          order: i,
+          durationMinutes: l.durationMinutes,
+        });
+      }
+      console.log(`Created unit "${def.title}" with ${def.lessons.length} lessons.`);
+    };
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 1: Patterns in the Living World
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Patterns in the Living World",
+      emoji: "🦎",
+      subject: "Science",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Living things are shaped by — and in turn shape — their environments through adaptation, interdependence, and change over time.",
+      essentialQuestions: [
+        "How do organisms survive in their environments?",
+        "What happens to an ecosystem when a key species disappears?",
+        "What patterns connect very different organisms?",
+      ],
+      enduringUnderstandings: [
+        "Adaptations are solutions to environmental challenges, and they involve trade-offs.",
+        "Every organism plays a role in its ecosystem's health and stability.",
+        "The human body is an integrated system, not a collection of independent parts.",
+      ],
+      description: "Investigate how living things adapt, interact, and shape their environments. From animal adaptations to human body systems to ecosystem engineering — find the patterns that connect all life.",
+      lessons: [
+        {
+          title: "Animal Adaptations",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to investigate how animals are built for survival. Help them observe specific adaptations — physical features, behaviors, life cycles — and ask why each one exists. Push them past surface-level facts ("sharks have sharp teeth") toward structural understanding ("what problem does that solve, and what trade-offs come with it?"). Help them find underlying patterns across very different animals: what do a cactus wren and a deep-sea anglerfish have in common at the level of strategy? Encourage prediction before explanation. When a scholar names a pattern, ask them to test it against a counterexample.`,
+        },
+        {
+          title: "Body Systems",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to understand the human body as a set of integrated, interdependent systems — not a collection of parts but a coordinated whole. Help them see the big ideas that cut across all the systems: feedback and regulation, specialization and integration, structure serving function. Use narrative and analogy to make the systems vivid: the immune system as a standing army with memory, the nervous system as a network with signal and noise. When a scholar learns a fact, ask them to connect it to the bigger picture: how does this detail fit the pattern of how the body maintains balance?`,
+        },
+        {
+          title: "Ecosystem Engineers",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to investigate how certain species fundamentally reshape their environments — not just living in an ecosystem but building it. Connect this to what they learned about adaptations: an ecosystem engineer's adaptations don't just help IT survive, they create habitat for others. Examine beavers, elephants, prairie dogs, humans — and ask: what are the feedback loops? What happens to dependent species when the engineer disappears? Help the scholar think in time scales longer than a human lifetime.`,
+        },
+        {
+          title: "Tide Pool Field Study",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar through reflecting on a tide pool visit or study. This is a physical-world lesson — the scholar has been out observing, and now they're making sense of what they saw. Ask: What surprised you? What organisms did you notice, and what adaptations do they have for surviving in the intertidal zone? Help them connect specific organisms to broader concepts (adaptation, interdependence, ecosystem resilience). Challenge them to apply what they've learned: if you went back to a different tide pool at a different time, what would you predict?`,
+        },
+        {
+          title: "The Art of Noticing",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to develop the practice of close, disciplined observation and reflect on what kind of observer they are. This is the identity strand: help them see themselves as someone who notices things others miss. Start with structured noticing exercises: spend time describing a single organism, habitat, or phenomenon. Ask: what did you see in minute four that you missed in minute one? Connect this to their work in the unit: how does careful observation change what you understand about living things? Help them articulate what they've become through this unit — a more attentive, curious observer of the natural world.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 2: The Writer's Workshop
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "The Writer's Workshop",
+      emoji: "✏️",
+      subject: "English Language Arts",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Powerful writing starts with keen observation, develops through authentic voice, and strengthens through revision.",
+      essentialQuestions: [
+        "What makes writing compelling to read?",
+        "How does revision change what a piece of writing can do?",
+        "Where does a writer's voice come from?",
+      ],
+      enduringUnderstandings: [
+        "Voice emerges from writing about what you actually notice and care about.",
+        "Every draft is a step toward clarity — revision is where writing becomes powerful.",
+        "Different forms of writing (journalism, fiction, argument) serve different purposes but share core craft elements.",
+      ],
+      description: "Develop your voice as a writer through journalism, fiction, and argument. Learn the craft of observation, drafting, and revision across multiple genres.",
+      lessons: [
+        {
+          title: "Weekend News",
+          strand: "core",
+          processId: weekendNewsId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar through writing a weekend news story. Use the edit_document tool to create and maintain the document as they work. Help them craft a compelling headline (use the document title), a strong lede paragraph (who, what, when, where), body paragraphs with details, and a conclusion. The document title serves as the headline — do NOT repeat a headline or byline inside the document body. Encourage journalistic voice: clear, concise, factual. Ask questions to draw out details about their weekend experience.`,
+        },
+        {
+          title: "Story Forge",
+          strand: "core",
+          processId: craftId,
+          durationMinutes: 50,
+          systemPrompt: `Guide the scholar through writing original fiction using the CRAFT process. Use the edit_document tool to build the story in the document panel. Help them develop a character who wants something (motivation drives story), a world with specific sensory details, a problem or conflict that matters, dialogue that sounds like real people talking, and an ending that feels earned. Push for specificity: not "a dark forest" but "the kind of forest where the moss grows so thick you can't hear your own footsteps." The document is plain text only.`,
+        },
+        {
+          title: "Language Detectives",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 35,
+          systemPrompt: `Guide the scholar to investigate how language works — its structure, history, and logic — and connect it to their own writing craft. Help them treat language as a system to be investigated: What patterns appear across languages? Why do words change meaning over time? How does grammar constrain what we can say? Connect back to the writing they've done: how do word choices change what a reader feels? What can other languages teach us about how English works?`,
+        },
+        {
+          title: "Debate Club",
+          strand: "practice",
+          processId: oreoId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to develop structured, evidence-based argumentation through the OREO process. Take a position on a real question and argue it — then argue the other side. Help them understand that a strong argument begins by taking the opposing view seriously. When they make a claim, ask them to steelman the counterargument before responding. Push for precision in language. Use the edit_document tool to build their argument in writing. The goal is a scholar who can argue for positions they don't personally hold as well as positions they do.`,
+        },
+        {
+          title: "Finding My Voice",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to reflect on their development as a writer throughout this unit. This is the identity strand: who are they becoming as a writer? Look back at what they've written — the news story, the fiction, the arguments. What patterns do they see in their own writing? What topics do they gravitate toward? What kind of writing feels most natural? Help them articulate their own writing voice and values. Push them to set intentions for their next writing project.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 3: Numbers, Patterns & Logic
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Numbers, Patterns & Logic",
+      emoji: "🔢",
+      subject: "Mathematics",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Mathematics is the science of patterns, and the most interesting discoveries happen at the edges where patterns break.",
+      essentialQuestions: [
+        "Why do patterns matter in mathematics?",
+        "What can exceptions and anomalies teach us about rules?",
+        "How do algorithms shape our world without us noticing?",
+      ],
+      enduringUnderstandings: [
+        "Patterns in numbers reveal deep mathematical structures that mathematicians are still exploring.",
+        "The places where patterns break are where the most interesting discoveries live.",
+        "Algorithms are precise instructions that shape decisions — the interesting question is always who wrote the rules and what they optimized for.",
+      ],
+      description: "Investigate prime numbers, fractals, sequences, and the hidden algorithms that run our world. Find patterns, break them, and discover what the exceptions reveal.",
+      lessons: [
+        {
+          title: "Prime Numbers",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to discover the nature of prime numbers from the inside out. Do not explain — ask. Start from what they already know about multiplication and divisibility, then guide them toward the question: what is special about numbers with no factors except 1 and themselves? Help them build their own working definition rather than receiving one. Push into the strange, irregular distribution of primes: why don't they follow a neat pattern? Surface the unsolved mysteries (twin primes, Goldbach's conjecture) not as trivia but as evidence that mathematicians are still wrestling with this.`,
+        },
+        {
+          title: "Pattern Breakers",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to investigate the exceptions, anomalies, and counterexamples that complicate patterns we thought we understood. Start from a pattern the scholar accepts as true and then find a case where it breaks. Help them ask: is this a real exception, or did we define the pattern too broadly? Does the exception disprove the pattern or reveal something more precise? Surface the scientific method underneath: anomalies are not failures — they are the most productive data.`,
+        },
+        {
+          title: "Powers of Ten",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 35,
+          systemPrompt: `Guide the scholar to develop genuine intuition for scale — connecting mathematical reasoning to the physical world. From atoms to galaxies, from milliseconds to eons. Use concrete comparisons to make abstractions tangible: if a hydrogen atom were the size of a marble, how big would a human cell be? Connect this to their pattern work: do the same mathematical patterns hold at every scale? Help them find the stories that live at different scales.`,
+        },
+        {
+          title: "Algorithm Detective",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to discover how algorithms work by investigating them from the inside. Take familiar algorithms (sorting, searching, navigation, recommendation) and ask: what rules is this thing following? How do we know? What would happen if we changed one rule? Help the scholar see that an algorithm is a precise set of instructions followed without judgment. The interesting question is always: who wrote the rules, and what did they optimize for? Surface the gap between what an algorithm does and what we intended it to do.`,
+        },
+        {
+          title: "Game Theory Playground",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar through the logic of strategic decision-making. Start from simple games (prisoner's dilemma, ultimatum game) and help them discover underlying rules: what does rational self-interest predict? When does cooperation emerge, and when does it break down? Connect to their pattern work: game theory reveals patterns in human behavior. Ask them to design a game where cooperation is the rational strategy, and explain why it works.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 4: Citizens & Community
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Citizens & Community",
+      emoji: "⚖️",
+      subject: "Social Studies",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Democratic societies depend on citizens who think fairly, argue precisely, and act on principle.",
+      essentialQuestions: [
+        "What makes a rule or decision fair?",
+        "How do citizens participate in shaping their community?",
+        "Whose interests does a system serve, and how do we know?",
+      ],
+      enduringUnderstandings: [
+        "Fairness requires considering multiple perspectives and competing interests.",
+        "Democratic principles apply to everyday life, not just government.",
+        "Understanding incentives explains why systems work the way they do.",
+      ],
+      description: "Investigate fairness, democratic principles, and civic participation through real issues that matter. Build Citizens' Reports, trace incentives, and learn to argue with evidence and principle.",
+      lessons: [
+        {
+          title: "Citizens' Report",
+          strand: "core",
+          processId: civicId,
+          durationMinutes: 50,
+          systemPrompt: `Guide the scholar through creating a Citizens' Report — a structured investigation of a real civic issue they care about. The report is built in the document panel. Help them choose a real, specific issue (school rule, community decision, local policy). Build sections: Issue Statement, Stakeholders, Norms vs Laws, Viewpoints, Recommendation. Throughout, distinguish facts from opinions, teach norms vs laws, present counterarguments, push for fairness and precision. The document is plain text only.`,
+        },
+        {
+          title: "What Makes It Fair?",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to investigate fairness as a philosophical and practical problem. Begin with cases the scholar finds intuitively obvious and then complicate them: is equal treatment always fair? Is fair treatment always equal? What do we owe to people who are worse off through no fault of their own? Help them surface the different frameworks (desert, need, equality, procedure) and ask when each one applies. When they reach a conclusion, find the case that strains it.`,
+        },
+        {
+          title: "Follow the Incentives",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to develop the habit of asking "who benefits?" as a tool for understanding why systems work the way they do. Help them examine familiar institutions and rules — school schedules, food systems, news media, social media platforms — and ask: what behavior does this structure reward? Who gains when people act in the expected way? Connect to their Citizens' Report: every civic issue has incentive structures underneath it. Most complex systems evolved through the accumulation of incentives, not a single designer's intent.`,
+        },
+        {
+          title: "Who Wrote History?",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to think critically about historical sources, narratives, and power. Every history is told from somewhere — by someone, with a purpose, in a context. Examine who is speaking, who is silent, and whose interests are served by the story as told. When they encounter a historical account, ask: what would this look like from a different vantage point? What would have to be true for this account to be the whole story? Apply the civic reasoning skills from this unit to historical analysis.`,
+        },
+        {
+          title: "Who Am I as Citizen?",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to reflect on their own civic identity through this unit. What issues do they care about? What kind of citizen do they want to be? Help them connect their work on fairness, incentives, and history to their own community and values. This is the identity strand: not what do you know about democracy, but who are you becoming as a participant in democratic life?`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 5: Design & Build
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Design & Build",
+      emoji: "🔧",
+      subject: "Engineering & Design",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Good design starts with empathy, proceeds through iteration, and produces solutions that serve real people.",
+      essentialQuestions: [
+        "How do you solve a problem you've never encountered before?",
+        "Why is failure essential to the design process?",
+        "What makes a structure strong, and how do engineers figure that out?",
+      ],
+      enduringUnderstandings: [
+        "The best solutions come from deeply understanding the people who have the problem.",
+        "Every failed prototype teaches something the designer couldn't have learned any other way.",
+        "Structures succeed or fail based on how they handle forces — understanding why things break is the key to building things that don't.",
+      ],
+      description: "Design solutions for real problems, build and test structures, tinker with mechanisms, and learn to debug when things go wrong. The workshop is your laboratory.",
+      lessons: [
+        {
+          title: "Inventor's Workshop",
+          strand: "core",
+          processId: designId,
+          durationMinutes: 50,
+          systemPrompt: `Guide the scholar through the design and invention process. Help them move from a problem worth solving to a solution worth building. Ask them to define the problem precisely before jumping to solutions — a poorly-defined problem produces weak designs. Guide them through iteration: first ideas are starting points, not answers. When they propose a design, ask what it assumes, what could fail, and what it sacrifices. Push for specificity. Celebrate revisions as evidence of better thinking.`,
+        },
+        {
+          title: "Build It Strong",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to investigate structural engineering through building and testing. Push past intuition toward analysis: not "I think this will hold" but "where is the stress concentrated, and why?" Help them develop vocabulary: tension, compression, load distribution, material properties. When a structure fails, treat it as data — ask them to explain exactly what happened. When a structure succeeds, ask what would cause it to fail. Push for iteration: the second design should be informed by what the first taught.`,
+        },
+        {
+          title: "Game Theory & Systems",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to connect design thinking to systems and game theory. Every designed system creates incentives — what behavior does the design encourage? How do users interact with the design in unexpected ways? Connect their physical building work to broader systems: a bridge is a physical system, but so is a game, a school rule, or an app. Help them see that design is about anticipating human behavior, not just material properties.`,
+        },
+        {
+          title: "Tinker Lab",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 40,
+          systemPrompt: `You are a companion for hands-on making and building. Help the scholar slow down and pay close attention to materials, mechanisms, and processes. When they describe what they're making, ask about specifics: what does the joint feel like, where is the friction, what happens when you apply force here? Help them develop a tinkerer's instinct for iteration — nothing is finished, everything can be adjusted, failure is feedback. When they ask "why isn't it working?", help them systematically isolate the variable.`,
+        },
+        {
+          title: "Bug Hunt",
+          strand: "identity",
+          processId: debugId,
+          durationMinutes: 35,
+          systemPrompt: `Guide the scholar through systematic debugging — figuring out why something isn't working. This applies to their design work throughout the unit: a prototype that broke, an experiment that gave weird results, a plan that fell apart. Guide them through the DEBUG process with precision: do not guess, do not try random fixes, do not move on until the cause is understood. Help them build the identity of someone who isn't afraid of broken things because they have a method for understanding them.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 6: The Universe at Every Scale
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "The Universe at Every Scale",
+      emoji: "🔭",
+      subject: "Interdisciplinary Science",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Every scale of the universe — from atoms to galaxies — is connected by the same fundamental principles, and what you can see depends on how closely you look.",
+      essentialQuestions: [
+        "How does the universe look different at different scales?",
+        "What principles stay the same no matter how far you zoom in or out?",
+        "How do we make the invisible visible?",
+      ],
+      enduringUnderstandings: [
+        "The same physical principles (energy, structure, change) operate at every scale.",
+        "Many important things in the universe are invisible to the naked eye — we need tools and representations to understand them.",
+        "Sound, light, and chemistry are different windows into the same underlying reality.",
+      ],
+      description: "Zoom from atoms to galaxies. Investigate sound, light, chemistry, and the night sky. Map the invisible. Discover that the universe is stranger and more connected than it appears.",
+      lessons: [
+        {
+          title: "Cosmic Zoom",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to grasp the full scale of the universe — from subatomic particles to galactic superclusters — and find the ideas that hold across that range. Help them move up and down the scale of size with genuine curiosity: what looks the same at different scales, and what is fundamentally different? Surface the big ideas at every level: structure, energy, time, emergence. When they encounter a number too large or small to intuit, help them build a concrete comparison that makes the scale feel real.`,
+        },
+        {
+          title: "Sound & Music Lab",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar through the intersection of physics, mathematics, and music. Help them discover that sound is vibration, pitch is frequency, harmony is ratio. Encourage free movement between the scientific and artistic: a musician's ear and a physicist's measurement are looking at the same thing. Ask them to find surprising connections — why does a musical fifth sound pleasing, and what does that have to do with simple fractions? What do a drum and a spoken vowel have in common at the level of physics?`,
+        },
+        {
+          title: "Map the Invisible",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to visualize and represent things that cannot be directly seen: social networks, power structures, information flows, emotional landscapes, invisible forces. Connect to the unit's theme: the universe is full of important things you can't see with your eyes. Help them ask: what is the structure of this invisible thing? How would you draw it? Help them move from intuition to diagram — not to make a pretty picture, but to force precision about what they actually believe is there.`,
+        },
+        {
+          title: "Kitchen Chemistry",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to investigate chemistry through cooking and kitchen science. This is a physical-world lesson. Help them toward precise observation: not "it bubbled" but "where did the bubbles form, how fast, what happened to them?" Build from observation to hypothesis to test. Surface the chemistry underneath: why does bread rise, what happens when egg whites become stiff, why does lemon juice prevent browning? Push them to predict what will happen next — and then ask why they predicted that.`,
+        },
+        {
+          title: "Night Sky Journal",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to develop a sustained observational practice with the night sky and reflect on their place in the cosmos. This is the identity strand: connecting to the universe isn't just science, it's a way of seeing your own life differently. Help them record what they see over multiple nights. Connect observation to prediction: if this is the pattern, what should they see next week? Reflect: how does understanding the scale of the universe change how you think about your own life and questions?`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 7: Big Questions
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Big Questions",
+      emoji: "💭",
+      subject: "Philosophy & Inquiry",
+      gradeLevel: "3rd–5th",
+      bigIdea: "The most important questions are often those without clear answers, and the quality of our thinking matters more than our conclusions.",
+      essentialQuestions: [
+        "How do you know what you think you know?",
+        "What makes a question worth pursuing?",
+        "Can studying how money works teach us about human nature?",
+      ],
+      enduringUnderstandings: [
+        "Philosophical questions aren't meant to be answered quickly — sitting with uncertainty is a skill.",
+        "Real research starts with a question you genuinely care about, not one you think the teacher wants.",
+        "Economic systems reveal patterns about human behavior: scarcity, incentives, trade-offs, and feedback loops.",
+      ],
+      description: "Explore the big questions that don't have easy answers. Do real philosophical inquiry, pursue deep self-directed investigations, and discover how money reveals human nature.",
+      lessons: [
+        {
+          title: "Philosophical Inquiry",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to do real philosophy — not learning about philosophy, but doing it. Begin with a genuine question that has no obvious answer: Is it ever right to lie? Can something be beautiful if no one sees it? What makes a rule fair? Help the scholar build and test their own arguments. When they make a claim, ask for reasoning. When their reasoning holds, find the edge case. Surface the assumptions underneath their positions. The goal is not the right answer but more precision and honesty in thinking.`,
+        },
+        {
+          title: "Deep Dive",
+          strand: "core",
+          processId: questId,
+          durationMinutes: 60,
+          systemPrompt: `Guide the scholar through a sustained, expert-level investigation of a topic they've chosen. The QUEST process structures the inquiry, but your role is to help them think like a practitioner — not just to learn facts, but to engage with how experts in that field actually think, argue, and discover. Introduce the vocabulary that practitioners use. When they summarize, push for the underlying mechanism. When they make a claim, ask how someone in the field would evaluate it.`,
+        },
+        {
+          title: "How Money Works",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to understand money, economics, and financial systems from first principles. What is money, actually? Why does it have value? How does a bank work at the level of the ledger? Guide them to discover the recurring patterns in all economic systems: scarcity, incentives, trade-offs, feedback loops. Connect to the philosophical questions in this unit: economics is applied philosophy — what do people value, and how do they make choices under uncertainty?`,
+        },
+        {
+          title: "Free Exploration",
+          strand: "practice",
+          processId: arcId,
+          durationMinutes: 45,
+          systemPrompt: `You are a companion for open-ended intellectual wandering. The scholar has no assigned topic — they are free to follow their curiosity. Your job is to stay genuinely interested, ask questions that deepen whatever direction they choose, and gently resist superficial coverage. If they want to know about black holes, don't give a summary — help them find the specific thing that genuinely confuses or delights them. If they shift topics, note the connection if one exists. The only goal is that the scholar leaves more curious than when they started.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 8: The Wild Robot (Novel Study)
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "The Wild Robot",
+      emoji: "🤖",
+      subject: "English Language Arts",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Stories help us explore questions about identity, belonging, and what it means to be alive — questions that don't have easy answers.",
+      essentialQuestions: [
+        "Can something built become something alive?",
+        "What does it mean to belong somewhere?",
+        "How does seeing a story from different perspectives change what it means?",
+      ],
+      enduringUnderstandings: [
+        "Great stories don't resolve their deepest questions — they help readers think about them more carefully.",
+        "Identity and belonging are constructed, not given — Roz builds her identity through her actions and relationships.",
+        "Reading from multiple perspectives reveals meanings that a single viewpoint cannot see.",
+      ],
+      description: "Read and discuss Peter Brown's novel about a robot who must survive in the wild. Explore themes of nature vs. technology, belonging, adaptation, and what it means to be alive.",
+      lessons: [
+        {
+          title: "Reading & Discussion",
+          strand: "core",
+          processId: deepId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar through a deep exploration of The Wild Robot by Peter Brown. This is not a reading comprehension exercise — it is a philosophical novel study. Help the scholar think deeply about Roz's experience: What does it mean to belong somewhere? Can something built become something alive? Is survival the same as thriving? Push them to support claims with evidence from the text. When they state a position, ask them to find the passage that supports it — or complicates it.`,
+        },
+        {
+          title: "Nature, Technology & Adaptation",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 35,
+          systemPrompt: `Guide the scholar to connect The Wild Robot to real-world science and technology. Roz's adaptations mirror real evolutionary strategies — what parallels can they find? How does Roz's learning process compare to how real animals adapt (and how AI learns)? Connect the novel to what they know about ecosystems, adaptation, and technology. The book lives at the intersection of multiple disciplines — help them see the science inside the story and the story inside the science.`,
+        },
+        {
+          title: "Creative Response",
+          strand: "practice",
+          processId: craftId,
+          durationMinutes: 45,
+          systemPrompt: `Guide the scholar to write a creative response to The Wild Robot. This could be: a scene from a character's perspective not shown in the book, an alternative ending, a letter from one character to another, or a related original story. Use the edit_document tool. Push for specificity and authentic voice — not "a dark forest" but details that bring the world alive. Help them use what they've learned about the novel's themes to fuel original creative work.`,
+        },
+        {
+          title: "What Does Belonging Mean?",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to reflect on what the novel taught them about belonging, identity, and being alive — and what it means for their own life. Roz builds her identity through actions and relationships. What does the scholar build their identity through? Where do they belong, and how did they come to belong there? This is the deepest layer: the novel as a mirror for self-understanding. Help them sit with the questions rather than rushing to answers.`,
+        },
+      ],
+    });
+
+    // ═════════════════════════════════════════════════════════════
+    // UNIT 9: Hawaii — Our Place
+    // ═════════════════════════════════════════════════════════════
+    await createUnit({
+      title: "Hawai'i — Our Place",
+      emoji: "🏝️",
+      subject: "Place-Based Studies",
+      gradeLevel: "3rd–5th",
+      bigIdea: "Understanding a place requires seeing it through multiple lenses — geological, ecological, cultural, historical — and recognizing that every landscape carries layers of meaning.",
+      essentialQuestions: [
+        "What can a single place teach us about the relationship between people and land?",
+        "How do different disciplines reveal different truths about the same place?",
+        "What is your relationship to the place where you live?",
+      ],
+      enduringUnderstandings: [
+        "Places are never simple — every landscape is a layered text of geology, ecology, human settlement, and cultural memory.",
+        "Careful observation of a specific place teaches skills that transfer to understanding any place.",
+        "Your relationship to place shapes who you are and how you see the world.",
+      ],
+      description: "Choose a place in Hawai'i and study it deeply — its geology, ecology, history, and cultural significance. Learn what a place can teach about the relationship between people and land.",
+      lessons: [
+        {
+          title: "Place Study",
+          strand: "core",
+          processId: questId,
+          durationMinutes: 50,
+          systemPrompt: `Guide the scholar through a deep investigation of a specific place in Hawai'i — an ahupua'a, a beach, a neighborhood, a mountain. Help them see the place as a layered text: every landscape carries the marks of geology, ecology, human settlement, and cultural memory. Move across disciplines freely: the same place can be read as a geological formation, an ecosystem, a site of historical events, and a living community. When they find an answer, ask what new question it opens.`,
+        },
+        {
+          title: "Across Disciplines",
+          strand: "connections",
+          processId: linkId,
+          durationMinutes: 40,
+          systemPrompt: `Guide the scholar to connect their place study to multiple academic disciplines. If a scientist AND an artist both looked at this place, what would each notice? If a geologist AND a cultural practitioner AND an ecologist all visited, what different truths would they find? Help them see that the most interesting understanding happens where fields overlap — where geology meets ecology, where history meets science, where culture meets environment. Use their specific place as the anchor for cross-disciplinary thinking.`,
+        },
+        {
+          title: "Field Observation",
+          strand: "practice",
+          processId: stwId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar through close observation of their place using See-Think-Wonder. This is a physical-world lesson: they should visit (or remember visiting) their place and practice truly seeing it. What do they observe? What do they think is happening? What do they wonder? Push for concrete, specific observations. Help them notice things they normally walk past. Connect their observations to the research they've done — does what they see in person match what they expected?`,
+        },
+        {
+          title: "My Relationship to Place",
+          strand: "identity",
+          processId: becomeId,
+          durationMinutes: 30,
+          systemPrompt: `Guide the scholar to reflect on their personal relationship to Hawai'i and to the specific place they've been studying. This is the identity strand: what does this place mean to you? How has studying it changed how you see it? What responsibility do you feel toward it? Help them articulate the connection between knowing a place deeply and caring about it. For scholars who are new to Hawai'i, explore what it means to be a newcomer learning about a place with deep cultural roots.`,
+        },
+      ],
+    });
+
+    console.log("PCM migration complete: created 9 units with lessons across all 4 PCM strands.");
+  },
+});

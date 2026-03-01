@@ -598,8 +598,10 @@ type UnitInfo = {
 type CompletedActivity = {
   _id: string;
   unitId?: string | null;
+  lessonId?: string | null;
   unitTitle: string;
   unitEmoji: string | null;
+  lessonTitle?: string | null;
   startedAt: number;
   completedAt: number;
   endsAt?: number | null;
@@ -609,6 +611,8 @@ type CompletedActivity = {
 type FocusInfo = {
   _id?: string;
   unitId?: string | null;
+  lessonId?: string | null;
+  lessonTitle?: string | null;
   scholarIds?: string[] | null;
   endsAt?: number | null;
   _creationTime?: number;
@@ -630,7 +634,7 @@ function ActivityView({
   selectedUnitId: string | null;
   onSelectUnit: (id: string | null) => void;
   currentFocus: FocusInfo | null;
-  onSetFocus: (args: { unitId?: Id<"units">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
+  onSetFocus: (args: { unitId?: Id<"units">; lessonId?: Id<"lessons">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
   onClearFocus: () => void;
   completedActivities: CompletedActivity[];
 }) {
@@ -754,9 +758,11 @@ function ActivityView({
     // Dragging from unassigned → focused activity
     if (src === "__unassigned" && dropTarget === focusUnitId) {
       setDroppedIds((prev) => new Set(prev).add(String(scholar.scholarId)));
+      const focusLessonId = currentFocus?.lessonId ? (currentFocus.lessonId as Id<"lessons">) : undefined;
       await createProject({
         userId: scholar.scholarId,
         unitId: focusUnitId as Id<"units">,
+        ...(focusLessonId ? { lessonId: focusLessonId } : {}),
         activityId: currentFocusId as Id<"focusSettings">,
       });
     }
@@ -790,7 +796,7 @@ function ActivityView({
         stepKey,
       });
     }
-  }, [activeScholar, dragSource, focusUnitId, currentFocusId, createProject, updateProject, moveStep]);
+  }, [activeScholar, dragSource, focusUnitId, currentFocusId, currentFocus, createProject, updateProject, moveStep]);
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -803,9 +809,13 @@ function ActivityView({
           selectedUnitId={selectedUnitId}
           onSelectUnit={onSelectUnit}
           currentFocus={currentFocus}
-          onStartActivity={(unitId, durationMin) => {
+          onStartActivity={(unitId, lessonId, durationMin) => {
             const endsAt = durationMin ? Date.now() + durationMin * 60_000 : undefined;
-            onSetFocus({ unitId: unitId as Id<"units">, endsAt });
+            onSetFocus({
+              unitId: unitId as Id<"units">,
+              ...(lessonId ? { lessonId: lessonId as Id<"lessons"> } : {}),
+              endsAt,
+            });
             onSelectUnit(unitId);
           }}
           onStopActivity={() => {
@@ -927,7 +937,7 @@ function ActivitySidebar({
   selectedUnitId: string | null;
   onSelectUnit: (id: string | null) => void;
   currentFocus: FocusInfo | null;
-  onStartActivity: (unitId: string, durationMinutes?: number) => void;
+  onStartActivity: (unitId: string, lessonId?: string, durationMinutes?: number) => void;
   onStopActivity: () => void;
   isDragging: boolean;
   dragSource: string | null;
@@ -936,7 +946,14 @@ function ActivitySidebar({
   const focusedUnit = focusUnitId ? units.find((u) => u._id === focusUnitId) : null;
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [selectedStart, setSelectedStart] = useState<string | null>(null);
+  const [selectedStartLesson, setSelectedStartLesson] = useState<string | null>(null);
   const [startDuration, setStartDuration] = useState<string>("");
+
+  // Query lessons for the selected unit in Start Activity dialog
+  const startDialogLessons = useQuery(
+    api.lessons.listByUnitPublic,
+    selectedStart ? { unitId: selectedStart as Id<"units"> } : "skip"
+  );
 
   // Sidebar timer countdown
   const [sidebarProgress, setSidebarProgress] = useState(100);
@@ -977,7 +994,7 @@ function ActivitySidebar({
             fontFamily="heading"
             fontSize="xs"
             _hover={{ bg: "violet.50" }}
-            onClick={() => { setSelectedStart(null); setStartDuration(""); setStartDialogOpen(true); }}
+            onClick={() => { setSelectedStart(null); setSelectedStartLesson(null); setStartDuration(""); setStartDialogOpen(true); }}
           >
             <FiPlus style={{ marginRight: "4px" }} />
             Start
@@ -1029,6 +1046,7 @@ function ActivitySidebar({
                             transition="all 0.12s"
                             onClick={() => {
                               setSelectedStart(unit._id);
+                              setSelectedStartLesson(null);
                               if (unit.durationMinutes) setStartDuration(String(unit.durationMinutes));
                               else setStartDuration("");
                             }}
@@ -1068,6 +1086,51 @@ function ActivitySidebar({
                       })}
                     </VStack>
                   )}
+
+                  {/* Lesson list for the selected unit */}
+                  {selectedStart && startDialogLessons && startDialogLessons.length > 0 && (
+                    <Box mt={3} pt={3} borderTop="1px solid" borderColor="gray.100">
+                      <Text fontSize="xs" fontFamily="heading" fontWeight="600" color="charcoal.400" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                        Lesson (optional)
+                      </Text>
+                      <VStack gap={1} align="stretch" maxH="200px" overflowY="auto">
+                        {startDialogLessons.map((lesson) => {
+                          const isLessonSelected = selectedStartLesson === lesson._id;
+                          return (
+                            <HStack
+                              key={lesson._id}
+                              px={2}
+                              py={1.5}
+                              borderRadius="md"
+                              cursor="pointer"
+                              bg={isLessonSelected ? "violet.100" : "transparent"}
+                              _hover={{ bg: isLessonSelected ? "violet.100" : "gray.50" }}
+                              transition="all 0.1s"
+                              onClick={() => {
+                                setSelectedStartLesson(isLessonSelected ? null : lesson._id);
+                                if (lesson.durationMinutes && !isLessonSelected) {
+                                  setStartDuration(String(lesson.durationMinutes));
+                                }
+                              }}
+                              gap={2}
+                            >
+                              <Text fontSize="xs" fontFamily="heading" fontWeight="500" color="navy.500" flex={1}>
+                                {lesson.title}
+                              </Text>
+                              {lesson.processEmoji && (
+                                <Text fontSize="2xs" color="charcoal.300">{lesson.processEmoji}</Text>
+                              )}
+                              {lesson.durationMinutes && (
+                                <Badge bg="gray.100" color="charcoal.400" fontSize="2xs" px={1}>
+                                  {lesson.durationMinutes}m
+                                </Badge>
+                              )}
+                            </HStack>
+                          );
+                        })}
+                      </VStack>
+                    </Box>
+                  )}
                 </Dialog.Body>
                 <Dialog.Footer px={6} pb={5} pt={3}>
                   <VStack gap={3} w="full" align="stretch">
@@ -1099,7 +1162,7 @@ function ActivitySidebar({
                       onClick={() => {
                         if (selectedStart) {
                           const dur = startDuration ? parseInt(startDuration, 10) : undefined;
-                          onStartActivity(selectedStart, dur && dur > 0 ? dur : undefined);
+                          onStartActivity(selectedStart, selectedStartLesson ?? undefined, dur && dur > 0 ? dur : undefined);
                           setStartDialogOpen(false);
                         }
                       }}
@@ -1140,6 +1203,11 @@ function ActivitySidebar({
                 >
                   {focusedUnit.title}
                 </Text>
+                {currentFocus?.lessonTitle && (
+                  <Text fontSize="2xs" color="charcoal.400" fontFamily="heading" truncate>
+                    {currentFocus.lessonTitle}
+                  </Text>
+                )}
                 {focusedGroup && focusedGroup.scholars.length > 0 && (
                   <HStack gap={0} mt={0.5}>
                     {focusedGroup.scholars.slice(0, 4).map((s, i) => (
@@ -1478,7 +1546,7 @@ function ActivityHeader({
   unitId: string | null;
   units: UnitInfo[];
   currentFocus: FocusInfo | null;
-  onSetFocus: (args: { unitId?: Id<"units">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
+  onSetFocus: (args: { unitId?: Id<"units">; lessonId?: Id<"lessons">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
   onClearFocus: () => void;
   durationMinutes: number | null;
   unassignedScholars: ScholarInActivity[];

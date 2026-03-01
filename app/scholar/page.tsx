@@ -74,7 +74,11 @@ function ScholarHome() {
   const units = useQuery(api.units.list, user ? {} : "skip") ?? [];
   const currentFocus = useQuery(api.focus.getCurrent, user ? {} : "skip");
   const focusLock = !isTestMode && currentFocus?.isActive
-    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    ? {
+        unitId: currentFocus.unitId ? String(currentFocus.unitId) : null,
+        lessonId: currentFocus.lessonId ? String(currentFocus.lessonId) : null,
+        lessonTitle: currentFocus.lessonTitle ?? null,
+      }
     : null;
 
   const createProject = useMutation(api.projects.create);
@@ -100,7 +104,7 @@ function ScholarHome() {
     }
   }, [user, isUserLoading, router, remoteUserId]);
 
-  const handleUnitSelected = useCallback(async (unitId: string | null) => {
+  const handleUnitSelected = useCallback(async (unitId: string | null, lessonId: string | null) => {
     setIsCreating(true);
     const createArgs: Record<string, unknown> = {};
     if (isRemoteMode && remoteUserId) {
@@ -108,6 +112,9 @@ function ScholarHome() {
     }
     if (unitId) {
       createArgs.unitId = unitId as Id<"units">;
+    }
+    if (lessonId) {
+      createArgs.lessonId = lessonId as Id<"lessons">;
     }
     try {
       const result = await createProject(createArgs as Parameters<typeof createProject>[0]);

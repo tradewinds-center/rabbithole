@@ -26,9 +26,12 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ProjectHeader } from "./ProjectHeader";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { ToolActivityIndicator } from "./ToolActivityIndicator";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useAgentStream } from "@/hooks/useAgentStream";
+import type { StreamEvent } from "@/hooks/useAgentStream";
 
 const chatMarkdownComponents: Components = {
   em: ({ children, ...props }) => {
@@ -72,27 +75,44 @@ export function ProjectInterface({
 }: ProjectInterfaceProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const welcomeSentRef = useRef<string | null>(null);
   const [whisperInput, setWhisperInput] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
-  const [generatingImage, setGeneratingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Active artifact tab (declared early so onEvent can reference it)
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+
+  // Shared streaming hook
+  const onStreamEvent = useCallback((data: StreamEvent) => {
+    if (data.newArtifactId) {
+      setActiveArtifactId(data.newArtifactId);
+      setRightPanelOpen(true);
+    }
+    if (data.done) {
+      onProjectUpdate?.();
+    }
+  }, [onProjectUpdate]);
+
+  const stream = useAgentStream({ onEvent: onStreamEvent });
+  const { isStreaming, streamingContent, streamingMsgId, toolActivity, generatingImage } = stream;
 
   // Convex queries for dimension options (reactive, auto-updating)
   const units = useQuery(api.units.list) ?? [];
   const processes = useQuery(api.processes.list) ?? [];
   const personas = useQuery(api.personas.list) ?? [];
 
-  // Focus lock from teacher (Phase 1: only unitId)
+  // Focus lock from teacher
   const currentFocus = useQuery(api.focus.getCurrent);
   const focusLock = currentFocus?.isActive
-    ? { unitId: currentFocus.unitId ? String(currentFocus.unitId) : null }
+    ? {
+        unitId: currentFocus.unitId ? String(currentFocus.unitId) : null,
+        lessonId: currentFocus.lessonId ? String(currentFocus.lessonId) : null,
+        lessonTitle: currentFocus.lessonTitle ?? null,
+      }
     : null;
 
   const unitOptions: DimensionOption[] = units.map((u) => ({
@@ -158,9 +178,6 @@ export function ProjectInterface({
   const deleteArtifactMut = useMutation(api.artifacts.deleteArtifact);
   const [artifactSynced, setArtifactSynced] = useState(true);
 
-  // Active artifact tab
-  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
-
   // Auto-select last artifact when artifacts change
   useEffect(() => {
     if (artifacts.length > 0) {
@@ -177,7 +194,6 @@ export function ProjectInterface({
   const hasProcess = !!(activeProcessDef && processState);
   const hasArtifacts = artifacts.length > 0;
   const hasRightPanelContent = hasProcess || hasArtifacts || !!activeUnit?.youtubeUrl;
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
   // Auto-open when content appears
   useEffect(() => {
@@ -238,9 +254,12 @@ export function ProjectInterface({
     }
   }, [isLoading, projectId]);
 
-  // Focus mismatch: teacher locked a unit but this project has a different one
-  const isFocusMismatch = !isTestMode && focusLock?.unitId != null &&
-    String(projectData?.project?.unitId ?? "") !== focusLock.unitId;
+  // Focus mismatch: teacher locked a unit/lesson but this project has a different one
+  const isFocusMismatch = !isTestMode && focusLock?.unitId != null && (
+    String(projectData?.project?.unitId ?? "") !== focusLock.unitId ||
+    (focusLock.lessonId != null &&
+      String(projectData?.project?.lessonId ?? "") !== focusLock.lessonId)
+  );
 
   // Handle unit change via Convex mutation
   const handleUnitChange = async (value: string | null) => {
@@ -310,9 +329,6 @@ export function ProjectInterface({
 
     setInput("");
     setPendingImage(null);
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingMsgId(null);
 
     try {
       // Send message via Convex mutation (creates user msg + placeholder assistant msg)
@@ -322,89 +338,28 @@ export function ProjectInterface({
         ...(imageId ? { imageId: imageId as Id<"_storage"> } : {}),
       });
 
-      // Track the placeholder message ID so we can hide it while streaming
-      setStreamingMsgId(result.assistantMsgId);
-
       // Stream from HTTP action
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
         ".cloud",
         ".site"
       );
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      const res = await fetch(`${convexUrl}/project-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
+      await stream.send(
+        `${convexUrl}/project-stream`,
+        {
           projectId: result.projectId,
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
-        }),
-      });
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const text = decoder.decode(value);
-          const lines = text.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.generatingImage === "started") {
-                  setGeneratingImage(true);
-                }
-                if (data.generatedImage) {
-                  setGeneratingImage(false);
-                }
-                if (data.text) {
-                  fullContent += data.text;
-                  setStreamingContent(fullContent);
-                } else if (data.newArtifactId) {
-                  // AI created a new document — select it and open panel
-                  setActiveArtifactId(data.newArtifactId);
-                  setRightPanelOpen(true);
-                }
-                if (data.newAssistantMsg) {
-                  // Tool fired — server split the message. Switch streaming target.
-                  setStreamingMsgId(data.newAssistantMsg);
-                  fullContent = "";
-                  setStreamingContent("");
-                } else if (data.done) {
-                  // Stream finalized on the server side.
-                  // Convex reactive query will auto-update messages.
-                  setStreamingContent("");
-                  setStreamingMsgId(null);
-                  setGeneratingImage(false);
-                  onProjectUpdate?.();
-                }
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      }
+        },
+        result.assistantMsgId,
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      setStreamingMsgId(null);
-    } finally {
-      abortControllerRef.current = null;
-      setIsStreaming(false);
     }
   };
 
   const handleStopStream = useCallback(() => {
-    abortControllerRef.current?.abort();
-  }, []);
+    stream.stop();
+  }, [stream]);
 
   // Keep ref in sync so dictation callback can call latest handleSend
   sendMessageRef.current = handleSend;
@@ -515,7 +470,7 @@ export function ProjectInterface({
           >
             <FiLock size={16} color="var(--chakra-colors-orange-600)" />
             <Text fontSize="sm" fontFamily="heading" color="orange.800" flex={1}>
-              Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title})` : ""}. You can read this project but not add messages.
+              Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title}${focusLock?.lessonTitle ? ` — ${focusLock.lessonTitle}` : ""})` : ""}. You can read this project but not add messages.
             </Text>
             <Box
               as="button"
@@ -590,6 +545,7 @@ export function ProjectInterface({
           isFocusMismatch,
           isTouchDevice,
           onStopStream: handleStopStream,
+          toolActivity,
         };
 
         const artifactPanelElement = (
@@ -748,6 +704,7 @@ interface ChatColumnProps {
   isFocusMismatch?: boolean;
   isTouchDevice?: boolean;
   onStopStream?: () => void;
+  toolActivity?: import("@/hooks/useAgentStream").ToolActivity | null;
 }
 
 function ChatColumn({
@@ -790,6 +747,7 @@ function ChatColumn({
   isFocusMismatch = false,
   isTouchDevice = false,
   onStopStream,
+  toolActivity = null,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -1064,8 +1022,13 @@ function ChatColumn({
             });
           })()}
 
+          {/* Tool activity indicator */}
+          {isStreaming && toolActivity && (
+            <ToolActivityIndicator toolActivity={toolActivity} />
+          )}
+
           {/* Typing indicator */}
-          {isStreaming && !streamingContent && !generatingImage && (
+          {isStreaming && !streamingContent && !generatingImage && !toolActivity && (
             <Box
               alignSelf="flex-start"
               bg="gray.100"

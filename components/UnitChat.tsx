@@ -16,15 +16,20 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
 
-export default function CurriculumAssistant() {
+interface UnitChatProps {
+  unitId: Id<"units">;
+}
+
+export function UnitChat({ unitId }: UnitChatProps) {
   const { user } = useCurrentUser();
-  const messages = useQuery(api.curriculumAssistant.getMessages) ?? [];
-  const sendMessage = useMutation(api.curriculumAssistant.sendMessage);
-  const clearHistory = useMutation(api.curriculumAssistant.clearHistory);
+  const messages = useQuery(api.curriculumAssistant.getMessagesByUnit, { unitId }) ?? [];
+  const sendMessage = useMutation(api.curriculumAssistant.sendMessageForUnit);
+  const clearHistory = useMutation(api.curriculumAssistant.clearHistoryForUnit);
 
   const [input, setInput] = useState("");
   const stream = useAgentStream();
@@ -32,7 +37,7 @@ export default function CurriculumAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll on new content
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
@@ -41,10 +46,7 @@ export default function CurriculumAssistant() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(
-        textareaRef.current.scrollHeight,
-        200
-      )}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   }, [input]);
 
@@ -55,16 +57,14 @@ export default function CurriculumAssistant() {
     setInput("");
 
     try {
-      const result = await sendMessage({ message: text });
+      const result = await sendMessage({ message: text, unitId });
 
-      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
-        ".cloud",
-        ".site"
-      );
+      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(".cloud", ".site");
       await stream.send(
-        `${convexUrl}/curriculum-stream`,
+        `${convexUrl}/unit-designer-stream`,
         {
           teacherId: String(user._id),
+          unitId: String(unitId),
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
         },
@@ -73,7 +73,7 @@ export default function CurriculumAssistant() {
     } catch (error) {
       console.error("Error sending message:", error);
     }
-  }, [input, isStreaming, user, sendMessage, stream]);
+  }, [input, isStreaming, user, sendMessage, unitId, stream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -82,29 +82,12 @@ export default function CurriculumAssistant() {
     }
   };
 
-  const handleClear = async () => {
-    if (isStreaming) return;
-    await clearHistory();
-  };
-
   return (
-    <Flex flex={1} direction="column" overflow="hidden" bg="white">
+    <Flex flex={1} direction="column" overflow="hidden" bg="white" borderLeft="1px solid" borderColor="gray.200">
       {/* Header */}
-      <Flex
-        px={6}
-        py={3}
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        align="center"
-        gap={3}
-      >
-        <Text
-          fontFamily="heading"
-          fontWeight="600"
-          fontSize="md"
-          color="navy.500"
-        >
-          Curriculum Assistant
+      <Flex px={4} py={2.5} borderBottom="1px solid" borderColor="gray.200" align="center" gap={2}>
+        <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500">
+          Unit Designer
         </Text>
         <Box flex={1} />
         {messages.length > 0 && (
@@ -115,35 +98,32 @@ export default function CurriculumAssistant() {
             fontFamily="heading"
             fontSize="xs"
             _hover={{ color: "red.500", bg: "red.50" }}
-            onClick={handleClear}
+            onClick={() => clearHistory({ unitId })}
             disabled={isStreaming}
           >
-            <FiTrash2 style={{ marginRight: "4px" }} />
+            <FiTrash2 style={{ marginRight: 4 }} />
             Clear
           </Button>
         )}
       </Flex>
 
       {/* Messages */}
-      <Box flex={1} overflowY="auto" px={6} py={4}>
-        <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
+      <Box flex={1} overflowY="auto" px={4} py={3}>
+        <VStack gap={3} align="stretch">
           {messages.length === 0 && !streamingContent && (
-            <VStack py={12} gap={3} color="charcoal.300">
-              <Text fontFamily="heading" fontSize="md">
-                Ask me about your scholars or curriculum
+            <VStack py={8} gap={2} color="charcoal.300">
+              <Text fontFamily="heading" fontSize="sm">
+                Design this unit with AI
               </Text>
-              <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
-                I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
+              <Text fontFamily="body" fontSize="xs" color="charcoal.300" textAlign="center">
+                Describe lessons you want, and I'll create them with appropriate processes, Bloom's levels, and prompts.
               </Text>
             </VStack>
           )}
 
           {messages
             .filter((m) => {
-              // Hide placeholder messages being actively streamed
-              if (streamingMsgId && String(m._id) === streamingMsgId && !m.content) {
-                return false;
-              }
+              if (streamingMsgId && String(m._id) === streamingMsgId && !m.content) return false;
               return true;
             })
             .map((m) => {
@@ -156,144 +136,96 @@ export default function CurriculumAssistant() {
                     <Box
                       bg="navy.500"
                       color="white"
-                      px={4}
-                      py={3}
-                      borderRadius="xl"
+                      px={3}
+                      py={2}
+                      borderRadius="lg"
                       borderBottomRightRadius="sm"
                       maxW="100%"
                       shadow="sm"
                     >
-                      <Text fontFamily="body" fontSize="sm" whiteSpace="pre-wrap">
-                        {content}
-                      </Text>
+                      <Text fontFamily="body" fontSize="xs" whiteSpace="pre-wrap">{content}</Text>
                     </Box>
                   </Box>
                 );
               }
 
-              // Assistant
               return (
                 <Box key={String(m._id)} alignSelf="flex-start">
                   <Box
                     bg="gray.100"
                     color="charcoal.500"
-                    px={4}
-                    py={3}
-                    borderRadius="xl"
+                    px={3}
+                    py={2}
+                    borderRadius="lg"
                     borderBottomLeftRadius="sm"
                     maxW="100%"
                     shadow="sm"
                     css={{
-                      "& p": { marginBottom: "0.5em" },
+                      "& p": { marginBottom: "0.4em", fontSize: "12px" },
                       "& p:last-child": { marginBottom: 0 },
-                      "& ul, & ol": { paddingLeft: "1.5em", marginBottom: "0.5em" },
-                      "& li": { marginBottom: "0.25em" },
-                      "& code": {
-                        background: "var(--chakra-colors-gray-200)",
-                        padding: "0.1em 0.3em",
-                        borderRadius: "4px",
-                        fontSize: "0.9em",
-                      },
-                      "& pre": {
-                        background: "var(--chakra-colors-gray-200)",
-                        padding: "0.75em",
-                        borderRadius: "8px",
-                        overflowX: "auto",
-                        marginBottom: "0.5em",
-                      },
-                      "& pre code": { background: "none", padding: 0 },
-                      "& h1, & h2, & h3, & h4": {
-                        fontFamily: "var(--chakra-fonts-heading)",
-                        fontWeight: 600,
-                        marginTop: "0.5em",
-                        marginBottom: "0.25em",
-                      },
+                      "& ul, & ol": { paddingLeft: "1.2em", marginBottom: "0.4em", fontSize: "12px" },
+                      "& li": { marginBottom: "0.15em" },
+                      "& code": { background: "var(--chakra-colors-gray-200)", padding: "0.1em 0.2em", borderRadius: "3px", fontSize: "0.85em" },
                       "& strong": { fontWeight: 600 },
                     }}
                   >
-                    <Text fontFamily="body" fontSize="sm" as="div">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {content}
-                      </ReactMarkdown>
+                    <Text fontFamily="body" fontSize="xs" as="div">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                     </Text>
                   </Box>
                 </Box>
               );
             })}
 
-          {/* Tool activity indicator */}
           {isStreaming && toolActivity && (
             <ToolActivityIndicator toolActivity={toolActivity} />
           )}
-
-          {/* Typing indicator */}
           {isStreaming && !streamingContent && !toolActivity && (
-            <Box
-              alignSelf="flex-start"
-              bg="gray.100"
-              px={4}
-              py={3}
-              borderRadius="xl"
-              borderBottomLeftRadius="sm"
-            >
+            <Box alignSelf="flex-start" bg="gray.100" px={3} py={2} borderRadius="lg" borderBottomLeftRadius="sm">
               <Spinner size="sm" color="violet.500" />
             </Box>
           )}
-
           <div ref={messagesEndRef} />
         </VStack>
       </Box>
 
-      {/* Input area */}
-      <Box
-        px={4}
-        py={3}
-        borderTop="1px solid"
-        borderColor="gray.200"
-        bg="gray.50"
-      >
-        <Flex maxW="3xl" mx="auto" gap={2} align="flex-end">
+      {/* Input */}
+      <Box px={3} py={2} borderTop="1px solid" borderColor="gray.200" bg="gray.50">
+        <Flex gap={2} align="flex-end">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about scholars, mastery data, or curriculum design..."
+            placeholder="Describe lessons, ask for prompts..."
             resize="none"
             rows={1}
             overflow="hidden"
             bg="white"
             border="1px solid"
             borderColor="gray.300"
-            borderRadius="xl"
-            _focus={{
-              borderColor: "violet.400",
-              boxShadow: "none",
-              outline: "none",
-            }}
-            _focusVisible={{
-              boxShadow: "none",
-              outline: "none",
-            }}
+            borderRadius="lg"
+            _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+            _focusVisible={{ boxShadow: "none", outline: "none" }}
             _placeholder={{ color: "charcoal.300" }}
             fontFamily="body"
-            fontSize="sm"
-            py={2.5}
-            px={4}
+            fontSize="xs"
+            py={2}
+            px={3}
             disabled={isStreaming}
           />
           <IconButton
-            aria-label="Send message"
-            size="md"
+            aria-label="Send"
+            size="sm"
             bg="violet.500"
             color="white"
             _hover={{ bg: "violet.600" }}
-            _disabled={{ opacity: 0.4, cursor: "not-allowed" }}
-            borderRadius="xl"
+            _disabled={{ opacity: 0.4 }}
+            borderRadius="lg"
             onClick={() => handleSend()}
             disabled={!input.trim() || isStreaming}
           >
-            <FiSend />
+            <FiSend size={14} />
           </IconButton>
         </Flex>
       </Box>
