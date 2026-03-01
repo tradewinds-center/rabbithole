@@ -296,6 +296,9 @@ http.route({
                     });
                     if (!artifact || Array.isArray(artifact)) return "Error: Document not found.";
                     const lines = artifact.content.split("\n");
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: `Viewed "${artifact.title}"` } })}\n\n`)
+                    );
                     return `[${String(artifact._id)}] Title: ${artifact.title}\n` + lines.map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
                   }
                   // No document_id — return all documents

@@ -47,6 +47,10 @@ export function useAgentStream(options?: UseAgentStreamOptions): UseAgentStreamR
   const abortRef = useRef<AbortController | null>(null);
   const toolCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable ref for onEvent callback so `send` doesn't re-create on every render
+  const onEventRef = useRef(options?.onEvent);
+  onEventRef.current = options?.onEvent;
+
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
@@ -92,7 +96,7 @@ export function useAgentStream(options?: UseAgentStreamOptions): UseAgentStreamR
               }
 
               // Forward to component-specific handler first
-              options?.onEvent?.(data);
+              onEventRef.current?.(data);
 
               // --- Tool progress events ---
               if (data.toolStart) {
@@ -155,13 +159,17 @@ export function useAgentStream(options?: UseAgentStreamOptions): UseAgentStreamR
         if ((err as Error).name !== "AbortError") {
           console.error("Stream error:", err);
         }
+        setStreamingContent("");
         setStreamingMsgId(null);
+        setToolActivity(null);
+        setGeneratingImage(false);
       } finally {
         abortRef.current = null;
         setIsStreaming(false);
       }
     },
-    [options],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onEventRef],
   );
 
   return {

@@ -180,8 +180,8 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
             Essential Questions
           </Text>
           <VStack align="stretch" gap={1}>
-            {eqs.map((q, i) => (
-              <Flex key={i} align="center" gap={1} bg="gray.50" px={2} py={1} borderRadius="md">
+            {eqs.map((q, idx) => (
+              <Flex key={q} align="center" gap={1} bg="gray.50" px={2} py={1} borderRadius="md">
                 <Text fontSize="sm" fontFamily="body" color="charcoal.500" flex={1}>{q}</Text>
                 <IconButton
                   aria-label="Remove"
@@ -189,7 +189,7 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
                   variant="ghost"
                   color="charcoal.300"
                   _hover={{ color: "red.500" }}
-                  onClick={() => removeEQ(i)}
+                  onClick={() => removeEQ(idx)}
                 >
                   <FiX size={12} />
                 </IconButton>
@@ -227,8 +227,8 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
             Enduring Understandings
           </Text>
           <VStack align="stretch" gap={1}>
-            {eus.map((u, i) => (
-              <Flex key={i} align="center" gap={1} bg="gray.50" px={2} py={1} borderRadius="md">
+            {eus.map((u, idx) => (
+              <Flex key={u} align="center" gap={1} bg="gray.50" px={2} py={1} borderRadius="md">
                 <Text fontSize="sm" fontFamily="body" color="charcoal.500" flex={1}>{u}</Text>
                 <IconButton
                   aria-label="Remove"
@@ -236,7 +236,7 @@ export function UnitTree({ unit, lessons }: UnitTreeProps) {
                   variant="ghost"
                   color="charcoal.300"
                   _hover={{ color: "red.500" }}
-                  onClick={() => removeEU(i)}
+                  onClick={() => removeEU(idx)}
                 >
                   <FiX size={12} />
                 </IconButton>
