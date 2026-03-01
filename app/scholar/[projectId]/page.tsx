@@ -21,6 +21,8 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
+import { toaster } from "@/lib/toaster";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   FiPlus,
   FiLogOut,
@@ -181,6 +183,7 @@ function ScholarProjectInner() {
       })
       .catch((error) => {
         console.error("Error creating project:", error);
+        toaster.error({ title: "Failed to create project", description: "Please try again." });
         newProjectCreatedRef.current = false;
       });
   }, [isNewProject, hasDimensionParams, units, resolvedUnitId, createProject, router, remoteUserId, isRemoteMode, projects]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -211,6 +214,7 @@ function ScholarProjectInner() {
       }
     } catch (error) {
       console.error("Error creating project:", error);
+      toaster.error({ title: "Failed to create project", description: "Please try again." });
     } finally {
       setIsCreatingViaDialog(false);
       setDialogOpen(false);
@@ -233,6 +237,7 @@ function ScholarProjectInner() {
       }
     } catch (error) {
       console.error("Error archiving project:", error);
+      toaster.error({ title: "Failed to archive project" });
     }
   };
 
@@ -447,17 +452,19 @@ function ScholarProjectInner() {
       {/* Main Project Area */}
       <Flex flex={1} flexDir="column" overflow="hidden">
         {showProject ? (
-          <ProjectInterface
-            projectId={projectId}
-            onProjectUpdate={() => {}}
-            onOpenSidebar={isRemoteMode ? undefined : () => setIsSidebarOpen(true)}
-            onSignOut={() => signOut()}
-            isTestMode={isTestMode}
-            isRemoteMode={isRemoteMode}
-            scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
-            scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
-            remoteUserId={remoteUserId}
-          />
+          <ErrorBoundary fallbackMessage="Something went wrong in the project view">
+            <ProjectInterface
+              projectId={projectId}
+              onProjectUpdate={() => {}}
+              onOpenSidebar={isRemoteMode ? undefined : () => setIsSidebarOpen(true)}
+              onSignOut={() => signOut()}
+              isTestMode={isTestMode}
+              isRemoteMode={isRemoteMode}
+              scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
+              scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
+              remoteUserId={remoteUserId}
+            />
+          </ErrorBoundary>
         ) : (
           <Flex
             flex={1}

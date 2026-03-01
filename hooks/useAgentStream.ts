@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { toaster } from "@/lib/toaster";
 
 export interface ToolActivity {
   name: string;
@@ -145,6 +146,11 @@ export function useAgentStream(options?: UseAgentStreamOptions): UseAgentStreamR
                 setStreamingContent("");
               }
 
+              // --- Error from server ---
+              if (data.error) {
+                toaster.error({ title: "AI error", description: "Something went wrong. Please try again." });
+              }
+
               // --- Done ---
               if (data.done) {
                 setStreamingContent("");
@@ -158,6 +164,7 @@ export function useAgentStream(options?: UseAgentStreamOptions): UseAgentStreamR
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           console.error("Stream error:", err);
+          toaster.error({ title: "Connection lost", description: "The AI response was interrupted. Please try again." });
         }
         setStreamingContent("");
         setStreamingMsgId(null);

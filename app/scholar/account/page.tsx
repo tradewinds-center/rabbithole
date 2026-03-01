@@ -20,6 +20,7 @@ import {
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import { FiCamera } from "react-icons/fi";
+import { toaster } from "@/lib/toaster";
 
 const READING_LEVELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];
 
@@ -96,6 +97,7 @@ function AccountForm() {
         setPendingStorageId(storageId as Id<"_storage">);
       } catch (err) {
         console.error("Upload failed:", err);
+        toaster.error({ title: "Photo upload failed", description: "Please try again." });
       } finally {
         setIsUploading(false);
       }
@@ -130,6 +132,7 @@ function AccountForm() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       console.error("Save failed:", err);
+      toaster.error({ title: "Save failed", description: "Please try again." });
     } finally {
       setIsSaving(false);
     }

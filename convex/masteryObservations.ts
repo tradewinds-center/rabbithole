@@ -26,7 +26,7 @@ export const record = internalMutation({
   },
   handler: async (ctx, args) => {
     // Resolve standard notations to IDs (if standards table is populated)
-    let standardIds: any[] | undefined = undefined;
+    let standardIds: Id<"standards">[] | undefined = undefined;
     if (args.standardNotations && args.standardNotations.length > 0) {
       const resolved = [];
       for (const notation of args.standardNotations) {
@@ -73,7 +73,7 @@ export const record = internalMutation({
       studentInitiated: args.studentInitiated,
       standardIds,
       supersedesId: args.supersedesObservationId
-        ? (args.supersedesObservationId as any)
+        ? (args.supersedesObservationId as Id<"masteryObservations">)
         : undefined,
       isSuperseded: false,
     });

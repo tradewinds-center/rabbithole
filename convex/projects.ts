@@ -327,6 +327,13 @@ export const sendMessage = authedMutation({
       ...(args.imageId ? { imageId: args.imageId } : {}),
     });
 
+    // Denormalize last message info onto the project for efficient dashboard queries
+    await ctx.db.patch(args.projectId, {
+      lastMessageAt: Date.now(),
+      lastMessageRole: "user",
+      lastMessagePreview: args.message.slice(0, 120) || undefined,
+    });
+
     // If there's a pending whisper, record it between user msg and assistant placeholder
     if (project.pendingWhisper) {
       await ctx.db.insert("messages", {
@@ -403,12 +410,6 @@ export const listActiveByUnit = teacherQuery({
         const scholars = await Promise.all(
           projects.map(async (proj) => {
             const scholar = await ctx.db.get(proj.userId);
-            // Get last message (content + timestamp)
-            const lastMsg = await ctx.db
-              .query("messages")
-              .withIndex("by_project", (q) => q.eq("projectId", proj._id))
-              .order("desc")
-              .first();
             // Get process state
             const procState = await ctx.db
               .query("processState")
@@ -424,9 +425,9 @@ export const listActiveByUnit = teacherQuery({
               readingLevel: scholar?.readingLevel ?? null,
               dateOfBirth: scholar?.dateOfBirth ?? null,
               pulseScore: proj.pulseScore ?? null,
-              lastMessageAt: lastMsg?._creationTime ?? null,
-              lastMessageContent: lastMsg?.content?.slice(0, 120) ?? null,
-              lastMessageRole: lastMsg?.role ?? null,
+              lastMessageAt: proj.lastMessageAt ?? null,
+              lastMessageContent: proj.lastMessagePreview ?? null,
+              lastMessageRole: proj.lastMessageRole ?? null,
               processStep: procState?.currentStep ?? null,
               projectTitle: proj.title,
               analysisSummary: proj.analysisSummary ?? null,
@@ -459,11 +460,6 @@ export const listActiveByUnit = teacherQuery({
     const unassignedScholars = await Promise.all(
       unassigned.map(async (proj) => {
         const scholar = await ctx.db.get(proj.userId);
-        const lastMsg = await ctx.db
-          .query("messages")
-          .withIndex("by_project", (q) => q.eq("projectId", proj._id))
-          .order("desc")
-          .first();
         return {
           scholarId: proj.userId,
           projectId: proj._id,
@@ -473,9 +469,9 @@ export const listActiveByUnit = teacherQuery({
           readingLevel: scholar?.readingLevel ?? null,
           dateOfBirth: scholar?.dateOfBirth ?? null,
           pulseScore: proj.pulseScore ?? null,
-          lastMessageAt: lastMsg?._creationTime ?? null,
-          lastMessageContent: lastMsg?.content?.slice(0, 120) ?? null,
-          lastMessageRole: lastMsg?.role ?? null,
+          lastMessageAt: proj.lastMessageAt ?? null,
+          lastMessageContent: proj.lastMessagePreview ?? null,
+          lastMessageRole: proj.lastMessageRole ?? null,
           processStep: null,
           projectTitle: proj.title,
           analysisSummary: proj.analysisSummary ?? null,

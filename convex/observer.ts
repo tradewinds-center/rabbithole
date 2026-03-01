@@ -225,14 +225,47 @@ const OBSERVER_TOOL = {
   },
 };
 
+// ─── Input Types (from internal queries) ─────────────────────────────
+
+/** Shape returned by masteryObservations.currentByScholar */
+interface MasteryObservationDoc {
+  _id: string;
+  conceptLabel: string;
+  domain: string;
+  masteryLevel: number;
+  confidenceScore: number;
+  observedAt: number;
+}
+
+/** Shape returned by seeds.activeByScholar */
+interface SeedDoc {
+  topic: string;
+  domain?: string;
+  suggestionType: string;
+}
+
+/** Shape returned by sessionSignals.recentByScholar */
+interface SessionSignalDoc {
+  signalType: string;
+  intensity: string;
+}
+
+/** Shape of the context object from projectHelpers.getProjectContext */
+interface ObserverContext {
+  scholarName: string | null;
+  scholarId: string;
+  title: string;
+  unitContext: { title: string } | null;
+}
+
 // ─── Helper Functions ────────────────────────────────────────────────
 
 function buildObserverUserMessage(
   transcript: string,
-  currentObservations: any[],
-  activeSeeds: any[],
-  recentSignals: any[],
-  context: any
+  currentObservations: MasteryObservationDoc[],
+  activeSeeds: SeedDoc[],
+  recentSignals: SessionSignalDoc[],
+  context: ObserverContext
 ): string {
   const parts: string[] = [];
 
@@ -428,7 +461,7 @@ export const analyzeProject = internalAction({
         return null;
       }
 
-      const parsed = toolBlock.input as any;
+      const parsed = toolBlock.input as ObserverResult;
       result = {
         inferredReadingLevel: parsed.inferredReadingLevel ?? undefined,
         pulse: {
@@ -446,8 +479,9 @@ export const analyzeProject = internalAction({
         crossDomainConnections: Array.isArray(parsed.crossDomainConnections) ? parsed.crossDomainConnections : [],
         seeds: Array.isArray(parsed.seeds) ? parsed.seeds : [],
       };
-    } catch (err: any) {
-      console.error(`[Observer] Sonnet API FAILED: ${err.message ?? err}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[Observer] Sonnet API FAILED: ${message}`);
       console.error(`[Observer] Error details:`, JSON.stringify(err, null, 2).slice(0, 1000));
       return null;
     }
@@ -556,8 +590,9 @@ export const analyzeProject = internalAction({
           console.log(`[Observer] 📖 Reading level suggestion: ${result.inferredReadingLevel} (current: ${currentLevel ?? "unset"})`);
         }
       }
-    } catch (writeErr: any) {
-      console.error(`[Observer] WRITE FAILED: ${writeErr.message ?? writeErr}`);
+    } catch (writeErr: unknown) {
+      const message = writeErr instanceof Error ? writeErr.message : String(writeErr);
+      console.error(`[Observer] WRITE FAILED: ${message}`);
       console.error(`[Observer] Write error details:`, JSON.stringify(writeErr, null, 2).slice(0, 1000));
       throw writeErr;
     }

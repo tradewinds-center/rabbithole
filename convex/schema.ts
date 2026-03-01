@@ -55,6 +55,10 @@ export default defineSchema({
     progressScore: v.optional(v.number()),
     activityId: v.optional(v.id("focusSettings")),
     activityCompletedAt: v.optional(v.number()), // timestamp ms — scholar finished this activity
+    // Denormalized from last message for efficient teacher dashboard queries
+    lastMessageAt: v.optional(v.number()),
+    lastMessageRole: v.optional(v.string()),
+    lastMessagePreview: v.optional(v.string()), // first 120 chars of last message
   })
     .index("by_user", ["userId"])
     .index("by_user_and_archived", ["userId", "isArchived"])

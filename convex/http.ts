@@ -75,16 +75,21 @@ http.route({
 
     const stream = new ReadableStream({
       async start(controller) {
+        let fullContent = "";
+        let model = "";
+        let tokensUsed = 0;
+        let finalized = false;
+        const projId = projectId as Id<"projects">;
+
         try {
-          let fullContent = "";
-          let model = "";
-          let tokensUsed = 0;
           let lastPersistLength = 0;
 
-          const projId = projectId as Id<"projects">;
-
           // Build messages for API (with image support)
-          const apiMessages: { role: "user" | "assistant"; content: any }[] = [];
+          type ImageMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+          type ContentPart =
+            | { type: "text"; text: string }
+            | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } };
+          const apiMessages: { role: "user" | "assistant"; content: string | ContentPart[] }[] = [];
           for (const m of project.chatHistory) {
             const msg = m as { role: string; content: string; imageId: string | null };
             if (msg.imageId && msg.role === "user") {
@@ -102,10 +107,10 @@ http.route({
                     binary += String.fromCharCode(bytes[i]);
                   }
                   const base64 = btoa(binary);
-                  const contentType = imgRes.headers.get("content-type") || "image/png";
+                  const contentType = (imgRes.headers.get("content-type") || "image/png") as ImageMediaType;
 
                   // Multi-part content: image + text
-                  const contentParts: any[] = [
+                  const contentParts: ContentPart[] = [
                     {
                       type: "image",
                       source: {
@@ -538,7 +543,7 @@ http.route({
                 }
 
                 // Find the image part
-                const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+                const imagePart = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) => p.inlineData?.mimeType?.startsWith("image/"));
                 if (!imagePart?.inlineData?.data) {
                   return "Image generation returned no image. I'll describe the concept in words instead.";
                 }
@@ -691,6 +696,7 @@ http.route({
             model,
             tokensUsed,
           });
+          finalized = true;
 
           // Clear pending whisper after it's been consumed
           if (project.pendingWhisper) {
@@ -708,6 +714,20 @@ http.route({
           controller.close();
         } catch (error) {
           console.error("Stream error:", error);
+          // Finalize the stuck message so it doesn't show an infinite spinner
+          if (!finalized) {
+            try {
+              await ctx.runMutation(internal.projectHelpers.finalizeStream, {
+                messageId: assistantMsgId as Id<"messages">,
+                projectId: projId,
+                content: fullContent || "",
+                model,
+                tokensUsed,
+              });
+            } catch (finalizeErr) {
+              console.error("Failed to finalize stream on error:", finalizeErr);
+            }
+          }
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ error: "Stream error" })}\n\n`
@@ -1016,10 +1036,12 @@ http.route({
     const stream = new ReadableStream({
       async start(controller) {
         emitSSE = (data) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        let fullContent = "";
+        let model = "";
+        let tokensUsed = 0;
+        let finalized = false;
+
         try {
-          let fullContent = "";
-          let model = "";
-          let tokensUsed = 0;
           let lastPersistLength = 0;
 
           const apiMessages = context.messages
@@ -1084,6 +1106,7 @@ http.route({
               tokensUsed,
             }
           );
+          finalized = true;
 
           controller.enqueue(
             encoder.encode(
@@ -1093,6 +1116,21 @@ http.route({
           controller.close();
         } catch (error) {
           console.error("Curriculum stream error:", error);
+          if (!finalized) {
+            try {
+              await ctx.runMutation(
+                internal.curriculumAssistant.finalizeStream,
+                {
+                  messageId: assistantMsgId as Id<"curriculumMessages">,
+                  content: fullContent || "",
+                  model,
+                  tokensUsed,
+                }
+              );
+            } catch (finalizeErr) {
+              console.error("Failed to finalize curriculum stream on error:", finalizeErr);
+            }
+          }
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ error: "Stream error" })}\n\n`
@@ -1164,22 +1202,22 @@ http.route({
             topics: result.pulse.topics,
             bloomLevel: result.observations.length > 0
               ? bloomFromFloat(
-                  Math.max(...result.observations.map((o: any) => o.masteryLevel))
+                  Math.max(...result.observations.map((o) => o.masteryLevel))
                 )
               : "remember",
             bloomDescription: result.observations.length > 0
               ? result.observations
-                  .sort((a: any, b: any) => b.masteryLevel - a.masteryLevel)
+                  .sort((a, b) => b.masteryLevel - a.masteryLevel)
                   .slice(0, 3)
-                  .map((o: any) => `${o.conceptLabel}: ${o.masteryLevel.toFixed(1)}`)
+                  .map((o) => `${o.conceptLabel}: ${o.masteryLevel.toFixed(1)}`)
                   .join(", ")
               : "No observations yet",
             nudges: result.seeds
-              .filter((s: any) => s.suggestionType === "depth_probe")
-              .map((s: any) => ({ type: "challenge", message: s.rationale })),
+              .filter((s) => s.suggestionType === "depth_probe")
+              .map((s) => ({ type: "challenge", message: s.rationale })),
             suggestedFollowUps: result.seeds
-              .filter((s: any) => s.suggestionType === "frontier")
-              .map((s: any) => ({
+              .filter((s) => s.suggestionType === "frontier")
+              .map((s) => ({
                 topic: s.topic,
                 rationale: s.rationale,
               })),
@@ -1943,10 +1981,12 @@ http.route({
     const stream = new ReadableStream({
       async start(controller) {
         udEmit = (data) => controller.enqueue(udEncoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        let fullContent = "";
+        let model = "";
+        let tokensUsed = 0;
+        let finalized = false;
+
         try {
-          let fullContent = "";
-          let model = "";
-          let tokensUsed = 0;
           let lastPersistLength = 0;
 
           const apiMessages = context.messages
@@ -2011,6 +2051,7 @@ http.route({
               tokensUsed,
             }
           );
+          finalized = true;
 
           controller.enqueue(
             udEncoder.encode(
@@ -2020,6 +2061,21 @@ http.route({
           controller.close();
         } catch (error) {
           console.error("Unit designer stream error:", error);
+          if (!finalized) {
+            try {
+              await ctx.runMutation(
+                internal.curriculumAssistant.finalizeStream,
+                {
+                  messageId: assistantMsgId as Id<"curriculumMessages">,
+                  content: fullContent || "",
+                  model,
+                  tokensUsed,
+                }
+              );
+            } catch (finalizeErr) {
+              console.error("Failed to finalize unit designer stream on error:", finalizeErr);
+            }
+          }
           controller.enqueue(
             udEncoder.encode(
               `data: ${JSON.stringify({ error: "Stream error" })}\n\n`

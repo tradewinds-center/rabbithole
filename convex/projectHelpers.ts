@@ -298,6 +298,13 @@ export const finalizeStream = internalMutation({
       });
     }
 
+    // Denormalize last message info onto the project for efficient dashboard queries
+    await ctx.db.patch(args.projectId, {
+      lastMessageAt: Date.now(),
+      lastMessageRole: "assistant",
+      lastMessagePreview: args.content.slice(0, 120) || undefined,
+    });
+
     // Update project title if first exchange
     const project = await ctx.db.get(args.projectId);
     if (project && project.title === "New Project") {
@@ -337,87 +344,89 @@ export const clearPendingWhisper = internalMutation({
   },
 });
 
-/**
- * Build the system prompt for Claude based on project context.
- * Shared by the project-stream HTTP action.
- */
-export function buildSystemPrompt(
-  teacherWhisper: string | null,
-  readingLevel: string | null,
-  scholarName: string | null,
-  unitContext: {
-    title: string;
-    description: string | null;
-    systemPrompt: string | null;
-    rubric: string | null;
-    youtubeUrl: string | null;
-    videoTranscript: string | null;
-    bigIdea: string | null;
-    essentialQuestions: string[] | null;
-    enduringUnderstandings: string[] | null;
-  } | null,
-  personaContext: {
-    title: string;
-    emoji: string | null;
-    systemPrompt: string | null;
-  } | null,
-  perspectiveContext: {
-    title: string;
-    icon: string | null;
-    systemPrompt: string | null;
-  } | null,
-  processContext: {
-    title: string;
-    emoji: string | null;
-    systemPrompt: string | null;
-    steps: { key: string; title: string; description?: string }[];
-  } | null = null,
-  processStateData: {
-    currentStep: string;
-    steps: { key: string; status: string; commentary?: string }[];
-  } | null = null,
-  artifactData: {
-    id: string;
-    title: string;
-    content: string;
-    lastEditedBy: string;
-  }[] | null = null,
-  dossierContent: string | null = null,
-  seedsData: {
-    topic: string;
-    domain: string | null;
-    approachHint: string | null;
-    suggestionType: string;
-    approved: boolean;
-  }[] | null = null,
-  masteryContext: {
-    concept: string;
-    domain: string;
-    level: number;
-    confidence: number;
-    evidence: string;
-    studentInitiated: boolean;
-  }[] | null = null,
-  signalContext: Record<string, { count: number; highCount: number }> | null = null,
-  timingContext: {
-    unitEndsAt: number | null;
-    projectStartedAt: number;
-    unitDurationMinutes: number | null;
-  } | null = null,
-  lessonContext: {
-    title: string;
-    strand: string | null;
-    systemPrompt: string | null;
-    durationMinutes: number | null;
-    processTitle: string | null;
-    processEmoji: string | null;
-  } | null = null
-): string {
-  const parts: string[] = [];
+// ── System Prompt Types ───────────────────────────────────────────────
 
-  // Base system prompt
-  parts.push(
-    `You are an AI learning companion for gifted scholars at Tradewinds School in Honolulu, Hawaii.
+export type UnitContext = {
+  title: string;
+  description: string | null;
+  systemPrompt: string | null;
+  rubric: string | null;
+  youtubeUrl: string | null;
+  videoTranscript: string | null;
+  bigIdea: string | null;
+  essentialQuestions: string[] | null;
+  enduringUnderstandings: string[] | null;
+};
+
+export type PersonaContext = {
+  title: string;
+  emoji: string | null;
+  systemPrompt: string | null;
+};
+
+export type PerspectiveContext = {
+  title: string;
+  icon: string | null;
+  systemPrompt: string | null;
+};
+
+export type ProcessContext = {
+  title: string;
+  emoji: string | null;
+  systemPrompt: string | null;
+  steps: { key: string; title: string; description?: string }[];
+};
+
+export type ProcessStateData = {
+  currentStep: string;
+  steps: { key: string; status: string; commentary?: string }[];
+};
+
+export type ArtifactData = {
+  id: string;
+  title: string;
+  content: string;
+  lastEditedBy: string;
+};
+
+export type SeedData = {
+  topic: string;
+  domain: string | null;
+  approachHint: string | null;
+  suggestionType: string;
+  approved: boolean;
+};
+
+export type MasteryContextEntry = {
+  concept: string;
+  domain: string;
+  level: number;
+  confidence: number;
+  evidence: string;
+  studentInitiated: boolean;
+};
+
+export type SignalContext = Record<string, { count: number; highCount: number }>;
+
+export type TimingContext = {
+  unitEndsAt: number | null;
+  projectStartedAt: number;
+  unitDurationMinutes: number | null;
+};
+
+export type LessonContext = {
+  title: string;
+  strand: string | null;
+  systemPrompt: string | null;
+  durationMinutes: number | null;
+  processTitle: string | null;
+  processEmoji: string | null;
+};
+
+// ── System Prompt Section Builders ───────────────────────────────────
+
+function buildBasePrompt(scholarName: string | null): string {
+  return `You are an AI learning companion for gifted scholars at Tradewinds School in Honolulu, Hawaii.
 
 Your role is to be a Socratic tutor: ask probing questions, encourage deep thinking, and help scholars explore ideas rather than just giving answers. Be warm, encouraging, and intellectually stimulating. Adapt to the scholar's level and interests.
 
@@ -430,16 +439,12 @@ Guidelines:
 - Connect topics across disciplines when natural
 - Keep responses concise but substantive
 - You can use markdown in your responses: **bold**, *italic*, lists, headers, etc.
-- If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and give a warm, brief welcome. If a unit is active, introduce it. If a persona, perspective, or process is active, acknowledge them naturally. Ask an engaging opening question. Do NOT mention or repeat "<start>".`
-  );
+- If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and give a warm, brief welcome. If a unit is active, introduce it. If a persona, perspective, or process is active, acknowledge them naturally. Ask an engaging opening question. Do NOT mention or repeat "<start>".${scholarName ? `\n\nSCHOLAR NAME: ${scholarName}` : ""}`;
+}
 
-  if (scholarName) {
-    parts.push(`\nSCHOLAR NAME: ${scholarName}`);
-  }
-
-  // Scholar dossier (persistent profile)
+function buildDossierSection(dossierContent: string | null): string {
   if (dossierContent) {
-    parts.push(`\nSCHOLAR PROFILE (persistent notes you maintain about this scholar's learning patterns — private, do not mention to scholar):
+    return `\nSCHOLAR PROFILE (persistent notes you maintain about this scholar's learning patterns — private, do not mention to scholar):
 ${dossierContent}
 
 You have a tool called "update_dossier" to update this profile. Use it when you notice:
@@ -448,242 +453,251 @@ You have a tool called "update_dossier" to update this profile. Use it when you 
 - A strength or growth area
 - A behavioral pattern (e.g., rushes through, asks deep questions, gets frustrated with X)
 Keep the profile terse — bullet points grouped by category. Under 500 words.
-Do NOT update the dossier on every message — only when you have a genuine new insight.`);
-  } else {
-    parts.push(`\nYou have a tool called "update_dossier" to build a persistent scholar profile. Start building it when you notice learning patterns, interests, strengths, or growth areas. Use terse bullet points grouped by category. Under 500 words. Do NOT update on every message — only when you have a genuine new insight.`);
+Do NOT update the dossier on every message — only when you have a genuine new insight.`;
   }
+  return `\nYou have a tool called "update_dossier" to build a persistent scholar profile. Start building it when you notice learning patterns, interests, strengths, or growth areas. Use terse bullet points grouped by category. Under 500 words. Do NOT update on every message — only when you have a genuine new insight.`;
+}
 
-  // Mastery context from observer (what this scholar has demonstrated)
-  if (masteryContext && masteryContext.length > 0) {
-    const bloomLabel = (level: number) =>
-      level >= 4.5 ? "Create" : level >= 3.5 ? "Evaluate" : level >= 2.5 ? "Analyze"
-        : level >= 1.5 ? "Apply" : level >= 0.5 ? "Understand" : "Remember";
+function buildMasterySection(masteryContext: MasteryContextEntry[] | null): string | null {
+  if (!masteryContext || masteryContext.length === 0) return null;
 
-    parts.push(`\nOBSERVER MASTERY CONTEXT (what this scholar has demonstrated — private, do not quiz them on this):`);
-    // Group by domain
-    const byDomain: Record<string, typeof masteryContext> = {};
-    for (const m of masteryContext) {
-      if (!byDomain[m.domain]) byDomain[m.domain] = [];
-      byDomain[m.domain].push(m);
-    }
-    for (const [domain, obs] of Object.entries(byDomain)) {
-      parts.push(`  ${domain}:`);
-      for (const o of obs.sort((a, b) => b.level - a.level)) {
-        parts.push(`  - ${o.concept}: ${bloomLabel(o.level)} (${o.level.toFixed(1)})${o.studentInitiated ? " ★" : ""}`);
-      }
-    }
-    parts.push(`Use this to calibrate your responses — build on demonstrated strengths, don't re-teach what they already know. ★ = student-initiated (strong interest).`);
+  const bloomLabel = (level: number) =>
+    level >= 4.5 ? "Create" : level >= 3.5 ? "Evaluate" : level >= 2.5 ? "Analyze"
+      : level >= 1.5 ? "Apply" : level >= 0.5 ? "Understand" : "Remember";
+
+  const lines: string[] = [];
+  lines.push(`\nOBSERVER MASTERY CONTEXT (what this scholar has demonstrated — private, do not quiz them on this):`);
+  const byDomain: Record<string, MasteryContextEntry[]> = {};
+  for (const m of masteryContext) {
+    if (!byDomain[m.domain]) byDomain[m.domain] = [];
+    byDomain[m.domain].push(m);
   }
-
-  // Learner signal profile (character tendencies)
-  if (signalContext) {
-    const signalEntries = Object.entries(signalContext);
-    if (signalEntries.length > 0) {
-      parts.push(`\nLEARNER PROFILE (observed tendencies — private):`);
-      for (const [type, data] of signalEntries) {
-        const label = type.replace(/_/g, " ");
-        const strength = data.highCount > data.count / 2 ? "strong" : data.count > 3 ? "moderate" : "emerging";
-        parts.push(`- ${label}: ${strength} (${data.highCount}/${data.count} high)`);
-      }
+  for (const [domain, obs] of Object.entries(byDomain)) {
+    lines.push(`  ${domain}:`);
+    for (const o of obs.sort((a, b) => b.level - a.level)) {
+      lines.push(`  - ${o.concept}: ${bloomLabel(o.level)} (${o.level.toFixed(1)})${o.studentInitiated ? " ★" : ""}`);
     }
   }
+  lines.push(`Use this to calibrate your responses — build on demonstrated strengths, don't re-teach what they already know. ★ = student-initiated (strong interest).`);
+  return lines.join("\n");
+}
 
-  // Reading level adjustment
-  if (readingLevel) {
-    parts.push(
-      `\n\nREADING LEVEL: The scholar's reading level is set to "${readingLevel}". Adjust your vocabulary and sentence complexity accordingly. You can still explore advanced topics, but frame explanations at this reading level.`
-    );
+function buildSignalSection(signalContext: SignalContext | null): string | null {
+  if (!signalContext) return null;
+  const entries = Object.entries(signalContext);
+  if (entries.length === 0) return null;
+
+  const lines: string[] = [`\nLEARNER PROFILE (observed tendencies — private):`];
+  for (const [type, data] of entries) {
+    const label = type.replace(/_/g, " ");
+    const strength = data.highCount > data.count / 2 ? "strong" : data.count > 3 ? "moderate" : "emerging";
+    lines.push(`- ${label}: ${strength} (${data.highCount}/${data.count} high)`);
   }
+  return lines.join("\n");
+}
 
-  // Persona overlay
-  if (personaContext) {
-    parts.push(
-      `\n\nPERSONA: You are currently acting as "${personaContext.title}" ${personaContext.emoji || ""}.`
-    );
-    if (personaContext.systemPrompt) {
-      parts.push(personaContext.systemPrompt);
-    }
+function buildUnitSection(unitContext: UnitContext | null): string | null {
+  if (!unitContext) return null;
+  const lines: string[] = [`\n\nUNIT: "${unitContext.title}"`];
+  if (unitContext.bigIdea) lines.push(`Big Idea: ${unitContext.bigIdea}`);
+  if (unitContext.essentialQuestions?.length) {
+    lines.push(`Essential Questions:\n${unitContext.essentialQuestions.map((q) => `  - ${q}`).join("\n")}`);
   }
-
-  // Perspective lens
-  if (perspectiveContext) {
-    parts.push(
-      `\n\nPERSPECTIVE LENS: Guide the conversation through the "${perspectiveContext.title}" ${perspectiveContext.icon || ""} lens.`
-    );
-    if (perspectiveContext.systemPrompt) {
-      parts.push(perspectiveContext.systemPrompt);
-    }
+  if (unitContext.enduringUnderstandings?.length) {
+    lines.push(`Enduring Understandings:\n${unitContext.enduringUnderstandings.map((eu) => `  - ${eu}`).join("\n")}`);
   }
-
-  // Unit context
-  if (unitContext) {
-    parts.push(`\n\nUNIT: "${unitContext.title}"`);
-    if (unitContext.bigIdea) {
-      parts.push(`Big Idea: ${unitContext.bigIdea}`);
-    }
-    if (unitContext.essentialQuestions && unitContext.essentialQuestions.length > 0) {
-      parts.push(`Essential Questions:\n${unitContext.essentialQuestions.map((q) => `  - ${q}`).join("\n")}`);
-    }
-    if (unitContext.enduringUnderstandings && unitContext.enduringUnderstandings.length > 0) {
-      parts.push(`Enduring Understandings:\n${unitContext.enduringUnderstandings.map((eu) => `  - ${eu}`).join("\n")}`);
-    }
-    if (unitContext.systemPrompt) {
-      parts.push(`Instructions: ${unitContext.systemPrompt}`);
-    }
-    if (unitContext.rubric) {
-      parts.push(`Rubric: ${unitContext.rubric}`);
-    }
-    if (unitContext.videoTranscript) {
-      parts.push(`\nVIDEO TRANSCRIPT:
+  if (unitContext.systemPrompt) lines.push(`Instructions: ${unitContext.systemPrompt}`);
+  if (unitContext.rubric) lines.push(`Rubric: ${unitContext.rubric}`);
+  if (unitContext.videoTranscript) {
+    lines.push(`\nVIDEO TRANSCRIPT:
 The scholar is reflecting on a video. Below is the transcript with timestamps.
 Use this as the basis for discussion. Reference specific moments by timestamp.
 Do NOT summarize — engage the scholar: ask what they noticed, what surprised them, what they agree/disagree with, what connections they see.
 
 ${unitContext.videoTranscript}`);
+  }
+  return lines.join("\n");
+}
+
+function buildLessonSection(lessonContext: LessonContext | null): string | null {
+  if (!lessonContext) return null;
+  const lines: string[] = [`\n\nLESSON: "${lessonContext.title}"`];
+  if (lessonContext.strand) lines.push(`Strand: ${lessonContext.strand}`);
+  if (lessonContext.processTitle) lines.push(`Process: ${lessonContext.processEmoji ?? ""} ${lessonContext.processTitle}`);
+  if (lessonContext.systemPrompt) lines.push(`Lesson Instructions: ${lessonContext.systemPrompt}`);
+  if (lessonContext.durationMinutes) lines.push(`Target Duration: ~${lessonContext.durationMinutes} minutes`);
+  return lines.join("\n");
+}
+
+function buildTimingSection(timingContext: TimingContext | null): string | null {
+  if (!timingContext) return null;
+  if (timingContext.unitEndsAt) {
+    const now = Date.now();
+    const totalMs = timingContext.unitDurationMinutes
+      ? timingContext.unitDurationMinutes * 60_000
+      : timingContext.unitEndsAt - timingContext.projectStartedAt;
+    const elapsedMs = now - (timingContext.unitEndsAt - totalMs);
+    const remainingMs = timingContext.unitEndsAt - now;
+    const remainingMin = Math.max(0, Math.round(remainingMs / 60_000));
+    const pctThrough = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+
+    const lines: string[] = [`\n\nTIMING: Session is ${pctThrough}% through, ~${remainingMin} minute${remainingMin !== 1 ? "s" : ""} remaining.`];
+    if (remainingMin <= 5) {
+      lines.push(`Almost over. Help the scholar wrap up their current thought, summarize what they explored, and suggest where to pick up next time.`);
+    } else if (remainingMin <= 10) {
+      lines.push(`Approaching the end. Begin guiding toward a natural stopping point — don't start new big threads.`);
     }
+    lines.push(`Students are NEVER locked out. This is purely for pacing your responses naturally.`);
+    return lines.join("\n");
+  }
+  if (timingContext.unitDurationMinutes) {
+    return `\n\nTIMING: This unit is designed for ~${timingContext.unitDurationMinutes} minutes. Pace your responses accordingly, but no strict deadline is active.`;
+  }
+  return null;
+}
+
+function buildProcessSection(processContext: ProcessContext | null, processStateData: ProcessStateData | null): string | null {
+  if (!processContext || !processStateData) return null;
+
+  const lines: string[] = [`\n\nPROCESS: "${processContext.title}" ${processContext.emoji || ""}`];
+  if (processContext.systemPrompt) lines.push(processContext.systemPrompt);
+
+  lines.push(`\nProcess Steps:`);
+  for (const step of processContext.steps) {
+    const stateStep = processStateData.steps.find((s) => s.key === step.key);
+    const status = stateStep?.status ?? "not_started";
+    const isCurrent = step.key === processStateData.currentStep;
+    const marker = isCurrent ? "→" : " ";
+    const statusLabel = status === "not_started" ? "○" : status === "in_progress" ? "◉" : "✓";
+    lines.push(`${marker} [${step.key}] ${statusLabel} ${step.title}${step.description ? ` — ${step.description}` : ""}`);
+    if (stateStep?.commentary) lines.push(`    Commentary: ${stateStep.commentary}`);
   }
 
-  // Lesson context (specific lesson within a unit)
-  if (lessonContext) {
-    parts.push(`\n\nLESSON: "${lessonContext.title}"`);
-    if (lessonContext.strand) {
-      parts.push(`Strand: ${lessonContext.strand}`);
-    }
-    if (lessonContext.processTitle) {
-      parts.push(`Process: ${lessonContext.processEmoji ?? ""} ${lessonContext.processTitle}`);
-    }
-    if (lessonContext.systemPrompt) {
-      parts.push(`Lesson Instructions: ${lessonContext.systemPrompt}`);
-    }
-    if (lessonContext.durationMinutes) {
-      parts.push(`Target Duration: ~${lessonContext.durationMinutes} minutes`);
-    }
-  }
-
-  // Timing context (pacing guidance)
-  if (timingContext) {
-    if (timingContext.unitEndsAt) {
-      const now = Date.now();
-      const totalMs = timingContext.unitDurationMinutes
-        ? timingContext.unitDurationMinutes * 60_000
-        : timingContext.unitEndsAt - timingContext.projectStartedAt;
-      const elapsedMs = now - (timingContext.unitEndsAt - totalMs);
-      const remainingMs = timingContext.unitEndsAt - now;
-      const remainingMin = Math.max(0, Math.round(remainingMs / 60_000));
-      const pctThrough = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
-
-      parts.push(`\n\nTIMING: Session is ${pctThrough}% through, ~${remainingMin} minute${remainingMin !== 1 ? "s" : ""} remaining.`);
-      if (remainingMin <= 5) {
-        parts.push(`Almost over. Help the scholar wrap up their current thought, summarize what they explored, and suggest where to pick up next time.`);
-      } else if (remainingMin <= 10) {
-        parts.push(`Approaching the end. Begin guiding toward a natural stopping point — don't start new big threads.`);
-      }
-      parts.push(`Students are NEVER locked out. This is purely for pacing your responses naturally.`);
-    } else if (timingContext.unitDurationMinutes) {
-      parts.push(`\n\nTIMING: This unit is designed for ~${timingContext.unitDurationMinutes} minutes. Pace your responses accordingly, but no strict deadline is active.`);
-    }
-  }
-
-  // Process (guided step workflow)
-  if (processContext && processStateData) {
-    parts.push(`\n\nPROCESS: "${processContext.title}" ${processContext.emoji || ""}`);
-    if (processContext.systemPrompt) {
-      parts.push(processContext.systemPrompt);
-    }
-
-    parts.push(`\nProcess Steps:`);
-    for (const step of processContext.steps) {
-      const stateStep = processStateData.steps.find((s) => s.key === step.key);
-      const status = stateStep?.status ?? "not_started";
-      const isCurrent = step.key === processStateData.currentStep;
-      const marker = isCurrent ? "→" : " ";
-      const statusLabel = status === "not_started" ? "○" : status === "in_progress" ? "◉" : "✓";
-      parts.push(`${marker} [${step.key}] ${statusLabel} ${step.title}${step.description ? ` — ${step.description}` : ""}`);
-      if (stateStep?.commentary) {
-        parts.push(`    Commentary: ${stateStep.commentary}`);
-      }
-    }
-
-    parts.push(`\nYou have a tool called "update_process_step" to track the scholar's progress through these steps. Use it when:
+  lines.push(`\nYou have a tool called "update_process_step" to track the scholar's progress through these steps. Use it when:
 - The scholar begins working on a step (set status to "in_progress")
 - The scholar has sufficiently completed a step (set status to "completed")
 - You want to record a brief observation about their work on a step (use the commentary field)
 Guide the scholar naturally through the steps. You can move them back to revisit earlier steps if needed. Don't announce step transitions mechanically — weave them into the conversation naturally.`);
-  }
+  return lines.join("\n");
+}
 
-  // Artifacts (shared documents — supports multiple)
+function buildArtifactSection(artifactData: ArtifactData[] | null, hasUnit: boolean): string {
+  const lines: string[] = [];
   if (artifactData && artifactData.length > 0) {
-    parts.push(`\n\nDOCUMENTS (${artifactData.length}):`);
+    lines.push(`\n\nDOCUMENTS (${artifactData.length}):`);
     for (const doc of artifactData) {
-      const lines = doc.content.split("\n");
-      const numberedContent = lines.map((l, i) => `${i + 1}: ${l}`).join("\n");
-      parts.push(`\n[Document ID: ${doc.id}] "${doc.title}" (last edited by ${doc.lastEditedBy})
+      const docLines = doc.content.split("\n");
+      const numberedContent = docLines.map((l, i) => `${i + 1}: ${l}`).join("\n");
+      lines.push(`\n[Document ID: ${doc.id}] "${doc.title}" (last edited by ${doc.lastEditedBy})
 Content:
 ${numberedContent}`);
     }
-    parts.push(`\nYou have a tool called "edit_document" to create, view, rename, and edit documents. When editing an existing document, pass the document_id to target the correct one. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit documents and titles directly.
+    lines.push(`\nYou have a tool called "edit_document" to create, view, rename, and edit documents. When editing an existing document, pass the document_id to target the correct one. Use str_replace for targeted edits (provide exact text to find and replace). Use insert to add text at a specific line number. Use rename to change the document title. The scholar can also edit documents and titles directly.
 
 IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header. Do NOT include a title, headline, or byline at the top of document content — that would be redundant. Document body should start directly with the actual content.`);
-  } else if (unitContext) {
-    parts.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the unit involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
+  } else if (hasUnit) {
+    lines.push(`\n\nYou have a tool called "edit_document" to create shared working documents that the scholar can also edit. Use it when the unit involves writing, building, or producing a deliverable. Create a document early so the scholar can see their work take shape. Documents are plain text only — do NOT use markdown formatting. Document titles are shown separately in the UI header, so do NOT include a title or byline in the document content itself. Multiple documents can be created for different parts of the work.`);
   }
+  return lines.join("\n");
+}
 
-  // Code artifacts guidance
-  parts.push(`\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script>. Prefer vanilla JS — external libraries via CDN are allowed if needed (e.g. p5.js, Three.js). It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.`);
+function buildToolsSection(): string {
+  return `\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script>. Prefer vanilla JS — external libraries via CDN are allowed if needed (e.g. p5.js, Three.js). It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.
 
-  // Image generation guidance
-  parts.push(`\n\nIMAGE GENERATION: You have a tool called "generate_image" to create educational illustrations and visualizations. Use it when:
+IMAGE GENERATION: You have a tool called "generate_image" to create educational illustrations and visualizations. Use it when:
 - A concept would be significantly clearer with a visual (cell structure, solar system, water cycle, geometric proof, historical scene, map)
 - The scholar asks you to draw, illustrate, or show something
 - A diagram or visual would deepen understanding beyond what words can convey
 
 Do NOT generate images for decoration, greetings, or when text suffices.
 
-Write a detailed prompt describing exactly what to illustrate — be specific about subject, composition, labels, colors, and educational content. Prefer clean, labeled diagram styles for scientific/mathematical concepts. For historical or creative topics, use a warm illustrative style appropriate for elementary students. Always describe the image to the scholar after generating it.`);
+Write a detailed prompt describing exactly what to illustrate — be specific about subject, composition, labels, colors, and educational content. Prefer clean, labeled diagram styles for scientific/mathematical concepts. For historical or creative topics, use a warm illustrative style appropriate for elementary students. Always describe the image to the scholar after generating it.`;
+}
 
-  // Exploration seeds (teacher-approved + pending ideas to weave in)
-  if (seedsData && seedsData.length > 0) {
-    const approvedSeeds = seedsData.filter((s) => s.approved);
-    const pendingSeeds = seedsData.filter((s) => !s.approved);
+function buildSeedsSection(seedsData: SeedData[] | null): string | null {
+  if (!seedsData || seedsData.length === 0) return null;
 
-    parts.push(`\n\nEXPLORATION SEEDS (ideas to naturally weave into conversation when relevant):`);
-    if (approvedSeeds.length > 0) {
-      parts.push(`Teacher-approved seeds — prioritize these:`);
-      for (const s of approvedSeeds) {
-        let line = `- "${s.topic}"`;
-        if (s.domain) line += ` (${s.domain})`;
-        if (s.approachHint) line += ` — ${s.approachHint}`;
-        parts.push(line);
-      }
+  const approvedSeeds = seedsData.filter((s) => s.approved);
+  const pendingSeeds = seedsData.filter((s) => !s.approved);
+
+  const lines: string[] = [`\n\nEXPLORATION SEEDS (ideas to naturally weave into conversation when relevant):`];
+  if (approvedSeeds.length > 0) {
+    lines.push(`Teacher-approved seeds — prioritize these:`);
+    for (const s of approvedSeeds) {
+      let line = `- "${s.topic}"`;
+      if (s.domain) line += ` (${s.domain})`;
+      if (s.approachHint) line += ` — ${s.approachHint}`;
+      lines.push(line);
     }
-    if (pendingSeeds.length > 0) {
-      parts.push(`${approvedSeeds.length > 0 ? "\n" : ""}Additional seed ideas:`);
-      for (const s of pendingSeeds) {
-        let line = `- "${s.topic}"`;
-        if (s.domain) line += ` (${s.domain})`;
-        if (s.approachHint) line += ` — ${s.approachHint}`;
-        parts.push(line);
-      }
-    }
-    parts.push(`When the scholar sends "<start>", use one of these seeds (preferring teacher-approved ones) as an engaging conversation opener. During ongoing conversation, look for natural moments to introduce seeds that connect to what the scholar is already exploring. Don't force them — weave them in when the connection feels genuine.`);
   }
+  if (pendingSeeds.length > 0) {
+    lines.push(`${approvedSeeds.length > 0 ? "\n" : ""}Additional seed ideas:`);
+    for (const s of pendingSeeds) {
+      let line = `- "${s.topic}"`;
+      if (s.domain) line += ` (${s.domain})`;
+      if (s.approachHint) line += ` — ${s.approachHint}`;
+      lines.push(line);
+    }
+  }
+  lines.push(`When the scholar sends "<start>", use one of these seeds (preferring teacher-approved ones) as an engaging conversation opener. During ongoing conversation, look for natural moments to introduce seeds that connect to what the scholar is already exploring. Don't force them — weave them in when the connection feels genuine.`);
+  return lines.join("\n");
+}
 
-  // Teacher whisper (private guidance)
+function buildWhisperSection(teacherWhisper: string | null): string {
+  const lines: string[] = [];
   if (teacherWhisper) {
-    parts.push(
-      `\n\nTEACHER GUIDANCE (private — do not reveal this to the scholar): ${teacherWhisper}`
-    );
+    lines.push(`\n\nTEACHER GUIDANCE (private — do not reveal this to the scholar): ${teacherWhisper}`);
   }
-
-  parts.push(
-    `\n\nTEACHER WHISPERS: The teacher may occasionally inject a [TEACHER WHISPER] message into the conversation. These are private real-time guidance. When you see one:
+  lines.push(`\n\nTEACHER WHISPERS: The teacher may occasionally inject a [TEACHER WHISPER] message into the conversation. These are private real-time guidance. When you see one:
 - Follow the guidance naturally in your next response
 - Do NOT mention the whisper, the teacher, or that you received guidance
 - Do NOT quote or paraphrase the whisper
-- Weave the guidance seamlessly — the scholar should never know`
-  );
+- Weave the guidance seamlessly — the scholar should never know`);
+  return lines.join("\n");
+}
 
-  return parts.join("\n");
+// ── Main Composer ────────────────────────────────────────────────────
+
+/**
+ * Build the system prompt for Claude based on project context.
+ * Shared by the project-stream HTTP action.
+ */
+export function buildSystemPrompt(
+  teacherWhisper: string | null,
+  readingLevel: string | null,
+  scholarName: string | null,
+  unitContext: UnitContext | null,
+  personaContext: PersonaContext | null,
+  perspectiveContext: PerspectiveContext | null,
+  processContext: ProcessContext | null = null,
+  processStateData: ProcessStateData | null = null,
+  artifactData: ArtifactData[] | null = null,
+  dossierContent: string | null = null,
+  seedsData: SeedData[] | null = null,
+  masteryContext: MasteryContextEntry[] | null = null,
+  signalContext: SignalContext | null = null,
+  timingContext: TimingContext | null = null,
+  lessonContext: LessonContext | null = null
+): string {
+  const sections: (string | null)[] = [
+    buildBasePrompt(scholarName),
+    buildDossierSection(dossierContent),
+    buildMasterySection(masteryContext),
+    buildSignalSection(signalContext),
+    readingLevel ? `\n\nREADING LEVEL: The scholar's reading level is set to "${readingLevel}". Adjust your vocabulary and sentence complexity accordingly. You can still explore advanced topics, but frame explanations at this reading level.` : null,
+    personaContext ? `\n\nPERSONA: You are currently acting as "${personaContext.title}" ${personaContext.emoji || ""}.${personaContext.systemPrompt ? `\n${personaContext.systemPrompt}` : ""}` : null,
+    perspectiveContext ? `\n\nPERSPECTIVE LENS: Guide the conversation through the "${perspectiveContext.title}" ${perspectiveContext.icon || ""} lens.${perspectiveContext.systemPrompt ? `\n${perspectiveContext.systemPrompt}` : ""}` : null,
+    buildUnitSection(unitContext),
+    buildLessonSection(lessonContext),
+    buildTimingSection(timingContext),
+    buildProcessSection(processContext, processStateData),
+    buildArtifactSection(artifactData, !!unitContext),
+    buildToolsSection(),
+    buildSeedsSection(seedsData),
+    buildWhisperSection(teacherWhisper),
+  ];
+
+  return sections.filter(Boolean).join("");
 }
 
 /**
