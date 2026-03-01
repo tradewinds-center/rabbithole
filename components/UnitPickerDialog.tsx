@@ -173,19 +173,46 @@ export function UnitPickerDialog({
                   ) : null;
                 })()}
 
-                {/* Independent Study option */}
-                <UnitCard
-                  emoji="📓"
-                  title="Independent Study"
-                  description="Explore any topic freely"
-                  isSelected={selected === null && selectedLesson === null}
-                  isDisabled={!!lockedUnitId}
-                  onClick={() => {
+                {/* Independent Study option — prominent */}
+                <Box
+                  px={4}
+                  py={4}
+                  borderRadius="xl"
+                  cursor={lockedUnitId ? "default" : "pointer"}
+                  opacity={lockedUnitId ? 0.4 : 1}
+                  bg={selected === null && selectedLesson === null ? "violet.50" : "gray.50"}
+                  border="2px solid"
+                  borderColor={selected === null && selectedLesson === null ? "violet.300" : "transparent"}
+                  _hover={lockedUnitId ? undefined : { bg: selected === null && selectedLesson === null ? "violet.50" : "violet.50", borderColor: "violet.200" }}
+                  transition="all 0.15s"
+                  onClick={lockedUnitId ? undefined : () => {
                     setSelected(null);
                     setSelectedLesson(null);
                     setExpandedUnit(null);
                   }}
-                />
+                >
+                  <HStack gap={3} align="center">
+                    <Text fontSize="2xl" flexShrink={0}>🚀</Text>
+                    <Box flex={1} minW={0}>
+                      <Text
+                        fontFamily="heading"
+                        fontWeight="700"
+                        color="navy.500"
+                        fontSize="md"
+                      >
+                        Independent Study
+                      </Text>
+                      <Text
+                        fontSize="sm"
+                        color="charcoal.400"
+                        fontFamily="body"
+                        lineHeight="1.4"
+                      >
+                        Explore any topic you&apos;re curious about
+                      </Text>
+                    </Box>
+                  </HStack>
+                </Box>
 
                 {/* Remaining unit cards (skip focused unit if already shown) */}
                 {units
