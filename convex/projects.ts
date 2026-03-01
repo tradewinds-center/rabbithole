@@ -162,6 +162,30 @@ export const create = authedMutation({
 });
 
 /**
+ * Create a project from a seed: sets title to seed topic, marks seed as "introduced".
+ */
+export const createFromSeed = authedMutation({
+  args: {
+    seedId: v.id("seeds"),
+  },
+  handler: async (ctx, args) => {
+    const seed = await ctx.db.get(args.seedId);
+    if (!seed) throw new Error("Seed not found");
+    if (seed.scholarId !== ctx.user._id) throw new Error("Forbidden");
+
+    const id = await ctx.db.insert("projects", {
+      userId: ctx.user._id,
+      title: seed.topic,
+      isArchived: false,
+    });
+
+    await ctx.db.patch(args.seedId, { status: "introduced" });
+
+    return { id };
+  },
+});
+
+/**
  * Update project (title, dimensions, whisper, status).
  * Scholars can update title + dimensions on their own projects.
  * Teachers can update anything on any project.

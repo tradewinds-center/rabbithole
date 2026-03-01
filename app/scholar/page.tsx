@@ -24,7 +24,7 @@ import { Avatar } from "@/components/Avatar";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
 import { toaster } from "@/lib/toaster";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
-import { FiPlus, FiMessageSquare, FiClock, FiLock } from "react-icons/fi";
+import { FiPlus, FiMessageSquare, FiClock, FiLock, FiCompass } from "react-icons/fi";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -82,11 +82,14 @@ function ScholarHome() {
       }
     : null;
 
+  const seeds = useQuery(api.seeds.activeForSelf, user ? {} : "skip") ?? [];
   const createProject = useMutation(api.projects.create);
+  const createFromSeed = useMutation(api.projects.createFromSeed);
 
   // Unit picker dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [exploringSeedId, setExploringSeedId] = useState<string | null>(null);
 
   // Profile edit modal state
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -137,6 +140,22 @@ function ScholarHome() {
     router.push(`/scholar/${projectId}${remoteParam}`);
   }, [router, remoteUserId]);
 
+  const handleExploreSeed = useCallback(async (seedId: Id<"seeds">) => {
+    setExploringSeedId(seedId);
+    try {
+      const result = await createFromSeed({ seedId });
+      if (result) {
+        const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
+        router.push(`/scholar/${result.id}${remoteParam}`);
+      }
+    } catch (error) {
+      console.error("Error creating project from seed:", error);
+      toaster.error({ title: "Failed to start exploration", description: "Please try again." });
+    } finally {
+      setExploringSeedId(null);
+    }
+  }, [createFromSeed, router, remoteUserId]);
+
   if (isUserLoading || projects === undefined) {
     return (
       <Flex minH="100vh" bg="gray.50" align="center" justify="center">
@@ -167,41 +186,97 @@ function ScholarHome() {
         lastMessageAt={lastMessageAt}
       />
       <Box flex={1} overflow="auto" p={{ base: 4, md: 6 }} maxW="1000px" mx="auto" w="full">
-        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={4}>
-          {/* New Project card */}
-          <Box
-            bg="white"
-            borderRadius="xl"
-            p={5}
-            shadow="xs"
+        {/* Compact new project button */}
+        <Flex justify="flex-end" mb={3}>
+          <HStack
+            as="button"
+            gap={1.5}
+            px={3}
+            py={1.5}
+            borderRadius="full"
+            bg="violet.50"
+            color="violet.600"
+            fontFamily="heading"
+            fontWeight="600"
+            fontSize="sm"
             cursor="pointer"
-            border="2px dashed"
-            borderColor="violet.200"
-            _hover={{ borderColor: "violet.400", shadow: "md" }}
-            display="flex"
-            flexDir="column"
-            alignItems="center"
-            justifyContent="center"
-            minH="140px"
             transition="all 0.15s"
+            _hover={{ bg: "violet.100" }}
             onClick={() => setDialogOpen(true)}
           >
+            <FiPlus size={14} />
+            <Text>New Project</Text>
+          </HStack>
+        </Flex>
+
+        <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={4}>
+          {/* Seed cards */}
+          {seeds.map((seed) => (
             <Box
-              w={12}
-              h={12}
-              borderRadius="full"
-              bg="violet.100"
+              key={seed._id}
+              bg="white"
+              borderRadius="xl"
+              p={5}
+              shadow="xs"
+              cursor={exploringSeedId ? "default" : "pointer"}
+              border="2px dashed"
+              borderColor="violet.200"
+              opacity={exploringSeedId && exploringSeedId !== seed._id ? 0.5 : 1}
+              _hover={exploringSeedId ? {} : { shadow: "md", borderColor: "violet.400" }}
+              transition="all 0.15s"
+              minH="140px"
               display="flex"
-              alignItems="center"
-              justifyContent="center"
-              mb={2}
+              flexDir="column"
+              onClick={() => !exploringSeedId && handleExploreSeed(seed._id)}
             >
-              <FiPlus size={24} color="#AD60BF" />
+              <HStack mb={1} gap={2}>
+                <Box color="violet.500" flexShrink={0}>
+                  <FiCompass size={14} />
+                </Box>
+                <Text
+                  fontFamily="heading"
+                  fontWeight="600"
+                  color="navy.500"
+                  fontSize="sm"
+                  overflow="hidden"
+                  textOverflow="ellipsis"
+                  whiteSpace="nowrap"
+                  flex={1}
+                >
+                  {seed.topic}
+                </Text>
+              </HStack>
+              {seed.domain && (
+                <Text fontSize="2xs" color="violet.600" fontFamily="heading" fontWeight="500" mb={1}>
+                  {seed.domain}
+                </Text>
+              )}
+              <Text
+                fontSize="xs"
+                color="charcoal.400"
+                fontFamily="body"
+                lineHeight="1.4"
+                flex={1}
+                overflow="hidden"
+                css={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }}
+              >
+                {seed.rationale}
+              </Text>
+              <Text
+                fontSize="xs"
+                fontFamily="heading"
+                fontWeight="600"
+                color="violet.500"
+                mt={2}
+              >
+                {exploringSeedId === seed._id ? "Starting..." : "Explore this \u2192"}
+              </Text>
             </Box>
-            <Text fontFamily="heading" fontWeight="600" color="violet.600" fontSize="sm">
-              New Project
-            </Text>
-          </Box>
+          ))}
 
           {/* Project cards */}
           {projects.map((project) => {

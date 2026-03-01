@@ -144,6 +144,22 @@ export const updateStatus = teacherMutation({
 });
 
 /**
+ * Scholar-facing: active seeds for the current user (max 6).
+ */
+export const activeForSelf = authedQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("seeds")
+      .withIndex("by_scholar_status", (q) =>
+        q.eq("scholarId", ctx.user._id).eq("status", "active")
+      )
+      .order("desc")
+      .take(6);
+  },
+});
+
+/**
  * Teacher-facing: all seeds for a scholar.
  */
 export const listByScholar = authedQuery({
