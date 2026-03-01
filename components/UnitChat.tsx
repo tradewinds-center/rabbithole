@@ -143,7 +143,7 @@ export function UnitChat({ unitId }: UnitChatProps) {
                       maxW="100%"
                       shadow="sm"
                     >
-                      <Text fontFamily="body" fontSize="sm" whiteSpace="pre-wrap">{content}</Text>
+                      <Text fontFamily="body" fontSize="md" whiteSpace="pre-wrap">{content}</Text>
                     </Box>
                   </Box>
                 );
@@ -161,15 +161,15 @@ export function UnitChat({ unitId }: UnitChatProps) {
                     maxW="100%"
                     shadow="sm"
                     css={{
-                      "& p": { marginBottom: "0.4em", fontSize: "13px" },
+                      "& p": { marginBottom: "0.4em", fontSize: "14px" },
                       "& p:last-child": { marginBottom: 0 },
-                      "& ul, & ol": { paddingLeft: "1.2em", marginBottom: "0.4em", fontSize: "13px" },
+                      "& ul, & ol": { paddingLeft: "1.2em", marginBottom: "0.4em", fontSize: "14px" },
                       "& li": { marginBottom: "0.15em" },
                       "& code": { background: "var(--chakra-colors-gray-200)", padding: "0.1em 0.2em", borderRadius: "3px", fontSize: "0.85em" },
                       "& strong": { fontWeight: 600 },
                     }}
                   >
-                    <Text fontFamily="body" fontSize="sm" as="div">
+                    <Text fontFamily="body" fontSize="md" as="div">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                     </Text>
                   </Box>
