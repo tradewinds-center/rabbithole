@@ -18,6 +18,8 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAgentStream } from "@/hooks/useAgentStream";
+import { ToolActivityIndicator } from "./ToolActivityIndicator";
 
 interface UnitChatProps {
   unitId: Id<"units">;
@@ -30,9 +32,8 @@ export function UnitChat({ unitId }: UnitChatProps) {
   const clearHistory = useMutation(api.curriculumAssistant.clearHistoryForUnit);
 
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
+  const stream = useAgentStream();
+  const { isStreaming, streamingContent, streamingMsgId, toolActivity } = stream;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -54,61 +55,25 @@ export function UnitChat({ unitId }: UnitChatProps) {
     if (!text || isStreaming || !user) return;
 
     setInput("");
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingMsgId(null);
 
     try {
       const result = await sendMessage({ message: text, unitId });
-      setStreamingMsgId(result.assistantMsgId);
 
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(".cloud", ".site");
-      const res = await fetch(`${convexUrl}/unit-designer-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await stream.send(
+        `${convexUrl}/unit-designer-stream`,
+        {
           teacherId: String(user._id),
           unitId: String(unitId),
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
-        }),
-      });
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.text) {
-                  fullContent += data.text;
-                  setStreamingContent(fullContent);
-                } else if (data.done) {
-                  setStreamingContent("");
-                  setStreamingMsgId(null);
-                }
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      }
+        },
+        result.assistantMsgId,
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      setStreamingMsgId(null);
-    } finally {
-      setIsStreaming(false);
     }
-  }, [input, isStreaming, user, sendMessage, unitId]);
+  }, [input, isStreaming, user, sendMessage, unitId, stream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -212,7 +177,10 @@ export function UnitChat({ unitId }: UnitChatProps) {
               );
             })}
 
-          {isStreaming && !streamingContent && (
+          {isStreaming && toolActivity && (
+            <ToolActivityIndicator toolActivity={toolActivity} />
+          )}
+          {isStreaming && !streamingContent && !toolActivity && (
             <Box alignSelf="flex-start" bg="gray.100" px={3} py={2} borderRadius="lg" borderBottomLeftRadius="sm">
               <Spinner size="sm" color="violet.500" />
             </Box>

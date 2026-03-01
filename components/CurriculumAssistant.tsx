@@ -17,6 +17,8 @@ import remarkGfm from "remark-gfm";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAgentStream } from "@/hooks/useAgentStream";
+import { ToolActivityIndicator } from "./ToolActivityIndicator";
 
 export default function CurriculumAssistant() {
   const { user } = useCurrentUser();
@@ -25,9 +27,8 @@ export default function CurriculumAssistant() {
   const clearHistory = useMutation(api.curriculumAssistant.clearHistory);
 
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingContent, setStreamingContent] = useState("");
-  const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
+  const stream = useAgentStream();
+  const { isStreaming, streamingContent, streamingMsgId, toolActivity } = stream;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -52,65 +53,27 @@ export default function CurriculumAssistant() {
     if (!text || isStreaming || !user) return;
 
     setInput("");
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingMsgId(null);
 
     try {
       const result = await sendMessage({ message: text });
-      setStreamingMsgId(result.assistantMsgId);
 
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
         ".cloud",
         ".site"
       );
-      const res = await fetch(`${convexUrl}/curriculum-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await stream.send(
+        `${convexUrl}/curriculum-stream`,
+        {
           teacherId: String(user._id),
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
-        }),
-      });
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.text) {
-                  fullContent += data.text;
-                  setStreamingContent(fullContent);
-                } else if (data.done) {
-                  setStreamingContent("");
-                  setStreamingMsgId(null);
-                }
-              } catch {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      }
+        },
+        result.assistantMsgId,
+      );
     } catch (error) {
       console.error("Error sending message:", error);
-      setStreamingMsgId(null);
-    } finally {
-      setIsStreaming(false);
     }
-  }, [input, isStreaming, user, sendMessage]);
+  }, [input, isStreaming, user, sendMessage, stream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -258,8 +221,13 @@ export default function CurriculumAssistant() {
               );
             })}
 
+          {/* Tool activity indicator */}
+          {isStreaming && toolActivity && (
+            <ToolActivityIndicator toolActivity={toolActivity} />
+          )}
+
           {/* Typing indicator */}
-          {isStreaming && !streamingContent && (
+          {isStreaming && !streamingContent && !toolActivity && (
             <Box
               alignSelf="flex-start"
               bg="gray.100"

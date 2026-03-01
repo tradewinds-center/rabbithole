@@ -194,6 +194,9 @@ http.route({
                   `data: ${JSON.stringify({ processStepUpdate: { step: input.step, status, commentary: input.commentary } })}\n\n`
                 )
               );
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "update_process_step", result: `Step "${input.step}" → ${status}` } })}\n\n`)
+              );
               const label = status === "completed" ? `Completed step: ${input.step}` : `Started step: ${input.step}`;
               const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                 currentMessageId: assistantMsgId as Id<"messages">,
@@ -268,6 +271,9 @@ http.route({
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
                   );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Document created" } })}\n\n`)
+                  );
                   const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                     currentMessageId: assistantMsgId as Id<"messages">,
                     projectId: projId,
@@ -300,6 +306,9 @@ http.route({
                     return "No documents exist yet. Use create to make one.";
                   }
                   const docs = Array.isArray(allDocs) ? allDocs : [allDocs];
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Viewed documents" } })}\n\n`)
+                  );
                   return docs.map((doc: { _id: Id<"artifacts">; title: string; content: string }) => {
                     const lines = doc.content.split("\n");
                     const preview = lines.slice(0, 5).map((l: string, i: number) => `${i + 1}: ${l}`).join("\n");
@@ -316,6 +325,9 @@ http.route({
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: `Renamed to "${newTitle}"` } })}\n\n`)
                   );
                   return `Document renamed to "${newTitle}".`;
                 }
@@ -334,6 +346,9 @@ http.route({
                   if (result.error) return result.error;
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Text replaced" } })}\n\n`)
                   );
                   {
                     const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
@@ -365,6 +380,9 @@ http.route({
                   });
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true })}\n\n`)
+                  );
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "edit_document", result: "Text inserted" } })}\n\n`)
                   );
                   {
                     const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
@@ -416,6 +434,9 @@ http.route({
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ artifactUpdate: true, newArtifactId: String(newArtifactId) })}\n\n`)
               );
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "create_code", result: `Created "${input.title}"` } })}\n\n`)
+              );
               const newId = await ctx.runMutation(internal.projectHelpers.splitStream, {
                 currentMessageId: assistantMsgId as Id<"messages">,
                 projectId: projId,
@@ -450,6 +471,9 @@ http.route({
                 scholarId: project.scholarId,
                 content: input.content,
               });
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "update_dossier", result: "Profile updated" } })}\n\n`)
+              );
               return "Dossier updated successfully.";
             },
           });
@@ -539,6 +563,9 @@ http.route({
                 });
 
                 controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ toolComplete: { name: "generate_image", result: "Image generated" } })}\n\n`)
+                );
+                controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ generatedImage: true, newAssistantMsg: String(newId) })}\n\n`
                   )
@@ -580,7 +607,11 @@ http.route({
             // Nested iteration: outer = turns, inner = streaming events
             for await (const messageStream of runner) {
               for await (const event of messageStream) {
-                if (event.type === "message_start") {
+                if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                  );
+                } else if (event.type === "message_start") {
                   model = event.message.model;
                 } else if (event.type === "content_block_delta") {
                   const delta = event.delta;
@@ -779,6 +810,10 @@ http.route({
       return match ?? null;
     };
 
+    // Shared emit function — set once the ReadableStream starts
+    const encoder = new TextEncoder();
+    let emitSSE: (data: Record<string, unknown>) => void = () => {};
+
     // Define tools
     const listScholarsTool = betaTool({
       name: "list_scholars",
@@ -792,6 +827,7 @@ http.route({
         const scholars = await ctx.runQuery(
           internal.curriculumAssistant.listScholarsInternal, {}
         );
+        emitSSE({ toolComplete: { name: "list_scholars", result: `Found ${scholars.length} scholars` } });
         return JSON.stringify(scholars);
       },
     });
@@ -816,6 +852,7 @@ http.route({
           internal.curriculumAssistant.getScholarDossier,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_dossier", result: `Loaded ${scholar.name}'s profile` } });
         return `Dossier for ${scholar.name}:\n${dossier}`;
       },
     });
@@ -840,6 +877,7 @@ http.route({
           internal.curriculumAssistant.getScholarMastery,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_mastery", result: `Loaded ${scholar.name}'s mastery data` } });
         return JSON.stringify({ scholar: scholar.name, mastery });
       },
     });
@@ -864,6 +902,7 @@ http.route({
           internal.curriculumAssistant.getScholarSignals,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_signals", result: `Loaded ${scholar.name}'s signals` } });
         return JSON.stringify({ scholar: scholar.name, signals });
       },
     });
@@ -888,6 +927,7 @@ http.route({
           internal.curriculumAssistant.getScholarSeeds,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_seeds", result: `Loaded ${scholar.name}'s seeds` } });
         return JSON.stringify({ scholar: scholar.name, seeds });
       },
     });
@@ -912,6 +952,7 @@ http.route({
           internal.curriculumAssistant.getScholarObservations,
           { scholarId: scholar.id as Id<"users"> }
         );
+        emitSSE({ toolComplete: { name: "get_scholar_observations", result: `Loaded ${scholar.name}'s observations` } });
         return JSON.stringify({ scholar: scholar.name, observations });
       },
     });
@@ -928,6 +969,7 @@ http.route({
         const units = await ctx.runQuery(
           internal.curriculumAssistant.listUnitsInternal, {}
         );
+        emitSSE({ toolComplete: { name: "list_units", result: `Found ${units.length} units` } });
         return JSON.stringify(units);
       },
     });
@@ -952,6 +994,7 @@ http.route({
           internal.curriculumAssistant.getUnitDetails,
           { unitId: unit.id as Id<"units"> }
         );
+        emitSSE({ toolComplete: { name: "get_unit_details", result: `Loaded "${unit.title}"` } });
         return JSON.stringify(details);
       },
     });
@@ -967,10 +1010,9 @@ http.route({
       getUnitDetailsTool,
     ];
 
-    const encoder = new TextEncoder();
-
     const stream = new ReadableStream({
       async start(controller) {
+        emitSSE = (data) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         try {
           let fullContent = "";
           let model = "";
@@ -995,7 +1037,11 @@ http.route({
 
           for await (const messageStream of runner) {
             for await (const event of messageStream) {
-              if (event.type === "message_start") {
+              if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                );
+              } else if (event.type === "message_start") {
                 model = event.message.model;
               } else if (event.type === "content_block_delta") {
                 const delta = event.delta;
@@ -1629,6 +1675,10 @@ http.route({
     ).join("\n");
     const systemPrompt = UNIT_DESIGNER_SYSTEM_PROMPT.replace("{PROCESSES}", processesDesc);
 
+    // Shared emit function — set once the ReadableStream starts
+    const udEncoder = new TextEncoder();
+    let udEmit: (data: Record<string, unknown>) => void = () => {};
+
     // ── Define tools ────────────────────────────────────────────────
 
     const readUnitStructureTool = betaTool({
@@ -1664,6 +1714,7 @@ http.route({
             `  [${l.strand ?? "none"}] ${l.title}${l.processTitle ? ` (${l.processEmoji} ${l.processTitle})` : ""}${l.systemPrompt ? " ✓prompt" : " ✗no prompt"}`
           ),
         ].filter(Boolean);
+        udEmit({ toolComplete: { name: "read_unit_structure", result: `${freshCtx.lessons.length} lessons loaded` } });
         return lines.join("\n");
       },
     });
@@ -1702,6 +1753,7 @@ http.route({
           unitId: unitId as Id<"units">,
           ...updates,
         });
+        udEmit({ toolComplete: { name: "update_unit", result: "Unit updated" } });
         return "Unit updated successfully.";
       },
     });
@@ -1733,6 +1785,7 @@ http.route({
           systemPrompt: input.systemPrompt,
           durationMinutes: input.durationMinutes,
         });
+        udEmit({ toolComplete: { name: "create_lesson", result: `Created "${input.title}"` } });
         return `Lesson "${input.title}" created in ${input.strand} strand.`;
       },
     });
@@ -1780,6 +1833,7 @@ http.route({
           lessonId: lesson._id,
           ...updates,
         });
+        udEmit({ toolComplete: { name: "update_lesson", result: `Updated "${lesson.title}"` } });
         return `Lesson "${lesson.title}" updated.`;
       },
     });
@@ -1809,6 +1863,7 @@ http.route({
         await ctx.runMutation(internal.curriculumAssistant.deleteLessonInternal, {
           lessonId: lesson._id,
         });
+        udEmit({ toolComplete: { name: "delete_lesson", result: `Deleted "${lesson.title}"` } });
         return `Lesson "${lesson.title}" deleted.`;
       },
     });
@@ -1840,6 +1895,7 @@ http.route({
           lessonId: lesson._id,
           systemPrompt: input.prompt,
         });
+        udEmit({ toolComplete: { name: "generate_lesson_prompt", result: `Prompt saved for "${lesson.title}"` } });
         return `System prompt saved for "${lesson.title}".`;
       },
     });
@@ -1859,7 +1915,11 @@ http.route({
         );
         if (!freshCtx) return "Unit not found.";
         const missing = freshCtx.lessons.filter((l) => !l.systemPrompt?.trim());
-        if (missing.length === 0) return "All lessons already have system prompts.";
+        if (missing.length === 0) {
+          udEmit({ toolComplete: { name: "generate_all_prompts", result: "All lessons have prompts" } });
+          return "All lessons already have system prompts.";
+        }
+        udEmit({ toolComplete: { name: "generate_all_prompts", result: `${missing.length} lessons need prompts` } });
         return `${missing.length} lessons need prompts:\n${missing.map((l) => `- ${l.title} [${l.strand ?? "none"}]${l.processTitle ? ` (${l.processTitle})` : ""}`).join("\n")}\n\nGenerate a prompt for each using the generate_lesson_prompt tool.`;
       },
     });
@@ -1874,10 +1934,9 @@ http.route({
       generateAllPromptsTool,
     ];
 
-    const encoder = new TextEncoder();
-
     const stream = new ReadableStream({
       async start(controller) {
+        udEmit = (data) => controller.enqueue(udEncoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         try {
           let fullContent = "";
           let model = "";
@@ -1902,14 +1961,18 @@ http.route({
 
           for await (const messageStream of runner) {
             for await (const event of messageStream) {
-              if (event.type === "message_start") {
+              if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                controller.enqueue(
+                  udEncoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
+                );
+              } else if (event.type === "message_start") {
                 model = event.message.model;
               } else if (event.type === "content_block_delta") {
                 const delta = event.delta;
                 if ("text" in delta) {
                   fullContent += delta.text;
                   controller.enqueue(
-                    encoder.encode(
+                    udEncoder.encode(
                       `data: ${JSON.stringify({ text: delta.text })}\n\n`
                     )
                   );
@@ -1944,7 +2007,7 @@ http.route({
           );
 
           controller.enqueue(
-            encoder.encode(
+            udEncoder.encode(
               `data: ${JSON.stringify({ done: true })}\n\n`
             )
           );
@@ -1952,7 +2015,7 @@ http.route({
         } catch (error) {
           console.error("Unit designer stream error:", error);
           controller.enqueue(
-            encoder.encode(
+            udEncoder.encode(
               `data: ${JSON.stringify({ error: "Stream error" })}\n\n`
             )
           );
