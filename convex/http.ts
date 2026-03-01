@@ -1671,7 +1671,7 @@ http.route({
 
     // Build system prompt with available processes
     const processesDesc = context.processes.map(
-      (p) => `- ${p.emoji} ${p.title}: ${p.steps}`
+      (p) => `- ${p.emoji} ${p.title} (id: ${p.id}): ${p.steps}`
     ).join("\n");
     const systemPrompt = UNIT_DESIGNER_SYSTEM_PROMPT.replace("{PROCESSES}", processesDesc);
 
@@ -1711,8 +1711,11 @@ http.route({
           "",
           `Lessons (${freshCtx.lessons.length}):`,
           ...freshCtx.lessons.map((l) =>
-            `  [${l.strand ?? "none"}] ${l.title}${l.processTitle ? ` (${l.processEmoji} ${l.processTitle})` : ""}${l.systemPrompt ? " ✓prompt" : " ✗no prompt"}`
+            `  [${l.strand ?? "none"}] ${l.title}${l.processTitle ? ` (${l.processEmoji} ${l.processTitle}, processId: ${l.processId})` : " (no process)"}${l.systemPrompt ? " ✓prompt" : " ✗no prompt"}`
           ),
+          "",
+          "Available processes:",
+          ...freshCtx.processes.map((p) => `  - ${p.emoji} ${p.title} (id: ${p.id})`),
         ].filter(Boolean);
         udEmit({ toolComplete: { name: "read_unit_structure", result: `${freshCtx.lessons.length} lessons loaded` } });
         return lines.join("\n");
