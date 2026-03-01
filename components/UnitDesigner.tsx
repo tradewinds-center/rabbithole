@@ -12,6 +12,7 @@ import {
   Text,
   Input,
   Spinner,
+  Splitter,
   IconButton,
 } from "@chakra-ui/react";
 import { FiArrowLeft } from "react-icons/fi";
@@ -131,17 +132,27 @@ export function UnitDesigner({ unitId }: UnitDesignerProps) {
       </Flex>
 
       {/* Split pane */}
-      <Flex flex={1} overflow="hidden">
-        {/* Left panel — unit structure */}
-        <Box w="55%" borderRight="1px solid" borderColor="gray.200" bg="white" overflow="hidden" display="flex" flexDirection="column">
-          <UnitTree unit={unit} lessons={lessons} />
-        </Box>
-
-        {/* Right panel — AI chat */}
-        <Box w="45%" display="flex" flexDirection="column" overflow="hidden">
-          <UnitChat unitId={unitId} />
-        </Box>
-      </Flex>
+      <Splitter.Root
+        flex={1}
+        overflow="hidden"
+        defaultSize={[55, 45]}
+        panels={[
+          { id: "tree", minSize: 30 },
+          { id: "chat", minSize: 25 },
+        ]}
+      >
+        <Splitter.Panel id="tree">
+          <Flex h="full" flexDir="column" overflow="hidden" bg="white">
+            <UnitTree unit={unit} lessons={lessons} />
+          </Flex>
+        </Splitter.Panel>
+        <Splitter.ResizeTrigger id="tree:chat" css={{ "--splitter-border-size": "0.5px" }} />
+        <Splitter.Panel id="chat">
+          <Flex h="full" flexDir="column" overflow="hidden">
+            <UnitChat unitId={unitId} />
+          </Flex>
+        </Splitter.Panel>
+      </Splitter.Root>
     </Flex>
   );
 }
