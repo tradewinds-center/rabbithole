@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery } from "./lib/customFunctions";
+import { internalQuery } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 
 /** Helper: filter out nodes with empty/placeholder descriptions */
@@ -279,5 +280,64 @@ export const getSubtreeCoverage = authedQuery({
     const assessed = leafIds.filter((id) => assessedSet.has(id)).length;
 
     return { total: leafIds.length, assessed };
+  },
+});
+
+/**
+ * Get standard details by IDs (for frontend enrichment).
+ */
+export const getByIds = authedQuery({
+  args: { ids: v.array(v.id("standards")) },
+  handler: async (ctx, args) => {
+    const results: Doc<"standards">[] = [];
+    for (const id of args.ids) {
+      const std = await ctx.db.get(id);
+      if (std) results.push(std);
+    }
+    return results;
+  },
+});
+
+/**
+ * Internal query: get leaf standards for the standards mapper.
+ * Returns compact records filtered by grade range.
+ */
+export const leafStandardsForMapping = internalQuery({
+  args: {
+    grades: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const docs = await ctx.db.query("standardsDocuments").collect();
+    const results: {
+      id: string;
+      notation: string;
+      description: string;
+      subject: string;
+    }[] = [];
+
+    for (const doc of docs) {
+      const all = await ctx.db
+        .query("standards")
+        .withIndex("by_subject_leaf", (q) =>
+          q.eq("subject", doc.subject).eq("isLeaf", true)
+        )
+        .collect();
+
+      for (const s of all) {
+        if (
+          s.notation &&
+          s.gradeLevels.some((g) => args.grades.includes(g))
+        ) {
+          results.push({
+            id: s._id,
+            notation: s.notation,
+            description: s.description,
+            subject: s.subject,
+          });
+        }
+      }
+    }
+
+    return results;
   },
 });

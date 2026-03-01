@@ -512,11 +512,12 @@ export const analyzeProject = internalAction({
       });
       console.log(`[Observer] Pulse written OK`);
 
-      // 8. Mastery observations
+      // 8. Mastery observations (collect IDs for standards mapper)
+      const newObservationIds: string[] = [];
       for (let i = 0; i < result.observations.length; i++) {
         const obs = result.observations[i];
         console.log(`[Observer] Writing observation ${i + 1}/${result.observations.length}: ${obs.conceptLabel}`);
-        await ctx.runMutation(internal.masteryObservations.record, {
+        const obsId = await ctx.runMutation(internal.masteryObservations.record, {
           scholarId: context.scholarId,
           conceptLabel: obs.conceptLabel,
           domain: obs.domain,
@@ -531,6 +532,7 @@ export const analyzeProject = internalAction({
           standardNotations: obs.standardNotations ?? undefined,
           supersedesObservationId: obs.supersedesObservationId ?? undefined,
         });
+        newObservationIds.push(obsId);
       }
 
       // 9. Session signals
@@ -588,6 +590,20 @@ export const analyzeProject = internalAction({
             suggestion: result.inferredReadingLevel,
           });
           console.log(`[Observer] 📖 Reading level suggestion: ${result.inferredReadingLevel} (current: ${currentLevel ?? "unset"})`);
+        }
+      }
+
+      // 13. Standards mapping (second pass — maps observations to curriculum standards)
+      if (newObservationIds.length > 0) {
+        try {
+          await ctx.runAction(internal.standardsMapper.mapToStandards, {
+            scholarId: context.scholarId,
+            observationIds: newObservationIds as any,
+          });
+        } catch (mapErr: unknown) {
+          // Non-fatal: standards mapping is supplementary
+          const msg = mapErr instanceof Error ? mapErr.message : String(mapErr);
+          console.error(`[Observer] Standards mapping failed (non-fatal): ${msg}`);
         }
       }
     } catch (writeErr: unknown) {

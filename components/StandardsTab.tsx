@@ -501,60 +501,104 @@ function StandardTreeNode({
 
 // ─── Evidence-Only View ─────────────────────────────────────────────
 
+interface StandardDetail {
+  _id: string;
+  notation?: string;
+  description: string;
+  gradeLevels: string[];
+  subject: string;
+}
+
 function EvidenceOnlyView({
   observationsByStandard,
-  scholarId,
+  standardsLookup,
+  selectedGrade,
+  selectedSubject,
 }: {
   observationsByStandard: Map<string, any[]>;
-  scholarId: string;
+  standardsLookup: Map<string, StandardDetail>;
+  selectedGrade: string;
+  selectedSubject: string;
 }) {
-  if (observationsByStandard.size === 0) {
+  // Filter to standards matching the selected grade + subject, then group by observation
+  const filteredObservations = useMemo(() => {
+    // Collect unique observations that have at least one standard matching grade + subject
+    const obsMap = new Map<string, { obs: any; standards: StandardDetail[] }>();
+
+    for (const [standardId, obsList] of Array.from(observationsByStandard.entries())) {
+      const std = standardsLookup.get(standardId);
+      if (!std) continue;
+      if (std.subject !== selectedSubject) continue;
+      if (!std.gradeLevels.includes(selectedGrade)) continue;
+
+      for (const obs of obsList) {
+        const existing = obsMap.get(obs._id);
+        if (existing) {
+          existing.standards.push(std);
+        } else {
+          obsMap.set(obs._id, { obs, standards: [std] });
+        }
+      }
+    }
+
+    return Array.from(obsMap.values()).sort(
+      (a, b) => b.obs.masteryLevel - a.obs.masteryLevel
+    );
+  }, [observationsByStandard, standardsLookup, selectedGrade, selectedSubject]);
+
+  if (filteredObservations.length === 0) {
     return (
       <Box bg="white" borderRadius="lg" shadow="xs" p={6} textAlign="center">
         <Text fontSize="sm" color="charcoal.400" fontFamily="body" lineHeight="1.5">
-          No standards-linked evidence yet. As the scholar works with the AI tutor,
-          observations will automatically map to curriculum standards.
+          No standards-linked evidence for grade {selectedGrade} {selectedSubject} yet.
+          As the scholar works with the AI tutor, observations will automatically map to curriculum standards.
         </Text>
       </Box>
     );
   }
 
-  // Group observations by their standard IDs and show each
-  const entries = Array.from(observationsByStandard.entries());
-
   return (
     <Box bg="white" borderRadius="lg" shadow="xs" p={4}>
       <VStack gap={2} align="stretch">
-        {entries.map(([standardId, obs]) => {
-          const bestObs = obs.reduce((best, o) =>
-            o.masteryLevel > best.masteryLevel ? o : best
-          );
-          return (
-            <Box key={standardId} py={2} borderBottom="1px solid" borderColor="gray.100" _last={{ borderBottom: "none" }}>
-              <HStack gap={2} mb={1}>
-                <BloomBar level={bestObs.masteryLevel} />
-                <Badge
-                  bg={`${bloomColor(bestObs.masteryLevel)}.100`}
-                  color={`${bloomColor(bestObs.masteryLevel)}.700`}
-                  fontSize="xs"
-                >
-                  {bloomLabel(bestObs.masteryLevel)} ({bestObs.masteryLevel.toFixed(1)})
-                </Badge>
-                <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                  {obs.length} observation{obs.length !== 1 ? "s" : ""}
-                </Text>
-              </HStack>
-              <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
-                {bestObs.conceptLabel}
+        {filteredObservations.map(({ obs, standards }) => (
+          <Box key={obs._id} py={2} borderBottom="1px solid" borderColor="gray.100" _last={{ borderBottom: "none" }}>
+            <HStack gap={2} mb={1}>
+              <BloomBar level={obs.masteryLevel} />
+              <Badge
+                bg={`${bloomColor(obs.masteryLevel)}.100`}
+                color={`${bloomColor(obs.masteryLevel)}.700`}
+                fontSize="xs"
+              >
+                {bloomLabel(obs.masteryLevel)} ({obs.masteryLevel.toFixed(1)})
+              </Badge>
+              <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                {timeAgo(obs.observedAt)}
               </Text>
-              {bestObs.evidenceSummary && (
-                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1} lineHeight="1.3">
-                  {bestObs.evidenceSummary}
-                </Text>
-              )}
-            </Box>
-          );
-        })}
+            </HStack>
+            <Text fontSize="sm" fontWeight="600" color="charcoal.600" fontFamily="heading" lineHeight="1.4">
+              {obs.conceptLabel}
+            </Text>
+            {obs.evidenceSummary && (
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1} lineHeight="1.3">
+                {obs.evidenceSummary}
+              </Text>
+            )}
+            {/* Show linked standards */}
+            <HStack gap={1} mt={2} flexWrap="wrap">
+              {standards.map((std) => (
+                <Badge
+                  key={std._id}
+                  bg="violet.50"
+                  color="violet.700"
+                  fontSize="xs"
+                  fontFamily="heading"
+                >
+                  {std.notation || std.description.slice(0, 30)}
+                </Badge>
+              ))}
+            </HStack>
+          </Box>
+        ))}
       </VStack>
     </Box>
   );
@@ -669,6 +713,27 @@ export function StandardsTab({ scholarId, readingLevel }: StandardsTabProps) {
     }
     return map;
   }, [linkedObs]);
+
+  // Collect all unique standard IDs from observations for detail lookup
+  const allStandardIds = useMemo(
+    () => Array.from(observationsByStandard.keys()) as Id<"standards">[],
+    [observationsByStandard]
+  );
+
+  const standardDetails = useQuery(
+    api.standardsTree.getByIds,
+    allStandardIds.length > 0 ? { ids: allStandardIds } : "skip"
+  );
+
+  // Build standards lookup: standardId → StandardDetail
+  const standardsLookup = useMemo(() => {
+    const map = new Map<string, StandardDetail>();
+    if (!standardDetails) return map;
+    for (const std of standardDetails) {
+      map.set(std._id, std);
+    }
+    return map;
+  }, [standardDetails]);
 
   const toggleExpanded = (id: string) => {
     setExpandedNodes((prev) => {
@@ -813,7 +878,9 @@ export function StandardsTab({ scholarId, readingLevel }: StandardsTabProps) {
       {viewMode === "evidence" ? (
         <EvidenceOnlyView
           observationsByStandard={observationsByStandard}
-          scholarId={scholarId}
+          standardsLookup={standardsLookup}
+          selectedGrade={activeGrade}
+          selectedSubject={activeSubject}
         />
       ) : (
         activeDoc && (

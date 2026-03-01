@@ -187,6 +187,65 @@ export const withStandardsByScholar = authedQuery({
 });
 
 /**
+ * Get all current observations that have no standardIds linked (for backfill).
+ */
+export const unmappedObservations = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("masteryObservations").collect();
+    return all.filter(
+      (o) => !o.isSuperseded && (!o.standardIds || o.standardIds.length === 0)
+    );
+  },
+});
+
+/**
+ * Get all current (non-superseded) observations regardless of standardIds (for re-backfill).
+ */
+export const allCurrentObservations = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("masteryObservations").collect();
+    return all.filter((o) => !o.isSuperseded);
+  },
+});
+
+/**
+ * Clear standardIds on an observation (for re-backfill).
+ */
+export const clearStandardIds = internalMutation({
+  args: { observationId: v.id("masteryObservations") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.observationId, { standardIds: undefined });
+  },
+});
+
+/**
+ * Get a single observation by ID (used by standards mapper).
+ */
+export const getById = internalQuery({
+  args: { observationId: v.id("masteryObservations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.observationId);
+  },
+});
+
+/**
+ * Patch standardIds onto an existing observation (used by standards mapper).
+ */
+export const patchStandardIds = internalMutation({
+  args: {
+    observationId: v.id("masteryObservations"),
+    standardIds: v.array(v.id("standards")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.observationId, {
+      standardIds: args.standardIds,
+    });
+  },
+});
+
+/**
  * Get all observations for a project (for inline display in teacher view).
  */
 export const byProject = authedQuery({

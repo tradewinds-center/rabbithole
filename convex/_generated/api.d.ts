@@ -39,6 +39,7 @@ import type * as seeds from "../seeds.js";
 import type * as sessionSignals from "../sessionSignals.js";
 import type * as standardsImport from "../standardsImport.js";
 import type * as standardsImportHelpers from "../standardsImportHelpers.js";
+import type * as standardsMapper from "../standardsMapper.js";
 import type * as standardsTree from "../standardsTree.js";
 import type * as teacherMasteryOverrides from "../teacherMasteryOverrides.js";
 import type * as tokens from "../tokens.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   sessionSignals: typeof sessionSignals;
   standardsImport: typeof standardsImport;
   standardsImportHelpers: typeof standardsImportHelpers;
+  standardsMapper: typeof standardsMapper;
   standardsTree: typeof standardsTree;
   teacherMasteryOverrides: typeof teacherMasteryOverrides;
   tokens: typeof tokens;
