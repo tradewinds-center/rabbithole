@@ -22,6 +22,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AccountMenu } from "@/components/AccountMenu";
 import { Avatar } from "@/components/Avatar";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
+import { toaster } from "@/lib/toaster";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { FiPlus, FiMessageSquare, FiClock, FiLock } from "react-icons/fi";
 
@@ -124,6 +125,7 @@ function ScholarHome() {
       }
     } catch (error) {
       console.error("Error creating project:", error);
+      toaster.error({ title: "Failed to create project", description: "Please try again." });
     } finally {
       setIsCreating(false);
       setDialogOpen(false);

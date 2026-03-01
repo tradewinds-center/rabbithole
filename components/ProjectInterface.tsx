@@ -26,6 +26,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { ProjectHeader } from "./ProjectHeader";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -549,23 +550,25 @@ export function ProjectInterface({
         };
 
         const artifactPanelElement = (
-          <ArtifactPanel
-            artifacts={artifacts}
-            activeArtifactId={activeArtifactId}
-            onSelectArtifact={setActiveArtifactId}
-            onSave={handleSaveArtifact}
-            onCreateArtifact={handleCreateArtifact}
-            onDeleteArtifact={handleDeleteArtifact}
-            onSyncChange={setArtifactSynced}
-            youtubeUrl={activeUnit?.youtubeUrl}
-            process={hasProcess ? {
-              title: activeProcessDef!.title,
-              emoji: activeProcessDef!.emoji ?? null,
-              steps: activeProcessDef!.steps,
-            } : null}
-            processCurrentStep={hasProcess ? processState!.currentStep : undefined}
-            processSteps={hasProcess ? processState!.steps : undefined}
-          />
+          <ErrorBoundary fallbackMessage="Something went wrong in the document panel">
+            <ArtifactPanel
+              artifacts={artifacts}
+              activeArtifactId={activeArtifactId}
+              onSelectArtifact={setActiveArtifactId}
+              onSave={handleSaveArtifact}
+              onCreateArtifact={handleCreateArtifact}
+              onDeleteArtifact={handleDeleteArtifact}
+              onSyncChange={setArtifactSynced}
+              youtubeUrl={activeUnit?.youtubeUrl}
+              process={hasProcess ? {
+                title: activeProcessDef!.title,
+                emoji: activeProcessDef!.emoji ?? null,
+                steps: activeProcessDef!.steps,
+              } : null}
+              processCurrentStep={hasProcess ? processState!.currentStep : undefined}
+              processSteps={hasProcess ? processState!.steps : undefined}
+            />
+          </ErrorBoundary>
         );
 
         // Mobile: full-width chat + bottom drawer for right panel

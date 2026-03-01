@@ -9,6 +9,11 @@ import { internalMutation, internalQuery } from "./_generated/server";
 export const getByProject = authedQuery({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return [];
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && project.userId !== ctx.user._id) return [];
+
     return await ctx.db
       .query("artifacts")
       .withIndex("by_project", (q) =>
@@ -30,6 +35,11 @@ export const scholarUpdate = authedMutation({
   handler: async (ctx, args) => {
     const artifact = await ctx.db.get(args.artifactId);
     if (!artifact) return;
+    const project = await ctx.db.get(artifact.projectId);
+    if (!project) return;
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && project.userId !== ctx.user._id) return;
+
     const patch: { content?: string; title?: string; lastEditedBy: "scholar" } = {
       lastEditedBy: "scholar",
     };
@@ -48,6 +58,11 @@ export const scholarCreate = authedMutation({
     title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && project.userId !== ctx.user._id) throw new Error("Forbidden");
+
     return await ctx.db.insert("artifacts", {
       projectId: args.projectId,
       title: args.title || "Untitled",
@@ -65,6 +80,11 @@ export const deleteArtifact = authedMutation({
   handler: async (ctx, args) => {
     const artifact = await ctx.db.get(args.artifactId);
     if (!artifact) return;
+    const project = await ctx.db.get(artifact.projectId);
+    if (!project) return;
+    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    if (!isTeacher && project.userId !== ctx.user._id) return;
+
     await ctx.db.delete(args.artifactId);
   },
 });
