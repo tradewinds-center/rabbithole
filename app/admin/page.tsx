@@ -91,7 +91,7 @@ export default function AdminPage() {
   };
 
   return (
-    <Box minH="100vh" bg="gray.50" p={6}>
+    <Box h="100dvh" bg="gray.50" p={6} overflowY="auto">
       <Container maxW="4xl">
         <VStack gap={6} align="stretch">
           <HStack justify="space-between">
