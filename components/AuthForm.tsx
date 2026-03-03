@@ -70,6 +70,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
+    if (trimmed.includes("@")) {
+      setError("Pick a username, not an email address");
+      setIsSubmitting(false);
+      return;
+    }
+
     // Password provider requires an email — use synthetic one internally
     const email = `${trimmed}@local`;
 
@@ -99,13 +105,16 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <Box
-      minH="100vh"
+      minH="100dvh"
       bg="linear-gradient(135deg, #222656 0%, #1a1d42 50%, #364153 100%)"
       display="flex"
       alignItems="center"
       justifyContent="center"
       flexDirection="column"
       p={4}
+      position="fixed"
+      inset={0}
+      overflowY="auto"
     >
       <Container maxW="lg">
         <VStack
