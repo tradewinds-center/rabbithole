@@ -107,7 +107,13 @@ http.route({
                     binary += String.fromCharCode(bytes[i]);
                   }
                   const base64 = btoa(binary);
-                  const contentType = (imgRes.headers.get("content-type") || "image/png") as ImageMediaType;
+                  // Detect actual image type from magic bytes (content-type header is unreliable)
+                  const contentType: ImageMediaType =
+                    bytes[0] === 0xFF && bytes[1] === 0xD8 ? "image/jpeg" :
+                    bytes[0] === 0x89 && bytes[1] === 0x50 ? "image/png" :
+                    bytes[0] === 0x47 && bytes[1] === 0x49 ? "image/gif" :
+                    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 ? "image/webp" :
+                    (imgRes.headers.get("content-type") || "image/jpeg") as ImageMediaType;
 
                   // Multi-part content: image + text
                   const contentParts: ContentPart[] = [
