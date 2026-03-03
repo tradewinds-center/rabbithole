@@ -154,18 +154,17 @@ export function ProjectInterface({
     : null;
 
   // Process state (reactive query, updates when AI tool fires)
-  // Derive processId from the unit's building block
-  const unitProcessId = activeUnit?.processId ? String(activeUnit.processId) : null;
+  // Always query — returns null if no process is active for this project.
+  // processState stores the canonical processId (set by backend from lesson or unit).
   const processState = useQuery(
     api.processState.getByProject,
-    unitProcessId
-      ? { projectId: projectId as Id<"projects"> }
-      : "skip"
+    { projectId: projectId as Id<"projects"> }
   );
 
-  // Look up the full process definition from the unit's building block
-  const activeProcessDef = unitProcessId
-    ? processes.find((p) => p._id === unitProcessId)
+  // Look up the full process definition from processState's own processId
+  // (handles both unit-level and lesson-level process assignments)
+  const activeProcessDef = processState?.processId
+    ? processes.find((p) => p._id === String(processState.processId))
     : null;
 
   // Artifacts (reactive query, returns array)
