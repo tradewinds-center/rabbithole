@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
-import { FiLogOut, FiSettings, FiUser, FiEye } from "react-icons/fi";
+import { FiLogOut, FiSettings, FiUser, FiEye, FiCpu } from "react-icons/fi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
+import { ParentAccessDialog } from "./ParentAccessDialog";
 
 interface AccountMenuProps {
   onSignOut: () => void;
@@ -26,9 +28,12 @@ export function AccountMenu({
   const { user } = useCurrentUser();
   const pathname = usePathname();
 
+  const [showMcpDialog, setShowMcpDialog] = useState(false);
+
   const role = user?.role;
   const isScholar = role === "scholar";
   const isAdmin = role === "admin";
+  const isTeacher = role === "teacher" || isAdmin;
   const userName = user?.name ?? "User";
   const userUsername = user?.username;
   const userImage = user?.image;
@@ -129,6 +134,16 @@ export function AccountMenu({
             <FiUser />
             Account Details
           </Menu.Item>
+          {isTeacher && (
+            <Menu.Item
+              value="mcp-token"
+              cursor="pointer"
+              onClick={() => setShowMcpDialog(true)}
+            >
+              <FiCpu />
+              My MCP Token
+            </Menu.Item>
+          )}
           <Menu.Item
             value="sign-out"
             cursor="pointer"
@@ -139,6 +154,14 @@ export function AccountMenu({
           </Menu.Item>
         </Menu.Content>
       </Menu.Positioner>
+      {isTeacher && (
+        <ParentAccessDialog
+          scholarName={userName}
+          open={showMcpDialog}
+          onClose={() => setShowMcpDialog(false)}
+          mode="self"
+        />
+      )}
     </Menu.Root>
   );
 }
