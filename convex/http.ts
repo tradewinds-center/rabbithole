@@ -68,7 +68,8 @@ http.route({
       project.masteryContext,
       project.signalContext,
       project.timingContext,
-      project.lessonContext
+      project.lessonContext,
+      project.portraitContextDigest
     );
 
     const encoder = new TextEncoder();
