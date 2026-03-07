@@ -42,21 +42,20 @@ function ScoreBar({ score, maxScore = 5 }: { score: number; maxScore?: number })
 export function ScholarPortraitPanel({ scholarId }: ScholarPortraitPanelProps) {
   const portrait = useQuery(api.scholarPortraits.getForScholar, { scholarId });
   const sidekick = useQuery(api.sidekicks.getForScholar, { scholarId });
-  const interviews = useQuery(api.interviews.listInterviews);
+  const interviewStats = useQuery(api.interviews.getInterviewStats, { scholarId });
 
   if (!portrait) {
-    const scholarName = sidekick ? undefined : "this scholar";
     return (
       <Box p={3} bg="gray.50" borderRadius="lg">
         <Text fontSize="xs" color="charcoal.400" fontFamily="body" fontStyle="italic">
-          No portrait yet — {scholarName ?? sidekick?.name ?? "this scholar"} hasn&apos;t had an interview with their Sidekick yet.
+          No portrait yet — {sidekick?.name ?? "this scholar"} hasn&apos;t had an interview with their Sidekick yet.
         </Text>
       </Box>
     );
   }
 
-  const interviewCount = interviews?.length ?? 0;
-  const lastInterviewAt = interviews?.[0]?.lastMessageAt;
+  const interviewCount = interviewStats?.count ?? 0;
+  const lastInterviewAt = interviewStats?.lastMessageAt ?? null;
   const daysSinceInterview = lastInterviewAt
     ? Math.floor((Date.now() - lastInterviewAt) / (1000 * 60 * 60 * 24))
     : null;

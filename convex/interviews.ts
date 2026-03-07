@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, authedMutation } from "./lib/customFunctions";
+import { authedQuery, authedMutation, teacherQuery } from "./lib/customFunctions";
 import { internalQuery } from "./_generated/server";
 
 /**
@@ -63,6 +63,30 @@ export const listInterviews = authedQuery({
         };
       })
     );
+  },
+});
+
+/**
+ * Get interview stats for a specific scholar (teacher access).
+ * Used by ScholarPortraitPanel to show session count + recency without leaking
+ * the teacher's own interview data when querying as a different user.
+ */
+export const getInterviewStats = teacherQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
+      .order("desc")
+      .collect();
+
+    const interviews = projects.filter((p) => p.projectType === "interview");
+    const lastMessageAt = interviews[0]?.lastMessageAt ?? interviews[0]?._creationTime ?? null;
+
+    return {
+      count: interviews.length,
+      lastMessageAt,
+    };
   },
 });
 

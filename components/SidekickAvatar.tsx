@@ -102,7 +102,7 @@ export function SidekickAvatar({ scholarId, size = 48, showName = false }: Sidek
            sidekick.animal === "dog" ? "🐕" :
            sidekick.animal === "rabbit" ? "🐰" :
            sidekick.animal === "bear" ? "🐻" :
-           sidekick.animal === "seahorse" ? "🐴" :
+           sidekick.animal === "seahorse" ? "🌊" :
            "🌟"}
         </Text>
       </Box>
