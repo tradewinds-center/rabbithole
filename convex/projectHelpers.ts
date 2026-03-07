@@ -335,10 +335,17 @@ export const finalizeStream = internalMutation({
       }
     }
 
-    // Auto-trigger unified observer in background
-    await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
-      projectId: args.projectId,
-    });
+    // Auto-trigger analysis in background
+    if (project && project.projectType === "interview") {
+      // Interview projects trigger portrait assessment instead of observer
+      await ctx.scheduler.runAfter(0, internal.portraitAssessor.assessScholarPortrait, {
+        scholarId: project.userId,
+      });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
+        projectId: args.projectId,
+      });
+    }
   },
 });
 
