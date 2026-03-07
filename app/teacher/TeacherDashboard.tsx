@@ -57,6 +57,7 @@ import type { ScholarTabKey } from "@/components";
 import { AppLogo } from "@/components/AppLogo";
 import { AppHeader } from "@/components/AppHeader";
 import { StatusOrb } from "@/components/StatusOrb";
+import { SidekickAvatar } from "@/components/SidekickAvatar";
 import { buildDimensionParams } from "@/lib/dimensions";
 import {
   DndContext,
@@ -1935,13 +1936,14 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
       transition="all 0.1s"
       p={3}
     >
-      {/* Header row: avatar, name, orb, time, action buttons */}
+      {/* Header row: avatar, sidekick, name, orb, time */}
       <HStack gap={2} mb={1.5}>
         <Avatar
           size="sm"
           name={s.name || undefined}
           src={s.image || undefined}
         />
+        <SidekickAvatar scholarId={s.scholarId} size={20} />
         <VStack gap={0} align="start" flex={1} minW={0}>
           <HStack gap={1.5}>
             <Text fontFamily="heading" fontSize="sm" fontWeight="600" color={isComplete ? "green.700" : "navy.500"}>
