@@ -24,7 +24,9 @@ import { Avatar } from "@/components/Avatar";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
 import { toaster } from "@/lib/toaster";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
-import { FiPlus, FiMessageSquare, FiClock, FiLock, FiCompass } from "react-icons/fi";
+import { FiPlus, FiMessageSquare, FiClock, FiLock, FiCompass, FiHeart } from "react-icons/fi";
+import { SidekickAvatar } from "@/components/SidekickAvatar";
+import { SidekickSetupFlow } from "@/components/SidekickSetupFlow";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -83,6 +85,8 @@ function ScholarHome() {
     : null;
 
   const seeds = useQuery(api.seeds.activeForSelf, user ? {} : "skip") ?? [];
+  const sidekick = useQuery(api.sidekicks.getForScholar, user && !isRemoteMode ? {} : "skip");
+  const portrait = useQuery(api.scholarPortraits.getForScholar, user && !isRemoteMode ? {} : "skip");
   const createProject = useMutation(api.projects.create);
   const createFromSeed = useMutation(api.projects.createFromSeed);
 
@@ -90,6 +94,7 @@ function ScholarHome() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [exploringSeedId, setExploringSeedId] = useState<string | null>(null);
+  const [sidekickSetupOpen, setSidekickSetupOpen] = useState(false);
 
   // Profile edit modal state
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -186,6 +191,77 @@ function ScholarHome() {
         lastMessageAt={lastMessageAt}
       />
       <Box flex={1} overflow="auto" p={{ base: 4, md: 6 }} maxW="1000px" mx="auto" w="full">
+        {/* Sidekick banner */}
+        {!isRemoteMode && user?.role === "scholar" && user.profileSetupComplete && (
+          sidekick?.setupComplete ? (
+            <Box
+              bg="white"
+              borderRadius="xl"
+              p={4}
+              mb={4}
+              shadow="xs"
+              cursor="pointer"
+              _hover={{ shadow: "md" }}
+              transition="all 0.15s"
+              onClick={() => router.push("/scholar/interview")}
+            >
+              <HStack gap={3}>
+                <SidekickAvatar size={48} showName={false} />
+                <Box flex={1}>
+                  <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+                    {sidekick.name ?? "Your Sidekick"}
+                  </Text>
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                    {portrait?.status ?? "Just getting started"}
+                    {portrait?.completeness != null && ` · ${portrait.completeness}% portrait`}
+                  </Text>
+                </Box>
+                <HStack
+                  gap={1.5}
+                  px={3}
+                  py={1.5}
+                  borderRadius="full"
+                  bg="violet.50"
+                  color="violet.600"
+                  fontFamily="heading"
+                  fontWeight="600"
+                  fontSize="sm"
+                >
+                  <FiHeart size={14} />
+                  <Text>Chat</Text>
+                </HStack>
+              </HStack>
+            </Box>
+          ) : sidekick !== undefined ? (
+            <Box
+              bg="violet.50"
+              borderRadius="xl"
+              p={4}
+              mb={4}
+              border="2px dashed"
+              borderColor="violet.200"
+              cursor="pointer"
+              _hover={{ borderColor: "violet.400" }}
+              transition="all 0.15s"
+              onClick={() => setSidekickSetupOpen(true)}
+            >
+              <HStack gap={3}>
+                <Box w="48px" h="48px" borderRadius="full" bg="violet.200" display="flex" alignItems="center" justifyContent="center">
+                  <Text fontSize="xl">✨</Text>
+                </Box>
+                <Box flex={1}>
+                  <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="violet.700">
+                    Meet your Sidekick
+                  </Text>
+                  <Text fontSize="xs" color="violet.500" fontFamily="body">
+                    Design an AI companion who will get to know you
+                  </Text>
+                </Box>
+              </HStack>
+            </Box>
+          ) : null
+        )}
+
         {/* Compact new project button */}
         <Flex justify="flex-end" mb={3}>
           <HStack
@@ -395,6 +471,12 @@ function ScholarHome() {
           user={user}
         />
       )}
+
+      {/* Sidekick setup flow */}
+      <SidekickSetupFlow
+        open={sidekickSetupOpen}
+        onClose={() => setSidekickSetupOpen(false)}
+      />
     </Flex>
   );
 }

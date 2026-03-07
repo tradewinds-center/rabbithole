@@ -158,17 +158,83 @@ function createParentServer(token: string) {
   return server;
 }
 
+// ── Fuzzy scholar name resolver ──────────────────────────────────────
+//
+// Accepts either a scholarId (direct) or a scholarName (fuzzy match).
+// Match priority: exact → first-name / last-name prefix → substring → all-words-present.
+// Returns the resolved scholarId or throws with a helpful message.
+
+interface ScholarRecord {
+  id: string;
+  name: string;
+  readingLevel: string | null;
+}
+
+async function resolveScholarId(
+  token: string,
+  { scholarId, scholarName }: { scholarId?: string; scholarName?: string }
+): Promise<string> {
+  if (scholarId) return scholarId;
+  if (!scholarName) throw new Error("Provide either scholarId or scholarName.");
+
+  const scholars = (await parentApi(token, "scholars")) as ScholarRecord[];
+  const q = scholarName.toLowerCase().trim();
+
+  // 1. Exact full-name match
+  let hit = scholars.find((s) => s.name.toLowerCase() === q);
+
+  // 2. Starts-with (handles "Nuni" → "Nuni Gelles")
+  if (!hit) hit = scholars.find((s) => s.name.toLowerCase().startsWith(q));
+
+  // 3. Any name segment starts-with (handles last names too)
+  if (!hit)
+    hit = scholars.find((s) =>
+      s.name.toLowerCase().split(/\s+/).some((seg) => seg.startsWith(q))
+    );
+
+  // 4. Substring anywhere
+  if (!hit) hit = scholars.find((s) => s.name.toLowerCase().includes(q));
+
+  // 5. All query words present somewhere in the name
+  if (!hit) {
+    const words = q.split(/\s+/);
+    hit = scholars.find((s) =>
+      words.every((w) => s.name.toLowerCase().includes(w))
+    );
+  }
+
+  if (!hit)
+    throw new Error(
+      `No scholar found matching "${scholarName}". Use list_scholars to see all available names.`
+    );
+
+  return hit.id;
+}
+
+// Accepts scholarId (exact) OR scholarName (fuzzy). scholarName takes priority for resolution
+// when both are absent — at least one is required.
+const scholarLookupSchema = {
+  scholarId: z
+    .string()
+    .optional()
+    .describe("The scholar's user ID (use this if you have it)"),
+  scholarName: z
+    .string()
+    .optional()
+    .describe(
+      "The scholar's name — partial or full, fuzzy matched. Use instead of scholarId when you only have a name."
+    ),
+};
+
 function createTeacherServer(token: string) {
   const server = new McpServer({
     name: "Tradewinds Learn — Teacher View",
     version: "1.0.0",
   });
 
-  const scholarIdSchema = { scholarId: z.string().describe("The scholar's user ID") };
-
   server.tool(
     "list_scholars",
-    "List all scholars with their name, reading level, and ID. Call this first to get scholar IDs for other tools.",
+    "List all scholars with their name, reading level, and ID. Use find_scholar instead if you already have a name to look up.",
     {},
     async () => {
       const scholars = await parentApi(token, "scholars");
@@ -179,10 +245,51 @@ function createTeacherServer(token: string) {
   );
 
   server.tool(
+    "find_scholar",
+    "Look up a scholar by name (fuzzy match — first name, last name, or partial name all work). Returns matching scholar(s) with their ID. Use this instead of list_scholars when you have a name.",
+    { name: z.string().describe("Partial or full scholar name to search for") },
+    async ({ name }) => {
+      const scholars = (await parentApi(token, "scholars")) as ScholarRecord[];
+      const q = name.toLowerCase().trim();
+
+      const scored = scholars
+        .map((s) => {
+          const sn = s.name.toLowerCase();
+          const segs = sn.split(/\s+/);
+          if (sn === q) return { s, score: 100 };
+          if (sn.startsWith(q)) return { s, score: 90 };
+          if (segs.some((seg) => seg.startsWith(q))) return { s, score: 80 };
+          if (sn.includes(q)) return { s, score: 60 };
+          const words = q.split(/\s+/);
+          if (words.every((w) => sn.includes(w))) return { s, score: 40 };
+          return null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b!.score - a!.score)
+        .map((r) => r!.s);
+
+      if (scored.length === 0)
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `No scholars found matching "${name}". Use list_scholars to browse all names.`,
+            },
+          ],
+        };
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(scored, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
     "get_scholar_summary",
     "Get a scholar's overview: learning profile, reading level, recent engagement score, and high-level stats.",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const summary = await parentApi(token, "summary", { scholarId });
       return {
         content: [{ type: "text" as const, text: JSON.stringify(summary, null, 2) }],
@@ -193,8 +300,9 @@ function createTeacherServer(token: string) {
   server.tool(
     "get_scholar_projects",
     "See a scholar's recent learning projects — what they've been working on, which curriculum units, and engagement scores.",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const projects = await parentApi(token, "projects", { scholarId });
       return {
         content: [{ type: "text" as const, text: JSON.stringify(projects, null, 2) }],
@@ -205,8 +313,9 @@ function createTeacherServer(token: string) {
   server.tool(
     "get_scholar_mastery",
     "Get a scholar's concept mastery by domain (math, science, language arts, etc.) with Bloom's taxonomy levels (0-5 scale: remember → create).",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const mastery = await parentApi(token, "mastery", { scholarId }) as Record<string, { concept: string; level: number; evidence: string }[]>;
       return {
         content: [{ type: "text" as const, text: formatMastery(mastery) }],
@@ -217,8 +326,9 @@ function createTeacherServer(token: string) {
   server.tool(
     "get_scholar_signals",
     "See a scholar's learning character signals: curiosity, persistence, collaboration, creativity, and more — with intensity ratings.",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const signals = await parentApi(token, "signals", { scholarId });
       return {
         content: [{ type: "text" as const, text: JSON.stringify(signals, null, 2) }],
@@ -229,8 +339,9 @@ function createTeacherServer(token: string) {
   server.tool(
     "get_scholar_observations",
     "Read teacher observations about a scholar: praise, areas of concern, suggestions, and interventions.",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const observations = await parentApi(token, "observations", { scholarId }) as { note: string; type: string; createdAt: number }[];
       const text = Array.isArray(observations) && observations.length > 0
         ? observations.map((o) => `- [${o.type}] ${o.note}`).join("\n")
@@ -244,8 +355,9 @@ function createTeacherServer(token: string) {
   server.tool(
     "get_scholar_seeds",
     "See what exploration topics are suggested for a scholar — seeds for deeper learning.",
-    scholarIdSchema,
-    async ({ scholarId }) => {
+    scholarLookupSchema,
+    async (args) => {
+      const scholarId = await resolveScholarId(token, args);
       const seeds = await parentApi(token, "seeds", { scholarId }) as { topic: string; domain?: string | null; rationale: string; status: string }[];
       return {
         content: [{ type: "text" as const, text: formatSeeds(seeds) }],

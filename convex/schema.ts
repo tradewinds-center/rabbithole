@@ -49,6 +49,7 @@ export default defineSchema({
     // Time limit mode (parent-set)
     sessionTimeLimit: v.optional(v.number()), // minutes
     sessionStartTime: v.optional(v.number()), // timestamp ms
+    projectType: v.optional(v.union(v.literal("lesson"), v.literal("interview"))),
     isArchived: v.boolean(),
     // DEPRECATED — kept optional for migration, remove after running migrations:removeStatusField
     status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red"))),
@@ -386,6 +387,36 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_user", ["userId"]),
+
+  sidekicks: defineTable({
+    scholarId: v.id("users"),
+    name: v.optional(v.string()),
+    animal: v.optional(v.string()),
+    color: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id("_storage")),
+    habitatStorageId: v.optional(v.id("_storage")),
+    setupComplete: v.boolean(),
+    generationStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("generating"),
+      v.literal("complete"),
+      v.literal("failed"),
+    )),
+  }).index("by_scholar", ["scholarId"]),
+
+  scholarPortraits: defineTable({
+    scholarId: v.id("users"),
+    dimensions: v.optional(v.array(v.object({
+      name: v.string(),
+      score: v.number(),
+    }))),
+    status: v.optional(v.string()),
+    statusDetailed: v.optional(v.string()),
+    contextDigest: v.optional(v.string()),
+    icebreakers: v.optional(v.array(v.string())),
+    completeness: v.optional(v.number()),
+    lastAssessed: v.optional(v.number()),
+  }).index("by_scholar", ["scholarId"]),
 
   processState: defineTable({
     projectId: v.id("projects"),
