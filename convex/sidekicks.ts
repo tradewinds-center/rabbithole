@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedQuery, authedMutation } from "./lib/customFunctions";
 import { internalQuery, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /**
  * Get sidekick for the current user, or for a specific scholar (teacher access).
@@ -56,15 +57,35 @@ export const upsert = authedMutation({
       if (args.color !== undefined) patch.color = args.color;
       if (args.setupComplete !== undefined) patch.setupComplete = args.setupComplete;
       await ctx.db.patch(existing._id, patch);
+
+      // Trigger avatar generation if animal+color are now set and no avatar yet
+      const updated = await ctx.db.get(existing._id);
+      if (updated?.animal && updated?.color && !updated.avatarStorageId && updated.generationStatus !== "generating") {
+        await ctx.db.patch(existing._id, { generationStatus: "pending" });
+        await ctx.scheduler.runAfter(0, internal.sidekickGenerator.initiateSidekickGeneration, {
+          scholarId: ctx.user._id,
+        });
+      }
+
       return existing._id;
     } else {
-      return await ctx.db.insert("sidekicks", {
+      const id = await ctx.db.insert("sidekicks", {
         scholarId: ctx.user._id,
         name: args.name,
         animal: args.animal,
         color: args.color,
         setupComplete: args.setupComplete ?? false,
+        generationStatus: args.animal && args.color ? "pending" : undefined,
       });
+
+      // Trigger avatar generation if we have animal+color
+      if (args.animal && args.color) {
+        await ctx.scheduler.runAfter(0, internal.sidekickGenerator.initiateSidekickGeneration, {
+          scholarId: ctx.user._id,
+        });
+      }
+
+      return id;
     }
   },
 });
