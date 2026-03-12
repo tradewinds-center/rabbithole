@@ -139,7 +139,10 @@ export default function TeacherDashboardInner() {
   const searchParams = useSearchParams();
 
   // Derive tab state from URL
-  const VALID_TABS: Tab[] = ["live", "scholars", "curriculum", "assistant"];
+  const isCurriculumDesigner = user?.role === "curriculum_designer";
+  const VALID_TABS: Tab[] = isCurriculumDesigner
+    ? ["curriculum", "assistant"]
+    : ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
   const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "standards", "strengths", "documents", "notes", "dossier", "reading"];
   const rawTab = searchParams.get("tab");
@@ -147,7 +150,8 @@ export default function TeacherDashboardInner() {
   const rawScholar = searchParams.get("scholar");
   const rawStab = searchParams.get("stab");
   const rawUnit = searchParams.get("unit");
-  const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "live";
+  const defaultTab: Tab = isCurriculumDesigner ? "curriculum" : "live";
+  const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : defaultTab;
   const curriculumSubTab: CurriculumSubTab = VALID_SUB_TABS.includes(rawSub as CurriculumSubTab) ? (rawSub as CurriculumSubTab) : "units";
   const selectedScholarId: string | null = activeTab === "scholars" && rawScholar ? rawScholar : null;
   const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "activity";
@@ -212,6 +216,7 @@ export default function TeacherDashboardInner() {
   const currentFocus = useQuery(api.focus.getCurrent);
   const setFocus = useMutation(api.focus.set);
   const clearFocus = useMutation(api.focus.clear);
+  const addScholarsToFocus = useMutation(api.focus.addScholars);
 
   // Activity view data
   const activityData = useQuery(api.projects.listActiveByUnit);
@@ -224,7 +229,7 @@ export default function TeacherDashboardInner() {
       router.push("/sign-in");
       return;
     }
-    if (user.role !== "teacher" && user.role !== "admin") {
+    if (user.role !== "teacher" && user.role !== "admin" && user.role !== "curriculum_designer") {
       router.push("/scholar");
       return;
     }
@@ -256,7 +261,7 @@ export default function TeacherDashboardInner() {
           size="lg"
         >
           <Tabs.List borderBottom="none" gap={0}>
-            {TABS.map((tab) => {
+            {TABS.filter((tab) => VALID_TABS.includes(tab.key)).map((tab) => {
               const TabIcon = tab.icon;
               return (
                 <Tabs.Trigger
@@ -481,6 +486,7 @@ export default function TeacherDashboardInner() {
             currentFocus={currentFocus ?? null}
             onSetFocus={async (args) => { await setFocus(args); }}
             onClearFocus={async () => { await clearFocus(); }}
+            onAddScholarsToFocus={addScholarsToFocus}
             completedActivities={completedActivities}
           />
         )}
@@ -627,6 +633,7 @@ function ActivityView({
   currentFocus,
   onSetFocus,
   onClearFocus,
+  onAddScholarsToFocus,
   completedActivities,
 }: {
   activityData: ActivityData | null;
@@ -636,6 +643,7 @@ function ActivityView({
   currentFocus: FocusInfo | null;
   onSetFocus: (args: { unitId?: Id<"units">; lessonId?: Id<"lessons">; scholarIds?: Id<"users">[]; endsAt?: number }) => void;
   onClearFocus: () => void;
+  onAddScholarsToFocus: (args: { focusId: Id<"focusSettings">; scholarIds: Id<"users">[] }) => Promise<unknown>;
   completedActivities: CompletedActivity[];
 }) {
   const isActive = currentFocus?.isActive ?? false;
@@ -765,6 +773,13 @@ function ActivityView({
         ...(focusLessonId ? { lessonId: focusLessonId } : {}),
         activityId: currentFocusId as Id<"focusSettings">,
       });
+      // Update focus lock to include this scholar
+      if (currentFocusId) {
+        await onAddScholarsToFocus({
+          focusId: currentFocusId as Id<"focusSettings">,
+          scholarIds: [scholar.scholarId],
+        });
+      }
     }
     // Dragging from focused activity → unassigned
     else if (src === focusUnitId && dropTarget === "__unassigned") {
@@ -855,15 +870,23 @@ function ActivityView({
                 unassignedScholars={unassignedScholars}
                 onAddScholars={async (scholarIds) => {
                   const unitIdTyped = selectedGroup.data.unitId as Id<"units">;
-                  await Promise.all(
-                    scholarIds.map((sid) =>
+                  await Promise.all([
+                    // Create projects for each scholar
+                    ...scholarIds.map((sid) =>
                       createProject({
                         userId: sid,
                         unitId: unitIdTyped,
                         activityId: currentFocusId as Id<"focusSettings">,
                       })
-                    )
-                  );
+                    ),
+                    // Update focus lock to include these scholars
+                    currentFocusId
+                      ? onAddScholarsToFocus({
+                          focusId: currentFocusId as Id<"focusSettings">,
+                          scholarIds,
+                        })
+                      : Promise.resolve(),
+                  ]);
                 }}
               />
               {selectedGroup.data.scholars.length > 0 ? (

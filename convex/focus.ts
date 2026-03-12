@@ -78,7 +78,7 @@ export const set = teacherMutation({
       teacherId: ctx.user._id,
       unitId: args.unitId,
       lessonId: args.lessonId,
-      scholarIds: args.scholarIds,
+      scholarIds: args.scholarIds ?? [],
       isActive: true,
       endsAt,
     });
@@ -96,6 +96,25 @@ export const set = teacherMutation({
     }
 
     return focusId;
+  },
+});
+
+/**
+ * Add scholars to the active focus's scholarIds list.
+ * Called when teacher clicks "Add Scholars" so the focus lock
+ * applies only to scholars actually in the activity.
+ */
+export const addScholars = teacherMutation({
+  args: {
+    focusId: v.id("focusSettings"),
+    scholarIds: v.array(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const focus = await ctx.db.get(args.focusId);
+    if (!focus || !focus.isActive) return;
+    const existing = focus.scholarIds ?? [];
+    const merged = Array.from(new Set([...existing, ...args.scholarIds]));
+    await ctx.db.patch(args.focusId, { scholarIds: merged });
   },
 });
 
