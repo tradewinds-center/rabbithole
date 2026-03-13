@@ -23,7 +23,8 @@ export default defineSchema({
       v.union(
         v.literal("scholar"),
         v.literal("teacher"),
-        v.literal("admin")
+        v.literal("admin"),
+        v.literal("curriculum_designer")
       )
     ),
     readingLevel: v.optional(v.string()),
@@ -290,6 +291,7 @@ export default defineSchema({
     enduringUnderstandings: v.optional(v.array(v.string())),
     subject: v.optional(v.string()),
     gradeLevel: v.optional(v.string()),
+    mathDomain: v.optional(v.string()),
     isActive: v.boolean(),
   })
     .index("by_teacher", ["teacherId"])

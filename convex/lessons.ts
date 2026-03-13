@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery, teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, curriculumQuery, curriculumMutation } from "./lib/customFunctions";
 import { internalQuery } from "./_generated/server";
 
 /** Lean query accessible to all authenticated users (scholars need this for UnitPickerDialog). */
@@ -26,7 +26,7 @@ export const listByUnitPublic = authedQuery({
   },
 });
 
-export const listByUnit = teacherQuery({
+export const listByUnit = curriculumQuery({
   args: { unitId: v.id("units") },
   handler: async (ctx, args) => {
     const lessons = await ctx.db
@@ -50,14 +50,14 @@ export const listByUnit = teacherQuery({
   },
 });
 
-export const get = teacherQuery({
+export const get = curriculumQuery({
   args: { id: v.id("lessons") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
 });
 
-export const create = teacherMutation({
+export const create = curriculumMutation({
   args: {
     unitId: v.id("units"),
     title: v.string(),
@@ -89,7 +89,7 @@ export const create = teacherMutation({
   },
 });
 
-export const update = teacherMutation({
+export const update = curriculumMutation({
   args: {
     id: v.id("lessons"),
     title: v.optional(v.string()),
@@ -118,14 +118,14 @@ export const update = teacherMutation({
   },
 });
 
-export const remove = teacherMutation({
+export const remove = curriculumMutation({
   args: { id: v.id("lessons") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
   },
 });
 
-export const reorder = teacherMutation({
+export const reorder = curriculumMutation({
   args: {
     lessonIds: v.array(v.id("lessons")),
   },

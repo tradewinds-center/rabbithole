@@ -35,7 +35,7 @@ function RoleSelect({
     <select
       value={currentRole}
       onChange={async (e) => {
-        const role = e.target.value as "scholar" | "teacher" | "admin";
+        const role = e.target.value as "scholar" | "teacher" | "admin" | "curriculum_designer";
         await updateRole({ userId, role });
       }}
       style={{
@@ -49,6 +49,7 @@ function RoleSelect({
       <option value="scholar">scholar</option>
       <option value="teacher">teacher</option>
       <option value="admin">admin</option>
+      <option value="curriculum_designer">curriculum designer</option>
     </select>
   );
 }

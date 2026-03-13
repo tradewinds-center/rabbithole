@@ -30,7 +30,7 @@ export default function Home() {
     }
 
     // Route based on user role
-    if (user.role === "teacher" || user.role === "admin") {
+    if (user.role === "teacher" || user.role === "admin" || user.role === "curriculum_designer") {
       router.push("/teacher");
     } else {
       router.push("/scholar");

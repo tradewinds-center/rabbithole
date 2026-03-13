@@ -39,6 +39,23 @@ export async function requireTeacher(
 }
 
 /**
+ * Require curriculum access: teacher, admin, or curriculum_designer.
+ */
+export async function requireCurriculumAccess(
+  ctx: QueryCtx | MutationCtx
+): Promise<Doc<"users">> {
+  const user = await requireUser(ctx);
+  if (
+    user.role !== "teacher" &&
+    user.role !== "admin" &&
+    user.role !== "curriculum_designer"
+  ) {
+    throw new Error("Forbidden: curriculum access required");
+  }
+  return user;
+}
+
+/**
  * Require admin role.
  */
 export async function requireAdmin(

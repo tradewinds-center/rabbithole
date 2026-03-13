@@ -1,14 +1,14 @@
 import { v } from "convex/values";
-import { authedQuery, teacherMutation } from "./lib/customFunctions";
+import { authedQuery, curriculumMutation } from "./lib/customFunctions";
 
 export const list = authedQuery({
   args: {},
   handler: async (ctx) => {
-    const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const canManageCurriculum =
+      ctx.user.role === "teacher" || ctx.user.role === "admin" || ctx.user.role === "curriculum_designer";
 
     let perspectiveList;
-    if (isTeacher) {
+    if (canManageCurriculum) {
       perspectiveList = await ctx.db
         .query("perspectives")
         .order("desc")
@@ -42,7 +42,7 @@ export const get = authedQuery({
   },
 });
 
-export const create = teacherMutation({
+export const create = curriculumMutation({
   args: {
     title: v.string(),
     icon: v.optional(v.string()),
@@ -61,7 +61,7 @@ export const create = teacherMutation({
   },
 });
 
-export const update = teacherMutation({
+export const update = curriculumMutation({
   args: {
     id: v.id("perspectives"),
     title: v.optional(v.string()),
@@ -84,7 +84,7 @@ export const update = teacherMutation({
   },
 });
 
-export const deactivate = teacherMutation({
+export const deactivate = curriculumMutation({
   args: { id: v.id("perspectives") },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { isActive: false });

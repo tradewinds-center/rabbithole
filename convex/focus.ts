@@ -19,15 +19,12 @@ export const getCurrent = authedQuery({
     if (!active) return null;
     // Treat expired focus as inactive
     if (active.endsAt && Date.now() > active.endsAt) return null;
-    // Per-scholar filtering: if scholarIds is set, only those scholars see the lock
+    // Per-scholar filtering: scholars only see the lock if they're in the list.
+    // No scholars assigned = lock applies to nobody.
     const user = ctx.user;
-    if (
-      user.role === "scholar" &&
-      active.scholarIds &&
-      active.scholarIds.length > 0 &&
-      !active.scholarIds.includes(user._id)
-    ) {
-      return null;
+    if (user.role === "scholar") {
+      if (!active.scholarIds || active.scholarIds.length === 0) return null;
+      if (!active.scholarIds.includes(user._id)) return null;
     }
     // Enrich with lesson title for banner display
     const lesson = active.lessonId ? await ctx.db.get(active.lessonId) : null;
@@ -71,6 +68,11 @@ export const set = teacherMutation({
       if (unit?.durationMinutes) {
         endsAt = Date.now() + unit.durationMinutes * 60_000;
       }
+    }
+
+    // Default to 60 minutes if no duration was found
+    if (!endsAt) {
+      endsAt = Date.now() + 60 * 60_000;
     }
 
     // Insert new active focus

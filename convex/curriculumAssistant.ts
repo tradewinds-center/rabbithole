@@ -1,11 +1,11 @@
 import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
-import { teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { curriculumQuery, curriculumMutation } from "./lib/customFunctions";
 
 // ── Public (teacher-authed) ─────────────────────────────────────────
 
-export const getMessages = teacherQuery({
+export const getMessages = curriculumQuery({
   args: {},
   handler: async (ctx) => {
     const messages = await ctx.db
@@ -17,7 +17,7 @@ export const getMessages = teacherQuery({
   },
 });
 
-export const sendMessage = teacherMutation({
+export const sendMessage = curriculumMutation({
   args: { message: v.string() },
   handler: async (ctx, args) => {
     // Insert user message
@@ -40,7 +40,7 @@ export const sendMessage = teacherMutation({
   },
 });
 
-export const clearHistory = teacherMutation({
+export const clearHistory = curriculumMutation({
   args: {},
   handler: async (ctx) => {
     const messages = await ctx.db
@@ -55,7 +55,7 @@ export const clearHistory = teacherMutation({
 
 // ── Unit-scoped messages (for Unit Designer chat) ───────────────────
 
-export const getMessagesByUnit = teacherQuery({
+export const getMessagesByUnit = curriculumQuery({
   args: { unitId: v.id("units") },
   handler: async (ctx, args) => {
     const messages = await ctx.db
@@ -69,7 +69,7 @@ export const getMessagesByUnit = teacherQuery({
   },
 });
 
-export const sendMessageForUnit = teacherMutation({
+export const sendMessageForUnit = curriculumMutation({
   args: { message: v.string(), unitId: v.id("units") },
   handler: async (ctx, args) => {
     await ctx.db.insert("curriculumMessages", {
@@ -92,7 +92,7 @@ export const sendMessageForUnit = teacherMutation({
   },
 });
 
-export const clearHistoryForUnit = teacherMutation({
+export const clearHistoryForUnit = curriculumMutation({
   args: { unitId: v.id("units") },
   handler: async (ctx, args) => {
     const messages = await ctx.db

@@ -209,7 +209,8 @@ export const updateRole = adminMutation({
     role: v.union(
       v.literal("scholar"),
       v.literal("teacher"),
-      v.literal("admin")
+      v.literal("admin"),
+      v.literal("curriculum_designer")
     ),
   },
   handler: async (ctx, args) => {
@@ -224,7 +225,7 @@ export const updateRole = adminMutation({
 export const fixRole = internalMutation({
   args: {
     userId: v.id("users"),
-    role: v.union(v.literal("scholar"), v.literal("teacher"), v.literal("admin")),
+    role: v.union(v.literal("scholar"), v.literal("teacher"), v.literal("admin"), v.literal("curriculum_designer")),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);

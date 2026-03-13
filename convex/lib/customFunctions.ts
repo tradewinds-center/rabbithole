@@ -4,7 +4,7 @@ import {
   customAction,
 } from "convex-helpers/server/customFunctions";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUser, requireUser, requireTeacher, requireAdmin } from "./auth";
+import { getCurrentUser, requireUser, requireTeacher, requireAdmin, requireCurriculumAccess } from "./auth";
 import { Doc } from "../_generated/dataModel";
 
 // ── Authenticated queries/mutations (any logged-in user) ──────────────
@@ -47,6 +47,24 @@ export const teacherMutation = customMutation(mutation, {
   args: {},
   input: async (ctx) => {
     const user = await requireTeacher(ctx);
+    return { ctx: { ...ctx, user }, args: {} };
+  },
+});
+
+// ── Curriculum queries/mutations (teacher + admin + curriculum_designer) ──
+
+export const curriculumQuery = customQuery(query, {
+  args: {},
+  input: async (ctx) => {
+    const user = await requireCurriculumAccess(ctx);
+    return { ctx: { ...ctx, user }, args: {} };
+  },
+});
+
+export const curriculumMutation = customMutation(mutation, {
+  args: {},
+  input: async (ctx) => {
+    const user = await requireCurriculumAccess(ctx);
     return { ctx: { ...ctx, user }, args: {} };
   },
 });
