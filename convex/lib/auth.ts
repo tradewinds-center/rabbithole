@@ -32,8 +32,8 @@ export async function requireTeacher(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users">> {
   const user = await requireUser(ctx);
-  if (user.role !== "teacher" && user.role !== "admin") {
-    throw new Error("Forbidden: teacher or admin role required");
+  if (user.role !== "teacher" && user.role !== "admin" && user.role !== "curriculum_designer") {
+    throw new Error("Forbidden: teacher, admin, or curriculum_designer role required");
   }
   return user;
 }
