@@ -135,11 +135,11 @@ export default function TeacherDashboardInner() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
   const { signOut } = useAuthActions();
   const router = useRouter();
-  const scholars = useQuery(api.users.listScholars) ?? [];
+  const isCurriculumDesigner = user?.role === "curriculum_designer";
+  const scholars = useQuery(api.users.listScholars, isCurriculumDesigner ? "skip" : {}) ?? [];
   const searchParams = useSearchParams();
 
   // Derive tab state from URL
-  const isCurriculumDesigner = user?.role === "curriculum_designer";
   const VALID_TABS: Tab[] = isCurriculumDesigner
     ? ["curriculum", "assistant"]
     : ["live", "scholars", "curriculum", "assistant"];
@@ -218,9 +218,9 @@ export default function TeacherDashboardInner() {
   const clearFocus = useMutation(api.focus.clear);
   const addScholarsToFocus = useMutation(api.focus.addScholars);
 
-  // Activity view data
-  const activityData = useQuery(api.projects.listActiveByUnit);
-  const completedActivities = useQuery(api.focus.listCompleted) ?? [];
+  // Activity view data (teacher-only — curriculum designers don't need these)
+  const activityData = useQuery(api.projects.listActiveByUnit, isCurriculumDesigner ? "skip" : {});
+  const completedActivities = useQuery(api.focus.listCompleted, isCurriculumDesigner ? "skip" : {}) ?? [];
 
   // Auth redirect
   useEffect(() => {
