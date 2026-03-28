@@ -23,8 +23,7 @@ AI-powered Socratic tutoring platform at Tradewinds Center for Advanced Learning
 
 - Node.js 18+
 - npm or pnpm
-- A [Convex](https://convex.dev) account (free tier works)
-- API keys: Anthropic (Claude), OpenAI (Whisper), optionally Google Gemini (image generation)
+- A [Convex](https://convex.dev) account (free — Andy will add you to the team)
 
 ## Setup
 
@@ -36,37 +35,23 @@ npm install
 
 ### 2. Set up Convex
 
-Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev):
+Contact **Andy** at [andy@tradewinds.school](mailto:andy@tradewinds.school) to get added to the Convex team. Once added:
 
-```bash
-npx convex dev
-```
-
-This will:
-- Prompt you to log in to Convex (or create an account)
-- Create a new project (or link to an existing one)
-- Generate `.env.local` with your `NEXT_PUBLIC_CONVEX_URL`
-- Start the Convex dev server and push your schema + functions
+1. Create a free account at [dashboard.convex.dev](https://dashboard.convex.dev) (if you don't have one)
+2. Run `npx convex dev` and select the existing **rabbithole** project — this gives you your own isolated dev deployment
+3. This generates `.env.local` with your `NEXT_PUBLIC_CONVEX_URL`
 
 Keep this terminal running — it watches for changes and deploys automatically.
 
-### 3. Set Convex environment variables
+### 3. Convex environment variables
 
-In the [Convex dashboard](https://dashboard.convex.dev) → Settings → Environment Variables, add:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key for chat |
-| `OPENAI_API_KEY` | Yes | OpenAI key for Whisper transcription |
-| `GEMINI_API_KEY` | No | Google Gemini key for AI image generation |
-| `PARENT_PASSWORD` | No | Password for parent time-limit feature |
-
-Or via CLI:
+API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) are configured as project-level defaults, so your dev deployment should have them automatically. Verify with:
 
 ```bash
-npx convex env set ANTHROPIC_API_KEY sk-ant-...
-npx convex env set OPENAI_API_KEY sk-proj-...
+npx convex env list
 ```
+
+If any are missing, ask Andy.
 
 ### 4. Seed the database
 
