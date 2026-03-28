@@ -175,7 +175,7 @@ function ScholarHome() {
   const lockedUnitId = focusLock?.unitId ?? null;
 
   return (
-    <Flex minH="100vh" bg="gray.50" flexDir="column">
+    <Flex h="100dvh" bg="gray.50" flexDir="column">
       <TopBar
         isRemoteMode={isRemoteMode}
         scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
