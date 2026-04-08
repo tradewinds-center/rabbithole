@@ -38,13 +38,14 @@ import {
   FiActivity,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
+import { ScholarPortraitPanel } from "@/components/ScholarPortraitPanel";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
 import { MasteryTab } from "@/components/MasteryTab";
 import { SeedsTab } from "@/components/SeedsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 
-export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "notes" | "reading";
+export type ScholarTabKey = "activity" | "portrait" | "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "notes" | "reading";
 type TabKey = ScholarTabKey;
 
 interface ScholarProfileProps {
@@ -76,6 +77,7 @@ const READING_LEVELS = [
 
 const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
   { key: "activity", label: "Activity", icon: FiActivity },
+  { key: "portrait", label: "Portrait", icon: FiUser },
   { key: "mastery", label: "Mastery", icon: FiCpu },
   { key: "seeds", label: "Seeds", icon: Plant },
   { key: "standards", label: "Standards", icon: FiClipboard },
@@ -458,6 +460,18 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
               )}
             </Box>
           </VStack>
+        )}
+
+        {activeTab === "portrait" && (
+          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
+            <HStack mb={3}>
+              <FiUser color="#AD60BF" />
+              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                Scholar Portrait
+              </Text>
+            </HStack>
+            <ScholarPortraitPanel scholarId={scholarId as Id<"users">} />
+          </Box>
         )}
 
         {activeTab === "dossier" && (

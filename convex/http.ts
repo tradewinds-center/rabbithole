@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { buildSystemPrompt } from "./projectHelpers";
+import { buildInterviewSystemPrompt } from "./interviewPrompt";
 
 const http = httpRouter();
 
@@ -52,24 +53,42 @@ http.route({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Build system prompt (now includes artifact data + dossier + mastery context)
-    const systemPrompt = buildSystemPrompt(
-      project.teacherWhisper,
-      project.readingLevel,
-      project.scholarName,
-      project.unitContext,
-      project.personaContext,
-      project.perspectiveContext,
-      project.processContext,
-      project.processStateData,
-      project.artifactData,
-      project.dossierContent,
-      project.seeds.length > 0 ? project.seeds : null,
-      project.masteryContext,
-      project.signalContext,
-      project.timingContext,
-      project.lessonContext
-    );
+    // Build system prompt — interview projects use a different prompt
+    let systemPrompt: string;
+    if (project.projectType === "interview") {
+      // Get sidekick info for the interview prompt
+      const sidekick = await ctx.runQuery(internal.sidekicks.getSidekickForScholar, {
+        scholarId: project.scholarId as Id<"users">,
+      });
+      const portrait = await ctx.runQuery(internal.scholarPortraits.getPortraitInternal, {
+        scholarId: project.scholarId as Id<"users">,
+      });
+      systemPrompt = buildInterviewSystemPrompt(
+        project.scholarName,
+        sidekick?.name ?? "Sidekick",
+        portrait?.completeness ?? null,
+        portrait?.icebreakers ?? null,
+      );
+    } else {
+      systemPrompt = buildSystemPrompt(
+        project.teacherWhisper,
+        project.readingLevel,
+        project.scholarName,
+        project.unitContext,
+        project.personaContext,
+        project.perspectiveContext,
+        project.processContext,
+        project.processStateData,
+        project.artifactData,
+        project.dossierContent,
+        project.seeds.length > 0 ? project.seeds : null,
+        project.masteryContext,
+        project.signalContext,
+        project.timingContext,
+        project.lessonContext,
+        project.portraitContextDigest,
+      );
+    }
 
     const encoder = new TextEncoder();
 
@@ -598,12 +617,16 @@ http.route({
           });
 
           // Build tools array based on active features
+          // Interview projects have no tools — just conversation
+          const isInterview = project.projectType === "interview";
           const tools: Parameters<typeof anthropic.beta.messages.toolRunner>[0]["tools"] = [];
-          tools.push(updateDossierTool); // Always enabled
-          tools.push(createCodeTool); // Always enabled — scholars can build interactive code
-          tools.push(editDocumentTool); // Always enabled — needed to edit code artifacts and create/edit documents
-          tools.push(generateImageTool); // Always enabled — AI image generation
-          if (hasProcess) tools.push(processStepTool);
+          if (!isInterview) {
+            tools.push(updateDossierTool); // Always enabled
+            tools.push(createCodeTool); // Always enabled — scholars can build interactive code
+            tools.push(editDocumentTool); // Always enabled — needed to edit code artifacts and create/edit documents
+            tools.push(generateImageTool); // Always enabled — AI image generation
+            if (hasProcess) tools.push(processStepTool);
+          }
 
           // ── Stream with tool runner ──────────────────────────────────
 

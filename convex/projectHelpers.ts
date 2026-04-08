@@ -128,6 +128,12 @@ export const getProjectContext = internalQuery({
       .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
       .first();
 
+    // Get scholar portrait context digest
+    const portrait = await ctx.db
+      .query("scholarPortraits")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
+      .first();
+
     // Get current mastery observations (non-superseded) for system prompt context
     const masteryObs = await ctx.db
       .query("masteryObservations")
@@ -241,6 +247,7 @@ export const getProjectContext = internalQuery({
       scholarName: scholar?.name ?? null,
       scholarId: project.userId,
       dossierContent: dossier?.content ?? null,
+      portraitContextDigest: portrait?.contextDigest ?? null,
       masteryContext,
       signalContext,
       unitContext,
@@ -253,6 +260,7 @@ export const getProjectContext = internalQuery({
       seeds,
       chatHistory,
       title: project.title,
+      projectType: project.projectType ?? null,
       timingContext,
     };
   },
@@ -327,10 +335,17 @@ export const finalizeStream = internalMutation({
       }
     }
 
-    // Auto-trigger unified observer in background
-    await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
-      projectId: args.projectId,
-    });
+    // Auto-trigger analysis in background
+    if (project && project.projectType === "interview") {
+      // Interview projects trigger portrait assessment instead of observer
+      await ctx.scheduler.runAfter(0, internal.portraitAssessor.assessScholarPortrait, {
+        scholarId: project.userId,
+      });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
+        projectId: args.projectId,
+      });
+    }
   },
 });
 
@@ -440,6 +455,11 @@ Guidelines:
 - Keep responses concise but substantive
 - You can use markdown in your responses: **bold**, *italic*, lists, headers, etc.
 - If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and give a warm, brief welcome. If a unit is active, introduce it. If a persona, perspective, or process is active, acknowledge them naturally. Ask an engaging opening question. Do NOT mention or repeat "<start>".${scholarName ? `\n\nSCHOLAR NAME: ${scholarName}` : ""}`;
+}
+
+function buildPortraitSection(contextDigest: string | null): string | null {
+  if (!contextDigest) return null;
+  return `\n\nSCHOLAR PORTRAIT (who this student is as a learner, from direct interviews):\n${contextDigest}`;
 }
 
 function buildDossierSection(dossierContent: string | null): string {
@@ -677,11 +697,13 @@ export function buildSystemPrompt(
   masteryContext: MasteryContextEntry[] | null = null,
   signalContext: SignalContext | null = null,
   timingContext: TimingContext | null = null,
-  lessonContext: LessonContext | null = null
+  lessonContext: LessonContext | null = null,
+  portraitContextDigest: string | null = null
 ): string {
   const sections: (string | null)[] = [
     buildBasePrompt(scholarName),
     buildDossierSection(dossierContent),
+    buildPortraitSection(portraitContextDigest),
     buildMasterySection(masteryContext),
     buildSignalSection(signalContext),
     readingLevel ? `\n\nREADING LEVEL: The scholar's reading level is set to "${readingLevel}". Adjust your vocabulary and sentence complexity accordingly. You can still explore advanced topics, but frame explanations at this reading level.` : null,
