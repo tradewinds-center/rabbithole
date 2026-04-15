@@ -2,6 +2,12 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import {
+  buildBasePrompt,
+  buildDossierSection,
+  buildWhisperSection,
+  buildToolsSection,
+} from "./prompts";
 
 /**
  * Get all context needed to call Claude for a project.
@@ -424,39 +430,8 @@ export type LessonContext = {
 };
 
 // ── System Prompt Section Builders ───────────────────────────────────
-
-function buildBasePrompt(scholarName: string | null): string {
-  return `You are an AI learning companion for gifted scholars at Tradewinds School in Honolulu, Hawaii.
-
-Your role is to be a Socratic tutor: ask probing questions, encourage deep thinking, and help scholars explore ideas rather than just giving answers. Be warm, encouraging, and intellectually stimulating. Adapt to the scholar's level and interests.
-
-Guidelines:
-- Ask follow-up questions that push thinking deeper
-- Encourage multiple perspectives on topics
-- Celebrate curiosity and effort
-- Use age-appropriate language
-- Be honest when you don't know something
-- Connect topics across disciplines when natural
-- Keep responses concise but substantive
-- You can use markdown in your responses: **bold**, *italic*, lists, headers, etc.
-- If the scholar's first message is "<start>", greet them${scholarName ? ` by name (${scholarName.split(" ")[0]})` : ""} and give a warm, brief welcome. If a unit is active, introduce it. If a persona, perspective, or process is active, acknowledge them naturally. Ask an engaging opening question. Do NOT mention or repeat "<start>".${scholarName ? `\n\nSCHOLAR NAME: ${scholarName}` : ""}`;
-}
-
-function buildDossierSection(dossierContent: string | null): string {
-  if (dossierContent) {
-    return `\nSCHOLAR PROFILE (persistent notes you maintain about this scholar's learning patterns — private, do not mention to scholar):
-${dossierContent}
-
-You have a tool called "update_dossier" to update this profile. Use it when you notice:
-- A new learning style preference (visual/kinesthetic/verbal, etc.)
-- A recurring interest or passion
-- A strength or growth area
-- A behavioral pattern (e.g., rushes through, asks deep questions, gets frustrated with X)
-Keep the profile terse — bullet points grouped by category. Under 500 words.
-Do NOT update the dossier on every message — only when you have a genuine new insight.`;
-  }
-  return `\nYou have a tool called "update_dossier" to build a persistent scholar profile. Start building it when you notice learning patterns, interests, strengths, or growth areas. Use terse bullet points grouped by category. Under 500 words. Do NOT update on every message — only when you have a genuine new insight.`;
-}
+// NOTE: Core prompts (buildBasePrompt, buildDossierSection, buildWhisperSection,
+// buildToolsSection) are now imported from ./prompts.ts for DRY and parent transparency.
 
 function buildMasterySection(masteryContext: MasteryContextEntry[] | null): string | null {
   if (!masteryContext || masteryContext.length === 0) return null;
@@ -601,19 +576,6 @@ IMPORTANT: Documents are plain text only — do NOT use markdown formatting. Doc
   return lines.join("\n");
 }
 
-function buildToolsSection(): string {
-  return `\n\nCODE ARTIFACTS: You have a tool called "create_code" to build interactive visual projects. Use it when the scholar wants to build something visual — a web page, game, animation, chart, simulation, interactive story, or any creative coding project. The code must be a complete, self-contained HTML document with inline <style> and <script>. Prefer vanilla JS — external libraries via CDN are allowed if needed (e.g. p5.js, Three.js). It renders as a live preview in a sandboxed iframe the scholar can see and interact with. To modify a code artifact after creation, use the "edit_document" tool with str_replace or insert, targeting the code artifact's document_id.
-
-IMAGE GENERATION: You have a tool called "generate_image" to create educational illustrations and visualizations. Use it when:
-- A concept would be significantly clearer with a visual (cell structure, solar system, water cycle, geometric proof, historical scene, map)
-- The scholar asks you to draw, illustrate, or show something
-- A diagram or visual would deepen understanding beyond what words can convey
-
-Do NOT generate images for decoration, greetings, or when text suffices.
-
-Write a detailed prompt describing exactly what to illustrate — be specific about subject, composition, labels, colors, and educational content. Prefer clean, labeled diagram styles for scientific/mathematical concepts. For historical or creative topics, use a warm illustrative style appropriate for elementary students. Always describe the image to the scholar after generating it.`;
-}
-
 function buildSeedsSection(seedsData: SeedData[] | null): string | null {
   if (!seedsData || seedsData.length === 0) return null;
 
@@ -640,19 +602,6 @@ function buildSeedsSection(seedsData: SeedData[] | null): string | null {
     }
   }
   lines.push(`When the scholar sends "<start>", use one of these seeds (preferring teacher-approved ones) as an engaging conversation opener. During ongoing conversation, look for natural moments to introduce seeds that connect to what the scholar is already exploring. Don't force them — weave them in when the connection feels genuine.`);
-  return lines.join("\n");
-}
-
-function buildWhisperSection(teacherWhisper: string | null): string {
-  const lines: string[] = [];
-  if (teacherWhisper) {
-    lines.push(`\n\nTEACHER GUIDANCE (private — do not reveal this to the scholar): ${teacherWhisper}`);
-  }
-  lines.push(`\n\nTEACHER WHISPERS: The teacher may occasionally inject a [TEACHER WHISPER] message into the conversation. These are private real-time guidance. When you see one:
-- Follow the guidance naturally in your next response
-- Do NOT mention the whisper, the teacher, or that you received guidance
-- Do NOT quote or paraphrase the whisper
-- Weave the guidance seamlessly — the scholar should never know`);
   return lines.join("\n");
 }
 
