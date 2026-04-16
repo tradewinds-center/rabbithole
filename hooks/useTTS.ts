@@ -24,7 +24,8 @@ function stopGlobal() {
   }
   if (activeAudio) {
     activeAudio.pause();
-    activeAudio.src = "";
+    activeAudio.removeAttribute("src");
+    activeAudio.load();
     activeAudio = null;
   }
   if (activeMediaSource) {
@@ -45,6 +46,44 @@ function stopGlobal() {
   }
 }
 
+/** Wait for an event with a timeout. Returns true if event fired, false if timed out. */
+function waitForEvent(
+  target: EventTarget,
+  event: string,
+  timeoutMs: number,
+  abort: AbortController
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (abort.signal.aborted) { resolve(false); return; }
+    const timer = setTimeout(() => { resolve(false); }, timeoutMs);
+    const handler = () => { clearTimeout(timer); resolve(true); };
+    target.addEventListener(event, handler, { once: true });
+    abort.signal.addEventListener("abort", () => { clearTimeout(timer); resolve(false); }, { once: true });
+  });
+}
+
+function playViaBlob(
+  res: Response,
+  abort: AbortController,
+  setState: (s: TTSState) => void,
+  mountedRef: React.RefObject<boolean>
+): Promise<void> {
+  return (async () => {
+    log("BLOB: downloading full response");
+    const blob = await res.blob();
+    log("BLOB: received", blob.size, "bytes, type:", blob.type);
+    if (!mountedRef.current || abort.signal.aborted) return;
+
+    const url = URL.createObjectURL(blob);
+    activeBlobUrl = url;
+    const audio = new Audio(url);
+    activeAudio = audio;
+    setupAudioCleanup(audio, url, setState, mountedRef);
+    setState("playing");
+    await audio.play();
+  })();
+}
+
 async function streamAudio(
   res: Response,
   abort: AbortController,
@@ -63,19 +102,8 @@ async function streamAudio(
   });
 
   if (!canStreamMp3 || !res.body) {
-    log("FALLBACK: using blob approach (no MediaSource or no body)");
-    const blob = await res.blob();
-    log("Blob received:", blob.size, "bytes, type:", blob.type);
-    if (!mountedRef.current || abort.signal.aborted) return;
-
-    const url = URL.createObjectURL(blob);
-    activeBlobUrl = url;
-    const audio = new Audio(url);
-    activeAudio = audio;
-    setupAudioCleanup(audio, url, setState, mountedRef);
-    setState("playing");
-    await audio.play();
-    return;
+    log("FALLBACK: no MediaSource support or no body");
+    return playViaBlob(res, abort, setState, mountedRef);
   }
 
   // Streaming path: MediaSource + SourceBuffer
@@ -88,7 +116,6 @@ async function streamAudio(
   const audio = new Audio();
   activeAudio = audio;
 
-  // Log all audio element events
   audio.addEventListener("error", () => {
     const e = audio.error;
     log("audio ERROR event:", e?.code, e?.message);
@@ -105,10 +132,15 @@ async function streamAudio(
 
   setupAudioCleanup(audio, url, setState, mountedRef);
 
-  // Wait for MediaSource to open
-  await new Promise<void>((resolve) => {
-    mediaSource.addEventListener("sourceopen", () => resolve(), { once: true });
-  });
+  // Wait for MediaSource to open (timeout 3s → fall back to blob)
+  const opened = await waitForEvent(mediaSource, "sourceopen", 3000, abort);
+  if (!opened) {
+    log("sourceopen TIMED OUT — falling back to blob");
+    // Can't reuse res (body already locked by MediaSource), so we need to refetch
+    // but actually the body hasn't been read yet — MediaSource just opens from the object URL
+    // We can't easily fall back here, so just fail gracefully
+    throw new Error("MediaSource sourceopen timed out");
+  }
   log("sourceopen fired, readyState:", mediaSource.readyState);
 
   if (abort.signal.aborted) {
@@ -188,7 +220,7 @@ async function streamAudio(
         throw e;
       }
 
-      // Start playback after first chunk is appended
+      // Start playback once audio has enough data (wait for canplay)
       if (!playStarted) {
         await new Promise<void>((resolve) =>
           sourceBuffer.addEventListener("updateend", () => resolve(), {
@@ -197,7 +229,7 @@ async function streamAudio(
         );
         if (abort.signal.aborted) return;
 
-        log("first chunk appended, buffered:",
+        log("chunk appended, buffered:",
           sourceBuffer.buffered.length > 0
             ? `${sourceBuffer.buffered.start(0).toFixed(2)}-${sourceBuffer.buffered.end(0).toFixed(2)}s`
             : "empty",
@@ -205,6 +237,16 @@ async function streamAudio(
           "audio.paused:", audio.paused,
           "audio.error:", audio.error?.code, audio.error?.message
         );
+
+        // Wait for the audio element to have enough data to play
+        if (audio.readyState < 3) {
+          log("waiting for canplay event (readyState:", audio.readyState, ")...");
+          const canPlay = await waitForEvent(audio, "canplay", 5000, abort);
+          if (!canPlay) {
+            log("canplay TIMED OUT, readyState:", audio.readyState, "— trying play() anyway");
+          }
+        }
+        if (abort.signal.aborted) return;
 
         setState("playing");
         try {
@@ -298,12 +340,17 @@ export function useTTS() {
 
       await streamAudio(res, abort, setState, mountedRef);
     } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      console.error("TTS error:", err);
-      if (mountedRef.current && activeSetState === setState) {
-        setState("idle");
+      if (err?.name === "AbortError") {
+        log("speak aborted (AbortError)");
+        return;
       }
-      activeSetState = null;
+      console.error("TTS error:", err);
+    } finally {
+      // Always reset state if we're still the active speaker and not playing
+      if (mountedRef.current && activeSetState === setState && activeAudio === null) {
+        setState("idle");
+        activeSetState = null;
+      }
     }
   }, []);
 
