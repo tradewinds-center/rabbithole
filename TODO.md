@@ -6,22 +6,18 @@ From Amber & Carl meeting — April 15, 2026
 
 ## Bugs
 
-- [ ] _P0_ TTS is broken
-- [ ] _P0_ **Scrolling hides TTS button** — Scrolling down causes the text-to-speech "speaker" button to disappear above the fold. It should be sticky within a "track" that is along the right side of the chat bubble
-- [ ] _P1_ **Wherever possible, Cmd-clicking links should open things in new tabs, as per standard browser behavior
+- [ ] _P0_ **TTS broken in prod** — Network call returns data fine but audio never plays. Likely MediaSource streaming issue. WIP fix on `tts-playback` branch.
+- [ ] _P1_ **Wherever possible, Cmd-clicking links should open things in new tabs**, as per standard browser behavior
 
 ## Scholar Experience
 
-- [ ] _P0_ **Engagement bar: color only** — Amber was hyperfixated on getting 5/5. Remove the number, keep just the color indicator so it's less gamified/anxiety-inducing. Inside the dropdown just show e.g. "Pulse Score - Idle" with the rainbow but make it discretized so that it only shows the integer value
 - [ ] _P3_ **Scholar avatars** — Kid wants an avatar. Add avatar selection or generation for scholars
 - [ ] _P0_ **Students shouldn't be able to change own Reading Level** — Lock reading level to teacher-only control
 
 ## AI Tutor Behavior (Prompt Tuning)
 
-- [ ] **Redirect emotional questions** — When asked about emotional issues, redirect warmly instead of "I'm only an AI" / "does not compute." Something like acknowledging the feeling and suggesting they talk to a trusted adult
-- [ ] **Stop saying "You're right"** — AI shouldn't validate with "you're right." Rephrase to keep the scholar thinking
-- [ ] **Keep it concise** — Responses should be shorter by default. The student can always ask for more. This is a dialogue, not a monologue
-- [ ] **One question at a time** — Don't stack multiple questions. Ask one, wait for a response
+- [ ] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
+- [ ] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
 - [ ] **Loved the feedback comments** — (positive signal, keep this) Amber loved when the AI commented on how she was doing. Make sure this stays prominent
 - [ ] **Silly mode guardrails** — Amber can be silly at times. Tune how the AI handles silly/off-task moments (gentle redirect vs. playing along briefly then refocusing)
 
@@ -38,6 +34,7 @@ From Amber & Carl meeting — April 15, 2026
 - [ ] **Toggle: text-to-speech** — Per-scholar toggle for auto-read responses
 - [ ] **Flesch-Kincaid readability scoring** — Use [flesch-kincaid](https://github.com/words/flesch-kincaid?tab=readme-ov-file) to measure/target response reading level
 - [ ] _P0_ **Font toggle: Andika / OpenDyslexic** — Accessibility font options in Account Details for scholars who need them. this should only impact their own view, not when teachers are remoting in
+
 ## Structured AI Responses
 
 - [ ] **Introduce structured text formatting** — AI responses should use more structured text:
@@ -54,6 +51,17 @@ From Amber & Carl meeting — April 15, 2026
 - [ ] **AI image generation from reference photos** — Generate images based on a series of reference photos (style transfer / composition)
 - [ ] **"Describe this picture" similarity game** — Scholar describes a picture, AI generates from description, compare similarity to original
 - [ ] **Labeling artifact** — Draw/display a picture, scholar labels elements ("piano, wall, garbage"). New artifact type
+
+---
+
+## Done (April 15, 2026)
+
+- [x] **Engagement bar: color only** — `6cf99f7` Removed numeric score, replaced with discrete colored blocks and "Current Status" label
+- [x] **Scrolling hides TTS button** — `866f7f2` TTS button now in a sticky side track column
+- [x] **Redirect emotional questions** — `0da4b3f` Prompt updated: warm acknowledgment + redirect to trusted adult
+- [x] **Stop saying "You're right"** — `0da4b3f` Prompt updated: build on thinking instead of hollow validation
+- [x] **Keep it concise (prompt)** — `0da4b3f` Prompt updated, but not sufficient alone (moved back to open items)
+- [x] **One question at a time (prompt)** — `0da4b3f` Prompt updated, but not sufficient alone (moved back to open items)
 
 ---
 
