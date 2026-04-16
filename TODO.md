@@ -6,7 +6,7 @@ From Amber & Carl meeting — April 15, 2026
 
 ## Bugs
 
-- [ ] _P0_ **TTS broken in prod** — Network call returns data fine but audio never plays. Likely MediaSource streaming issue. WIP fix on `tts-playback` branch.
+- [x] _P0_ **TTS broken in prod** — Network call returns data fine but audio never plays. Likely MediaSource streaming issue. WIP fix on `tts-playback` branch.
 - [ ] _P1_ **Wherever possible, Cmd-clicking links should open things in new tabs**, as per standard browser behavior
 
 ## Scholar Experience

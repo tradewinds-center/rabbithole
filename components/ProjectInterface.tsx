@@ -1696,28 +1696,46 @@ function MessageBubble({
             <Box position="sticky" top="-12px">
               <Tooltip.Root openDelay={400} closeDelay={0} positioning={{ placement: "right" }}>
                 <Tooltip.Trigger asChild>
-                  <IconButton
-                    className="tts-btn"
-                    aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
-                    size="xs"
-                    variant="ghost"
-                    color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
-                    _hover={{ color: "violet.600", bg: "violet.50" }}
-                    opacity={tts.state !== "idle" ? 1 : 0}
-                    transition="opacity 0.15s"
-                    onClick={() => {
-                      const stripped = stripMarkdown(message.content);
-                      console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
-                      tts.toggle(stripped);
-                    }}
-                  >
-                    {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
-                  </IconButton>
+                  {tts.state === "playing" ? (
+                    <IconButton
+                      className="tts-btn"
+                      aria-label="Stop reading"
+                      size="xs"
+                      variant="solid"
+                      bg="violet.500"
+                      color="white"
+                      borderRadius="full"
+                      _hover={{ bg: "violet.600" }}
+                      css={{ animation: "tts-pulse 2s ease-in-out infinite" }}
+                      onClick={() => {
+                        tts.stop();
+                      }}
+                    >
+                      <FiSquare size={10} />
+                    </IconButton>
+                  ) : (
+                    <IconButton
+                      className="tts-btn"
+                      aria-label={tts.state === "loading" ? "Loading..." : "Read aloud"}
+                      size="xs"
+                      variant="ghost"
+                      color={tts.state === "loading" ? "violet.500" : "charcoal.300"}
+                      _hover={{ color: "violet.600", bg: "violet.50" }}
+                      opacity={tts.state === "loading" ? 1 : 0}
+                      transition="opacity 0.15s"
+                      onClick={() => {
+                        const stripped = stripMarkdown(message.content);
+                        tts.toggle(stripped);
+                      }}
+                    >
+                      {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
+                    </IconButton>
+                  )}
                 </Tooltip.Trigger>
                 <Portal>
                   <Tooltip.Positioner>
                     <Tooltip.Content fontSize="xs">
-                      {tts.state !== "idle" ? "Stop reading" : "Read aloud"}
+                      {tts.state === "playing" ? "Stop reading" : tts.state === "loading" ? "Loading..." : "Read aloud"}
                     </Tooltip.Content>
                   </Tooltip.Positioner>
                 </Portal>
