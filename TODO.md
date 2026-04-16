@@ -6,20 +6,20 @@ From Amber & Carl meeting — April 15, 2026
 
 ## Bugs
 
-- [ ] _P0_ TTS is broken in prod
-- [x] _P0_ **Scrolling hides TTS button** — Fixed: TTS button now in a sticky side track column
-- [ ] _P1_ **Wherever possible, Cmd-clicking links should open things in new tabs, as per standard browser behavior
+- [ ] _P0_ **TTS broken in prod** — Network call returns data fine but audio never plays. Likely MediaSource streaming issue. WIP fix on `tts-playback` branch.
+- [ ] _P1_ **Wherever possible, Cmd-clicking links should open things in new tabs**, as per standard browser behavior
 
 ## Scholar Experience
 
 - [ ] _P3_ **Scholar avatars** — Kid wants an avatar. Add avatar selection or generation for scholars
-- [ ] _P0_ **Students shouldn't be able to change own Reading Level** — Lock reading level to teacher-only control
+- [x] ~~**Students shouldn't be able to change own Reading Level**~~ — `ea4f8e2` Locked to teacher-only; parent view shows read-only with disabled controls
 
 ## AI Tutor Behavior (Prompt Tuning)
 
-- [ ] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
-- [ ] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
+- [x] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
+- [x] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
 - [ ] **Loved the feedback comments** — (positive signal, keep this) Amber loved when the AI commented on how she was doing. Make sure this stays prominent
+- [ ] **Silly mode guardrails** — Amber can be silly at times. Tune how the AI handles silly/off-task moments (gentle redirect vs. playing along briefly then refocusing)
 
 ## Teacher Dashboard
 
@@ -30,10 +30,11 @@ From Amber & Carl meeting — April 15, 2026
 
 - [ ] **Break down reading level granularly** — Instead of whole numbers, use 7.1–7.9 scale
 - [ ] **Track audio vs visual preference** — Track % of time scholar clicks the speaker button. Surface this to teachers
-- [ ] **Toggle: speech-to-text** — Per-scholar toggle for voice input
-- [ ] **Toggle: text-to-speech** — Per-scholar toggle for auto-read responses
+- [x] ~~**Toggle: speech-to-text**~~ — `ea4f8e2` Per-scholar STT toggle on Reading & Audio tab
+- [x] ~~**Toggle: text-to-speech**~~ — `ea4f8e2` Per-scholar TTS toggle on Reading & Audio tab
 - [ ] **Flesch-Kincaid readability scoring** — Use [flesch-kincaid](https://github.com/words/flesch-kincaid?tab=readme-ov-file) to measure/target response reading level
 - [ ] _P0_ **Font toggle: Andika / OpenDyslexic** — Accessibility font options in Account Details for scholars who need them. this should only impact their own view, not when teachers are remoting in
+
 ## Structured AI Responses
 
 - [ ] **Introduce structured text formatting** — AI responses should use more structured text:
@@ -55,11 +56,12 @@ From Amber & Carl meeting — April 15, 2026
 
 ## Done (April 15, 2026)
 
-- [x] **Engagement bar: color only** — Removed numeric score, replaced with discrete colored blocks and text label
-- [x] **Redirect emotional questions** — Prompt updated: warm acknowledgment + redirect to trusted adult
-- [x] **Stop saying "You're right"** — Prompt updated: build on thinking instead of hollow validation
-- [x] ~~**Keep it concise**~~ — Prompt updated but not sufficient, moved back to open items
-- [x] ~~**One question at a time**~~ — Prompt updated but not sufficient, moved back to open items
+- [x] **Engagement bar: color only** — `6cf99f7` Removed numeric score, replaced with discrete colored blocks and "Current Status" label
+- [x] **Scrolling hides TTS button** — `866f7f2` TTS button now in a sticky side track column
+- [x] **Redirect emotional questions** — `0da4b3f` Prompt updated: warm acknowledgment + redirect to trusted adult
+- [x] **Stop saying "You're right"** — `0da4b3f` Prompt updated: build on thinking instead of hollow validation
+- [x] **Keep it concise (prompt)** — `0da4b3f` Prompt updated, but not sufficient alone (moved back to open items)
+- [x] **One question at a time (prompt)** — `0da4b3f` Prompt updated, but not sufficient alone (moved back to open items)
 
 ---
 

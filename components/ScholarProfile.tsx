@@ -20,6 +20,7 @@ import {
   Tabs,
   Dialog,
   Portal,
+  Switch,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -36,6 +37,7 @@ import {
   FiClock,
   FiMessageSquare,
   FiActivity,
+  FiVolume2,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -83,7 +85,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: Re
   { key: "documents", label: "Documents", icon: FiFolder },
   { key: "notes", label: "Notes", icon: FiFileText },
   { key: "dossier", label: "Dossier", icon: FiUser },
-  { key: "reading", label: "Reading Level", icon: FiBookOpen },
+  { key: "reading", label: "Reading & Audio", icon: FiBookOpen },
 ];
 
 function timeAgo(timestamp: number): string {
@@ -116,6 +118,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const removeReport = useMutation(api.reports.remove);
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
+  const updateAudioSettings = useMutation(api.scholars.updateAudioSettings);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
   const { scholar, stats } = profile ?? {
@@ -793,38 +796,107 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         )}
 
         {activeTab === "reading" && (
-          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="400px">
-            <HStack mb={2}>
-              <FiBookOpen color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                Reading Level
+          <VStack gap={4} align="stretch" maxW="400px">
+            {isParentMode && (
+              <Text fontSize="sm" color="charcoal.400" fontFamily="body" fontStyle="italic">
+                These settings can only be edited by teacher
               </Text>
-              {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
-            </HStack>
-            <select
-              value={scholar?.readingLevel || ""}
-              onChange={(e) => handleReadingLevelChange(e.target.value)}
-              disabled={isSavingReadingLevel}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: "6px",
-                border: "1px solid #e2e8f0",
-                fontSize: "14px",
-                fontFamily: "inherit",
-                backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
-              }}
-            >
-              {READING_LEVELS.map((level) => (
-                <option key={level.value} value={level.value}>
-                  {level.label}
-                </option>
-              ))}
-            </select>
-            <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-              Adjusts vocabulary and complexity in conversations
-            </Text>
-          </Box>
+            )}
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
+              <HStack mb={2}>
+                <FiBookOpen color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Reading Level
+                </Text>
+                {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+              </HStack>
+              <select
+                value={scholar?.readingLevel || ""}
+                onChange={(e) => handleReadingLevelChange(e.target.value)}
+                disabled={isSavingReadingLevel || isParentMode}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "14px",
+                  fontFamily: "inherit",
+                  backgroundColor: isSavingReadingLevel || isParentMode ? "#f7f7f7" : "white",
+                  cursor: isParentMode ? "not-allowed" : undefined,
+                }}
+              >
+                {READING_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+                Adjusts vocabulary and complexity in conversations
+              </Text>
+            </Box>
+
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
+              <HStack mb={3}>
+                <FiVolume2 color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Audio Controls
+                </Text>
+              </HStack>
+              <VStack gap={3} align="stretch">
+                <HStack justify="space-between">
+                  <VStack align="start" gap={0}>
+                    <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                      Text-to-Speech
+                    </Text>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                      Read AI responses aloud
+                    </Text>
+                  </VStack>
+                  <Switch.Root
+                    checked={scholar?.ttsEnabled !== false}
+                    disabled={isParentMode}
+                    onCheckedChange={(e) =>
+                      updateAudioSettings({
+                        scholarId: scholarId as Id<"users">,
+                        ttsEnabled: e.checked,
+                      })
+                    }
+                  >
+                    <Switch.HiddenInput />
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                  </Switch.Root>
+                </HStack>
+                <HStack justify="space-between">
+                  <VStack align="start" gap={0}>
+                    <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                      Voice Dictation
+                    </Text>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                      Speech-to-text input
+                    </Text>
+                  </VStack>
+                  <Switch.Root
+                    checked={scholar?.sttEnabled !== false}
+                    disabled={isParentMode}
+                    onCheckedChange={(e) =>
+                      updateAudioSettings({
+                        scholarId: scholarId as Id<"users">,
+                        sttEnabled: e.checked,
+                      })
+                    }
+                  >
+                    <Switch.HiddenInput />
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                  </Switch.Root>
+                </HStack>
+              </VStack>
+            </Box>
+          </VStack>
         )}
       </Box>
 

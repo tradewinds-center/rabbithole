@@ -20,8 +20,6 @@ import {
 import { Avatar } from "@/components/Avatar";
 import { FiCamera } from "react-icons/fi";
 
-const READING_LEVELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];
-
 interface ProfileEditModalProps {
   open: boolean;
   onClose: () => void;
@@ -32,7 +30,6 @@ interface ProfileEditModalProps {
     username?: string;
     image?: string;
     dateOfBirth?: string;
-    readingLevel?: string;
   };
 }
 
@@ -42,7 +39,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
 
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [readingLevel, setReadingLevel] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>();
   const [pendingStorageId, setPendingStorageId] = useState<Id<"_storage"> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,7 +53,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
       initialized.current = true;
       setName(isSetup ? "" : (user.name ?? ""));
       setDateOfBirth(user.dateOfBirth ?? "");
-      setReadingLevel(user.readingLevel ?? "");
       setAvatarPreview(user.image ?? undefined);
     }
     if (!open) {
@@ -97,13 +92,11 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
       const args: {
         name?: string;
         dateOfBirth?: string;
-        readingLevel?: string;
         imageStorageId?: Id<"_storage">;
         profileSetupComplete?: boolean;
       } = {};
       if (name) args.name = name;
       if (dateOfBirth) args.dateOfBirth = dateOfBirth;
-      if (readingLevel) args.readingLevel = readingLevel;
       if (pendingStorageId) args.imageStorageId = pendingStorageId;
       if (isSetup) args.profileSetupComplete = true;
 
@@ -123,7 +116,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
     } finally {
       setIsSaving(false);
     }
-  }, [updateProfile, name, dateOfBirth, readingLevel, pendingStorageId, isSetup, onClose]);
+  }, [updateProfile, name, dateOfBirth, pendingStorageId, isSetup, onClose]);
 
   const handleSkipOrCancel = useCallback(async () => {
     if (isSetup) {
@@ -252,50 +245,6 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                   />
                 </Flex>
 
-                {/* Reading Level (emphasized) */}
-                <Box
-                  w="full"
-                  bg="violet.50"
-                  border="1px solid"
-                  borderColor="violet.200"
-                  borderRadius="xl"
-                  p={4}
-                >
-                  <HStack gap={4} align="flex-end">
-                    <Box flex={1}>
-                      <Text fontSize="sm" fontFamily="heading" color="navy.500" fontWeight="600" mb={0.5}>
-                        Estimated Reading Level
-                      </Text>
-                      <Text fontSize="xs" fontFamily="body" color="charcoal.400" lineHeight="1.4" mb={2}>
-                        The AI will use this as a starting point. It adjusts over time, but a good estimate helps from day one.
-                      </Text>
-                      <select
-                        value={readingLevel}
-                        onChange={(e) => setReadingLevel(e.target.value)}
-                        style={{
-                          width: "100%",
-                          maxWidth: "220px",
-                          height: "40px",
-                          padding: "0 16px",
-                          backgroundColor: "white",
-                          border: "1px solid var(--chakra-colors-violet-300)",
-                          borderRadius: "var(--chakra-radii-lg)",
-                          fontFamily: "var(--chakra-fonts-body)",
-                          fontSize: "var(--chakra-fontSizes-md)",
-                          color: "var(--chakra-colors-charcoal-500, #333)",
-                          appearance: "auto",
-                        }}
-                      >
-                        <option value="">Select level</option>
-                        {READING_LEVELS.map((level) => (
-                          <option key={level} value={level}>
-                            {level === "K" ? "Kindergarten" : level === "college" ? "College" : `Grade ${level}`}
-                          </option>
-                        ))}
-                      </select>
-                    </Box>
-                  </HStack>
-                </Box>
               </VStack>
             </Dialog.Body>
 

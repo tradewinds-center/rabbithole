@@ -33,6 +33,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import type { StreamEvent } from "@/hooks/useAgentStream";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const chatMarkdownComponents: Components = {
   em: ({ children, ...props }) => {
@@ -82,6 +83,11 @@ export function ProjectInterface({
   const [whisperInput, setWhisperInput] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Audio feature flags (teacher-controlled per scholar)
+  const { user: currentUser } = useCurrentUser();
+  const ttsEnabled = currentUser?.ttsEnabled !== false;
+  const sttEnabled = currentUser?.sttEnabled !== false;
 
   // Active artifact tab (declared early so onEvent can reference it)
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
@@ -546,6 +552,8 @@ export function ProjectInterface({
           isTouchDevice,
           onStopStream: handleStopStream,
           toolActivity,
+          ttsEnabled,
+          sttEnabled,
         };
 
         const artifactPanelElement = (
@@ -707,6 +715,8 @@ interface ChatColumnProps {
   isTouchDevice?: boolean;
   onStopStream?: () => void;
   toolActivity?: import("@/hooks/useAgentStream").ToolActivity | null;
+  ttsEnabled?: boolean;
+  sttEnabled?: boolean;
 }
 
 function ChatColumn({
@@ -750,6 +760,8 @@ function ChatColumn({
   isTouchDevice = false,
   onStopStream,
   toolActivity = null,
+  ttsEnabled = true,
+  sttEnabled = true,
 }: ChatColumnProps) {
   const micBtnRef = useRef<HTMLButtonElement>(null);
   const tabHeldRef = useRef(false);
@@ -814,8 +826,9 @@ function ChatColumn({
   // Walkie-talkie: Tab hold → record, Tab release → stop & send
   // Quick tap (<200ms) is a no-op so normal Tab usage isn't hijacked
   // Disabled on touch devices — they use tap-to-toggle instead
+  // Disabled when teacher has turned off STT for this scholar
   useEffect(() => {
-    if (isTouchDevice) return;
+    if (isTouchDevice || !sttEnabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       // Don't hijack Tab when user is in an input/textarea that isn't ours
@@ -852,7 +865,7 @@ function ChatColumn({
       window.removeEventListener("keyup", onKeyUp);
       if (tabTimerRef.current) clearTimeout(tabTimerRef.current);
     };
-  }, [isStreaming, dictationState, startRecording, stopRecording, isTouchDevice]);
+  }, [isStreaming, dictationState, startRecording, stopRecording, isTouchDevice, sttEnabled]);
 
   // Ripple center from the send-recording button (visible during recording)
   const sendRecBtnRef = useRef<HTMLButtonElement>(null);
@@ -1019,6 +1032,7 @@ function ChatColumn({
                   personaOptions={personaOptions}
                   isStreaming={!!isActiveStream && !!streamingContent}
                   generatingImage={!!isActiveStream && generatingImage}
+                  ttsEnabled={ttsEnabled}
                 />
               );
             });
@@ -1460,7 +1474,7 @@ function ChatColumn({
                 >
                   <FiSquare />
                 </IconButton>
-              ) : (!input.trim() && !pendingImage) ? (
+              ) : (!input.trim() && !pendingImage && sttEnabled) ? (
                 <IconButton
                   ref={micBtnRef}
                   aria-label="Start voice dictation"
@@ -1578,11 +1592,13 @@ function MessageBubble({
   personaOptions = [],
   isStreaming = false,
   generatingImage = false,
+  ttsEnabled = true,
 }: {
   message: MessageData;
   personaOptions?: DimensionOption[];
   isStreaming?: boolean;
   generatingImage?: boolean;
+  ttsEnabled?: boolean;
 }) {
   const isUser = message.role === "user";
   const tts = useTTS();
@@ -1675,7 +1691,7 @@ function MessageBubble({
           </Box>
         </Box>
         {/* TTS button — sticky in a side track so it stays visible on scroll */}
-        {!isStreaming && message.content && (
+        {ttsEnabled && !isStreaming && message.content && (
           <Box flexShrink={0} w="40px" ml={1}>
             <Box position="sticky" top="-12px">
               <Tooltip.Root openDelay={400} closeDelay={0} positioning={{ placement: "right" }}>
