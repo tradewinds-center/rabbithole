@@ -1647,66 +1647,69 @@ function MessageBubble({
   // Assistant message
   return (
     <Box className="message-bubble assistant animate-fade-in" alignSelf="flex-start">
-      <Box
-        bg="gray.100"
-        color="charcoal.500"
-        px={4}
-        py={3}
-        borderRadius="xl"
-        borderBottomLeftRadius="sm"
-        maxW="100%"
-        shadow="sm"
-        position="relative"
+      <Flex
         css={{ "&:hover .tts-btn": { opacity: 1 } }}
       >
-        <Box className="chat-markdown" fontFamily="body" fontSize="lg">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</ReactMarkdown>
-          {generatingImage && (
-            <Flex align="center" gap={2} mt={2}>
-              <Spinner size="xs" color="violet.500" />
-              <Text fontSize="sm" fontFamily="heading" color="violet.500" fontWeight="600">
-                Generating image...
-              </Text>
-            </Flex>
-          )}
+        <Box
+          bg="gray.100"
+          color="charcoal.500"
+          px={4}
+          py={3}
+          borderRadius="xl"
+          borderBottomLeftRadius="sm"
+          maxW="100%"
+          shadow="sm"
+          flex="1"
+          minW={0}
+        >
+          <Box className="chat-markdown" fontFamily="body" fontSize="lg">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={chatMarkdownComponents}>{message.content}</ReactMarkdown>
+            {generatingImage && (
+              <Flex align="center" gap={2} mt={2}>
+                <Spinner size="xs" color="violet.500" />
+                <Text fontSize="sm" fontFamily="heading" color="violet.500" fontWeight="600">
+                  Generating image...
+                </Text>
+              </Flex>
+            )}
+          </Box>
         </Box>
-        {/* TTS button — appears on hover */}
+        {/* TTS button — sticky in a side track so it stays visible on scroll */}
         {!isStreaming && message.content && (
-          <Tooltip.Root openDelay={400} closeDelay={0} positioning={{ placement: "right" }}>
-            <Tooltip.Trigger asChild>
-              <IconButton
-                className="tts-btn"
-                aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
-                size="xs"
-                variant="ghost"
-                color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
-                _hover={{ color: "violet.600", bg: "violet.50" }}
-                position="absolute"
-                left="100%"
-                ml={3}
-                top={0}
-                mt={3}
-                opacity={tts.state !== "idle" ? 1 : 0}
-                transition="opacity 0.15s"
-                onClick={() => {
-                  const stripped = stripMarkdown(message.content);
-                  console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
-                  tts.toggle(stripped);
-                }}
-              >
-                {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
-              </IconButton>
-            </Tooltip.Trigger>
-            <Portal>
-              <Tooltip.Positioner>
-                <Tooltip.Content fontSize="xs">
-                  {tts.state !== "idle" ? "Stop reading" : "Read aloud"}
-                </Tooltip.Content>
-              </Tooltip.Positioner>
-            </Portal>
-          </Tooltip.Root>
+          <Box flexShrink={0} w="40px" ml={1}>
+            <Box position="sticky" top="-12px">
+              <Tooltip.Root openDelay={400} closeDelay={0} positioning={{ placement: "right" }}>
+                <Tooltip.Trigger asChild>
+                  <IconButton
+                    className="tts-btn"
+                    aria-label={tts.state !== "idle" ? "Stop reading" : "Read aloud"}
+                    size="xs"
+                    variant="ghost"
+                    color={tts.state !== "idle" ? "violet.500" : "charcoal.300"}
+                    _hover={{ color: "violet.600", bg: "violet.50" }}
+                    opacity={tts.state !== "idle" ? 1 : 0}
+                    transition="opacity 0.15s"
+                    onClick={() => {
+                      const stripped = stripMarkdown(message.content);
+                      console.log("[TTS] raw content length:", message.content.length, "stripped length:", stripped.length, "\nstripped text:", stripped.slice(0, 300));
+                      tts.toggle(stripped);
+                    }}
+                  >
+                    {tts.state === "loading" ? <Spinner size="xs" /> : <FiVolume2 size={14} />}
+                  </IconButton>
+                </Tooltip.Trigger>
+                <Portal>
+                  <Tooltip.Positioner>
+                    <Tooltip.Content fontSize="xs">
+                      {tts.state !== "idle" ? "Stop reading" : "Read aloud"}
+                    </Tooltip.Content>
+                  </Tooltip.Positioner>
+                </Portal>
+              </Tooltip.Root>
+            </Box>
+          </Box>
         )}
-      </Box>
+      </Flex>
       <Text
         fontSize="xs"
         color="charcoal.300"
