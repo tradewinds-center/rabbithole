@@ -12,7 +12,7 @@ From Amber & Carl meeting — April 15, 2026
 ## Scholar Experience
 
 - [ ] _P3_ **Scholar avatars** — Kid wants an avatar. Add avatar selection or generation for scholars
-- [ ] _P0_ **Students shouldn't be able to change own Reading Level** — Lock reading level to teacher-only control
+- [x] ~~**Students shouldn't be able to change own Reading Level**~~ — `ea4f8e2` Locked to teacher-only; parent view shows read-only with disabled controls
 
 ## AI Tutor Behavior (Prompt Tuning)
 
@@ -30,8 +30,8 @@ From Amber & Carl meeting — April 15, 2026
 
 - [ ] **Break down reading level granularly** — Instead of whole numbers, use 7.1–7.9 scale
 - [ ] **Track audio vs visual preference** — Track % of time scholar clicks the speaker button. Surface this to teachers
-- [ ] **Toggle: speech-to-text** — Per-scholar toggle for voice input
-- [ ] **Toggle: text-to-speech** — Per-scholar toggle for auto-read responses
+- [x] ~~**Toggle: speech-to-text**~~ — `ea4f8e2` Per-scholar STT toggle on Reading & Audio tab
+- [x] ~~**Toggle: text-to-speech**~~ — `ea4f8e2` Per-scholar TTS toggle on Reading & Audio tab
 - [ ] **Flesch-Kincaid readability scoring** — Use [flesch-kincaid](https://github.com/words/flesch-kincaid?tab=readme-ov-file) to measure/target response reading level
 - [ ] _P0_ **Font toggle: Andika / OpenDyslexic** — Accessibility font options in Account Details for scholars who need them. this should only impact their own view, not when teachers are remoting in
 
