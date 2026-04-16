@@ -8,11 +8,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Avatar } from "./Avatar";
 import { StatusOrb, PulseScoreDetail } from "./StatusOrb";
 import { ParentAccessDialog } from "./ParentAccessDialog";
+import { ProfileEditModal } from "./ProfileEditModal";
 
 interface AccountMenuProps {
   onSignOut: () => void;
-  /** Open in-page profile editor (scholar home only) */
-  onOpenProfile?: () => void;
   /** Scholar-specific: current project pulse score */
   pulseScore?: number | null;
   /** Scholar-specific: timestamp of last user message */
@@ -21,7 +20,6 @@ interface AccountMenuProps {
 
 export function AccountMenu({
   onSignOut,
-  onOpenProfile,
   pulseScore,
   lastMessageAt,
 }: AccountMenuProps) {
@@ -29,6 +27,7 @@ export function AccountMenu({
   const pathname = usePathname();
 
   const [showMcpDialog, setShowMcpDialog] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   const role = user?.role;
   const isScholar = role === "scholar";
@@ -123,10 +122,7 @@ export function AccountMenu({
           <Menu.Item
             value="account"
             cursor="pointer"
-            onClick={() => {
-              if (onOpenProfile) onOpenProfile();
-              else window.location.href = "/scholar/account";
-            }}
+            onClick={() => setShowProfile(true)}
           >
             <FiUser />
             Account Details
@@ -157,6 +153,13 @@ export function AccountMenu({
           open={showMcpDialog}
           onClose={() => setShowMcpDialog(false)}
           mode="self"
+        />
+      )}
+      {user && (
+        <ProfileEditModal
+          open={showProfile}
+          onClose={() => setShowProfile(false)}
+          user={user}
         />
       )}
     </Menu.Root>

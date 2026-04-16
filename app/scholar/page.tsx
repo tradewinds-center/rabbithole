@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -24,6 +25,7 @@ import { Avatar } from "@/components/Avatar";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
 import { toaster } from "@/lib/toaster";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
+import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { FiPlus, FiMessageSquare, FiClock, FiLock, FiCompass } from "react-icons/fi";
 
 function timeAgo(timestamp: number): string {
@@ -91,8 +93,6 @@ function ScholarHome() {
   const [isCreating, setIsCreating] = useState(false);
   const [exploringSeedId, setExploringSeedId] = useState<string | null>(null);
 
-  // Profile edit modal state
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const needsSetup = !!(user && user.role === "scholar" && !user.profileSetupComplete);
 
   // Auth redirects
@@ -181,7 +181,6 @@ function ScholarHome() {
         scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
         scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
         onSignOut={() => signOut()}
-        onOpenProfile={() => setProfileModalOpen(true)}
         pulseScore={pulseScore}
         lastMessageAt={lastMessageAt}
       />
@@ -285,22 +284,25 @@ function ScholarHome() {
               String(project.unitId ?? "") !== lockedUnitId;
 
             return (
-              <Box
+              <Link
                 key={project._id}
-                bg="white"
-                borderRadius="xl"
-                p={5}
-                shadow="xs"
-                cursor="pointer"
-                opacity={isMismatch ? 0.5 : 1}
-                _hover={{ shadow: "md" }}
-                transition="all 0.15s"
-                minH="140px"
-                display="flex"
-                flexDir="column"
-                position="relative"
-                onClick={() => handleOpenProject(project._id)}
+                href={`/scholar/${project._id}${remoteUserId ? `?remote=${remoteUserId}` : ""}`}
+                style={{ textDecoration: "none", color: "inherit", display: "contents" }}
               >
+                <Box
+                  bg="white"
+                  borderRadius="xl"
+                  p={5}
+                  shadow="xs"
+                  cursor="pointer"
+                  opacity={isMismatch ? 0.5 : 1}
+                  _hover={{ shadow: "md" }}
+                  transition="all 0.15s"
+                  minH="140px"
+                  display="flex"
+                  flexDir="column"
+                  position="relative"
+                >
                 {isMismatch && (
                   <Box position="absolute" top={3} right={3} color="charcoal.300">
                     <FiLock size={14} />
@@ -366,6 +368,7 @@ function ScholarHome() {
                   </HStack>
                 </HStack>
               </Box>
+              </Link>
             );
           })}
         </SimpleGrid>
@@ -386,13 +389,23 @@ function ScholarHome() {
         isCreating={isCreating}
       />
 
-      {/* Profile setup / edit modal */}
-      {user && (
+      {/* Profile setup modal (first-time only) */}
+      {user && needsSetup && (
         <ProfileEditModal
-          open={needsSetup || profileModalOpen}
-          onClose={() => setProfileModalOpen(false)}
-          isSetup={needsSetup}
+          open={true}
+          onClose={() => {}}
+          isSetup={true}
           user={user}
+        />
+      )}
+
+      {/* Forced password reset */}
+      {user?.mustResetPassword && user.username && (
+        <SetPasswordDialog
+          open={true}
+          onClose={() => {}}
+          username={user.username}
+          requireCurrentPassword={false}
         />
       )}
     </Flex>
@@ -404,7 +417,6 @@ function TopBar({
   scholarName,
   scholarImage,
   onSignOut,
-  onOpenProfile,
   pulseScore,
   lastMessageAt,
 }: {
@@ -412,7 +424,6 @@ function TopBar({
   scholarName?: string | null;
   scholarImage?: string | null;
   onSignOut: () => void;
-  onOpenProfile: () => void;
   pulseScore?: number | null;
   lastMessageAt?: number | null;
 }) {
@@ -448,7 +459,6 @@ function TopBar({
       ) : (
         <AccountMenu
           onSignOut={onSignOut}
-          onOpenProfile={onOpenProfile}
           pulseScore={pulseScore}
           lastMessageAt={lastMessageAt}
         />

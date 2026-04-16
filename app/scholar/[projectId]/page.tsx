@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -33,6 +34,7 @@ import {
 import { ProjectInterface } from "@/components/ProjectInterface";
 import { AppLogo } from "@/components/AppLogo";
 import { UnitPickerDialog } from "@/components/UnitPickerDialog";
+import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -293,23 +295,27 @@ function ScholarProjectInner() {
 
               {/* Home */}
               <Box px={3} pt={3}>
-                <Button
-                  w="full"
-                  size="md"
-                  variant="ghost"
-                  color="navy.500"
-                  fontFamily="heading"
-                  justifyContent="flex-start"
-                  _hover={{ bg: "gray.100" }}
-                  onClick={() => {
-                    const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-                    router.push(`/scholar${remoteParam}`);
-                    setIsSidebarOpen(false);
-                  }}
+                <Link
+                  href={`/scholar${remoteUserId ? `?remote=${remoteUserId}` : ""}`}
+                  style={{ textDecoration: "none", display: "block" }}
+                  onClick={() => setIsSidebarOpen(false)}
                 >
-                  <FiHome style={{ marginRight: "8px" }} />
-                  Home
-                </Button>
+                  <Button
+                    asChild
+                    w="full"
+                    size="md"
+                    variant="ghost"
+                    color="navy.500"
+                    fontFamily="heading"
+                    justifyContent="flex-start"
+                    _hover={{ bg: "gray.100" }}
+                  >
+                    <span>
+                      <FiHome style={{ marginRight: "8px" }} />
+                      Home
+                    </span>
+                  </Button>
+                </Link>
               </Box>
 
               {/* Projects header + New Project */}
@@ -343,56 +349,58 @@ function ScholarProjectInner() {
                 align="stretch"
               >
                 {projects.map((conv) => (
-                  <HStack
+                  <Link
                     key={conv._id}
-                    p={3}
-                    borderRadius="lg"
-                    cursor="pointer"
-                    bg={projectId === conv._id ? "violet.50" : "transparent"}
-                    _hover={{ bg: projectId === conv._id ? "violet.50" : "gray.100" }}
-                    css={{ "& .archive-btn": { opacity: 0 }, "&:hover .archive-btn": { opacity: 0.5 } }}
-                    onClick={() => {
-                      const remoteParam = remoteUserId ? `?remote=${remoteUserId}` : "";
-                      router.push(`/scholar/${conv._id}${remoteParam}`);
-                      setIsSidebarOpen(false);
-                    }}
-                    justify="space-between"
+                    href={`/scholar/${conv._id}${remoteUserId ? `?remote=${remoteUserId}` : ""}`}
+                    style={{ textDecoration: "none", color: "inherit", display: "contents" }}
+                    onClick={() => setIsSidebarOpen(false)}
                   >
-                    <VStack gap={0} flex={1} overflow="hidden" align="start">
-                      <Text
-                        color="navy.500"
-                        fontSize="sm"
-                        fontFamily="heading"
-                        overflow="hidden"
-                        textOverflow="ellipsis"
-                        whiteSpace="nowrap"
-                        w="full"
-                      >
-                        {conv.title}
-                      </Text>
-                      <Text
-                        color="charcoal.300"
-                        fontSize="xs"
-                        fontFamily="heading"
-                      >
-                        {timeAgo(conv.updatedAt)}
-                      </Text>
-                    </VStack>
-                    <IconButton
-                      className="archive-btn"
-                      aria-label="Archive"
-                      size="xs"
-                      variant="ghost"
-                      color="charcoal.400"
-                      _hover={{ opacity: 1, bg: "gray.200" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleArchiveProject(conv._id);
-                      }}
+                    <HStack
+                      p={3}
+                      borderRadius="lg"
+                      cursor="pointer"
+                      bg={projectId === conv._id ? "violet.50" : "transparent"}
+                      _hover={{ bg: projectId === conv._id ? "violet.50" : "gray.100" }}
+                      css={{ "& .archive-btn": { opacity: 0 }, "&:hover .archive-btn": { opacity: 0.5 } }}
+                      justify="space-between"
                     >
-                      <FiTrash2 />
-                    </IconButton>
-                  </HStack>
+                      <VStack gap={0} flex={1} overflow="hidden" align="start">
+                        <Text
+                          color="navy.500"
+                          fontSize="sm"
+                          fontFamily="heading"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                          w="full"
+                        >
+                          {conv.title}
+                        </Text>
+                        <Text
+                          color="charcoal.300"
+                          fontSize="xs"
+                          fontFamily="heading"
+                        >
+                          {timeAgo(conv.updatedAt)}
+                        </Text>
+                      </VStack>
+                      <IconButton
+                        className="archive-btn"
+                        aria-label="Archive"
+                        size="xs"
+                        variant="ghost"
+                        color="charcoal.400"
+                        _hover={{ opacity: 1, bg: "gray.200" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleArchiveProject(conv._id);
+                        }}
+                      >
+                        <FiTrash2 />
+                      </IconButton>
+                    </HStack>
+                  </Link>
                 ))}
                 {projects.length === 0 && (
                   <Text
@@ -548,6 +556,16 @@ function ScholarProjectInner() {
         focusLock={focusLock}
         isCreating={isCreatingViaDialog}
       />
+
+      {/* Forced password reset */}
+      {user?.mustResetPassword && user.username && (
+        <SetPasswordDialog
+          open={true}
+          onClose={() => {}}
+          username={user.username}
+          requireCurrentPassword={false}
+        />
+      )}
     </Flex>
   );
 }

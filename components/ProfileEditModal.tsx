@@ -18,7 +18,8 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
-import { FiCamera } from "react-icons/fi";
+import { FiCamera, FiKey } from "react-icons/fi";
+import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -44,6 +45,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const initialized = useRef(false);
 
@@ -250,6 +252,20 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
 
             <Dialog.Footer px={6} py={4} borderTop="1px solid" borderColor="gray.100">
               <HStack gap={3} w="full" justify="flex-end">
+                {!isSetup && user.username && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    color="charcoal.400"
+                    fontFamily="heading"
+                    _hover={{ color: "violet.500" }}
+                    onClick={() => setShowChangePassword(true)}
+                    mr="auto"
+                  >
+                    <FiKey style={{ marginRight: "4px" }} />
+                    Change Password
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -277,6 +293,16 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
           </Dialog.Content>
         </Dialog.Positioner>
       </Portal>
+
+      {/* Change Password Dialog */}
+      {user.username && (
+        <SetPasswordDialog
+          open={showChangePassword}
+          onClose={() => setShowChangePassword(false)}
+          username={user.username}
+          requireCurrentPassword={true}
+        />
+      )}
     </Dialog.Root>
   );
 }

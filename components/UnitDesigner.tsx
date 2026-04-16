@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Box,
   Flex,
@@ -25,7 +25,6 @@ interface UnitDesignerProps {
 }
 
 export function UnitDesigner({ unitId }: UnitDesignerProps) {
-  const router = useRouter();
   const unit = useQuery(api.units.get, { id: unitId });
   const lessons = useQuery(api.lessons.listByUnit, { unitId });
   const updateUnit = useMutation(api.units.update);
@@ -45,16 +44,17 @@ export function UnitDesigner({ unitId }: UnitDesignerProps) {
     return (
       <Flex w="100vw" h="100vh" align="center" justify="center" direction="column" gap={3}>
         <Text fontFamily="heading" color="charcoal.400">Unit not found</Text>
-        <Text
-          fontFamily="heading"
-          fontSize="sm"
-          color="violet.500"
-          cursor="pointer"
-          _hover={{ textDecoration: "underline" }}
-          onClick={() => router.push("/teacher?tab=curriculum")}
-        >
-          Back to Curriculum
-        </Text>
+        <Link href="/teacher?tab=curriculum" style={{ textDecoration: "none" }}>
+          <Text
+            fontFamily="heading"
+            fontSize="sm"
+            color="violet.500"
+            cursor="pointer"
+            _hover={{ textDecoration: "underline" }}
+          >
+            Back to Curriculum
+          </Text>
+        </Link>
       </Flex>
     );
   }
@@ -79,16 +79,17 @@ export function UnitDesigner({ unitId }: UnitDesignerProps) {
         gap={3}
         flexShrink={0}
       >
-        <IconButton
-          aria-label="Back"
-          variant="ghost"
-          size="sm"
-          color="charcoal.500"
-          _hover={{ bg: "gray.100" }}
-          onClick={() => router.push("/teacher?tab=curriculum")}
-        >
-          <FiArrowLeft size={18} />
-        </IconButton>
+        <Link href="/teacher?tab=curriculum" style={{ display: "contents" }}>
+          <IconButton
+            aria-label="Back"
+            variant="ghost"
+            size="sm"
+            color="charcoal.500"
+            _hover={{ bg: "gray.100" }}
+          >
+            <FiArrowLeft size={18} />
+          </IconButton>
+        </Link>
 
         {unit.emoji && <Text fontSize="xl">{unit.emoji}</Text>}
 

@@ -462,6 +462,100 @@ export const updateProfile = authedMutation({
 });
 
 /**
+ * Reset a scholar's password (teacher only).
+ * Deletes auth accounts + sessions so the next login creates a fresh auth account.
+ * Sets mustResetPassword flag so the scholar is prompted to set a new password.
+ * Returns a random 4-digit temp PIN.
+ */
+export const resetScholarPassword = teacherMutation({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    if (!scholar) throw new Error("Scholar not found");
+    if (scholar.role !== "scholar") throw new Error("Can only reset scholar passwords");
+
+    // Generate random 4-digit PIN
+    const tempPassword = String(Math.floor(1000 + Math.random() * 9000));
+
+    // Delete auth sessions + refresh tokens
+    const sessions = await ctx.db
+      .query("authSessions")
+      .filter((q) => q.eq(q.field("userId"), args.scholarId))
+      .collect();
+    for (const s of sessions) {
+      const refreshTokens = await ctx.db
+        .query("authRefreshTokens")
+        .filter((q) => q.eq(q.field("sessionId"), s._id))
+        .collect();
+      for (const rt of refreshTokens) await ctx.db.delete(rt._id);
+      await ctx.db.delete(s._id);
+    }
+
+    // Delete auth accounts + verification codes
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), args.scholarId))
+      .collect();
+    for (const a of accounts) {
+      const codes = await ctx.db
+        .query("authVerificationCodes")
+        .filter((q) => q.eq(q.field("accountId"), a._id))
+        .collect();
+      for (const c of codes) await ctx.db.delete(c._id);
+      await ctx.db.delete(a._id);
+    }
+
+    // Set mustResetPassword flag
+    await ctx.db.patch(args.scholarId, { mustResetPassword: true });
+
+    return { tempPassword };
+  },
+});
+
+/**
+ * Delete the current user's auth accounts + sessions.
+ * Called by the client right before signOut + signUp with a new password.
+ * Clears the mustResetPassword flag.
+ */
+export const deleteMyAuthAccounts = authedMutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = ctx.user._id;
+
+    // Delete auth sessions + refresh tokens
+    const sessions = await ctx.db
+      .query("authSessions")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    for (const s of sessions) {
+      const refreshTokens = await ctx.db
+        .query("authRefreshTokens")
+        .filter((q) => q.eq(q.field("sessionId"), s._id))
+        .collect();
+      for (const rt of refreshTokens) await ctx.db.delete(rt._id);
+      await ctx.db.delete(s._id);
+    }
+
+    // Delete auth accounts + verification codes
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    for (const a of accounts) {
+      const codes = await ctx.db
+        .query("authVerificationCodes")
+        .filter((q) => q.eq(q.field("accountId"), a._id))
+        .collect();
+      for (const c of codes) await ctx.db.delete(c._id);
+      await ctx.db.delete(a._id);
+    }
+
+    // Clear the mustResetPassword flag
+    await ctx.db.patch(userId, { mustResetPassword: false });
+  },
+});
+
+/**
  * Create a new scholar user (teacher only).
  */
 export const createScholar = teacherMutation({

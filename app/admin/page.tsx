@@ -4,6 +4,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery, useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Box,
@@ -100,14 +101,15 @@ export default function AdminPage() {
               Admin: Users
             </Heading>
             <HStack gap={3}>
-              <Button
-                size="sm"
-                variant="outline"
-                fontFamily="heading"
-                onClick={() => router.push("/teacher")}
-              >
-                Teacher Dashboard
-              </Button>
+              <Link href="/teacher" style={{ display: "contents" }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  fontFamily="heading"
+                >
+                  Teacher Dashboard
+                </Button>
+              </Link>
               <Button
                 size="sm"
                 variant="outline"

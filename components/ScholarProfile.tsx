@@ -38,6 +38,7 @@ import {
   FiMessageSquare,
   FiActivity,
   FiVolume2,
+  FiKey,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -106,6 +107,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const { user: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === "admin";
   const deleteUser = useMutation(api.users.deleteUser);
+  const resetPassword = useMutation(api.users.resetScholarPassword);
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
   // masteryByDomain moved to MasteryTab component
@@ -139,6 +141,8 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [isAddingReport, setIsAddingReport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showParentAccess, setShowParentAccess] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
@@ -268,6 +272,18 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             </Button>
           ) : (
             <>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="violet.500"
+                fontFamily="heading"
+                fontSize="xs"
+                _hover={{ bg: "violet.50" }}
+                onClick={() => setShowResetPassword(true)}
+              >
+                <FiKey style={{ marginRight: "4px" }} />
+                Reset Password
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -899,6 +915,100 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
           </VStack>
         )}
       </Box>
+
+      {/* Reset Password confirmation / result dialog */}
+      <Dialog.Root
+        open={showResetPassword}
+        onOpenChange={(e) => {
+          if (!e.open) {
+            setShowResetPassword(false);
+            setTempPassword(null);
+          }
+        }}
+        placement="center"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+              <Dialog.Header px={6} pt={5} pb={2}>
+                <Dialog.Title fontFamily="heading" fontSize="lg" color="navy.500">
+                  {tempPassword ? "Password Reset" : "Reset Password"}
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body px={6} py={3}>
+                {tempPassword ? (
+                  <VStack gap={2} align="start">
+                    <Text fontSize="sm" fontFamily="body" color="charcoal.500">
+                      The temporary password for <strong>{scholar?.name ?? "this scholar"}</strong> is:
+                    </Text>
+                    <Text
+                      fontSize="2xl"
+                      fontFamily="heading"
+                      fontWeight="700"
+                      color="violet.600"
+                      letterSpacing="widest"
+                      textAlign="center"
+                      w="full"
+                      py={2}
+                    >
+                      {tempPassword}
+                    </Text>
+                    <Text fontSize="xs" fontFamily="body" color="charcoal.400">
+                      Give this to {scholar?.name ?? "the scholar"} to log in. They will be asked to set a new password.
+                    </Text>
+                  </VStack>
+                ) : (
+                  <Text fontSize="sm" fontFamily="body" color="charcoal.500">
+                    Reset password for <strong>{scholar?.name ?? "this scholar"}</strong>? They will need a temporary password to log back in.
+                  </Text>
+                )}
+              </Dialog.Body>
+              <Dialog.Footer px={6} pb={5} pt={2} gap={2}>
+                {tempPassword ? (
+                  <Button
+                    size="sm"
+                    bg="violet.500"
+                    color="white"
+                    _hover={{ bg: "violet.600" }}
+                    fontFamily="heading"
+                    onClick={() => {
+                      setShowResetPassword(false);
+                      setTempPassword(null);
+                    }}
+                  >
+                    Done
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      fontFamily="heading"
+                      onClick={() => setShowResetPassword(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      bg="violet.500"
+                      color="white"
+                      _hover={{ bg: "violet.600" }}
+                      fontFamily="heading"
+                      onClick={async () => {
+                        const result = await resetPassword({ scholarId: scholarId as Id<"users"> });
+                        setTempPassword(result.tempPassword);
+                      }}
+                    >
+                      Reset Password
+                    </Button>
+                  </>
+                )}
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Delete confirmation dialog */}
       <Dialog.Root

@@ -33,6 +33,7 @@ export default defineSchema({
     profileSetupComplete: v.optional(v.boolean()),
     ttsEnabled: v.optional(v.boolean()), // Text-to-speech (undefined = enabled)
     sttEnabled: v.optional(v.boolean()), // Speech-to-text / voice dictation (undefined = enabled)
+    mustResetPassword: v.optional(v.boolean()), // Force password reset on next login
   })
     .index("by_email", ["email"])
     .index("by_username", ["username"])

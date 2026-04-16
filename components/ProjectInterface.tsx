@@ -16,7 +16,7 @@ import {
   Portal,
 } from "@chakra-ui/react";
 import { FiArrowUp, FiCamera, FiClock, FiEdit2, FiHome, FiImage, FiLock, FiMic, FiMicOff, FiPlus, FiSend, FiSquare, FiUpload, FiVolume2, FiX } from "react-icons/fi";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 import { useTTS } from "@/hooks/useTTS";
 import { useTimeLimit } from "@/hooks/useTimeLimit";
@@ -75,7 +75,7 @@ export function ProjectInterface({
   scholarImage,
   remoteUserId,
 }: ProjectInterfaceProps) {
-  const router = useRouter();
+
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -478,26 +478,27 @@ export function ProjectInterface({
             <Text fontSize="sm" fontFamily="heading" color="orange.800" flex={1}>
               Your teacher set a different activity{lockedUnit ? ` (${lockedUnit.emoji ?? ""} ${lockedUnit.title}${focusLock?.lessonTitle ? ` — ${focusLock.lessonTitle}` : ""})` : ""}. You can read this project but not add messages.
             </Text>
-            <Box
-              as="button"
-              px={3}
-              py={1.5}
-              bg="orange.500"
-              color="white"
-              borderRadius="lg"
-              fontFamily="heading"
-              fontWeight="600"
-              fontSize="sm"
-              _hover={{ bg: "orange.600" }}
-              cursor="pointer"
-              onClick={() => router.push("/scholar")}
-              display="flex"
-              alignItems="center"
-              gap={1.5}
-            >
-              <FiHome size={14} />
-              Go Home
-            </Box>
+            <Link href="/scholar" style={{ textDecoration: "none" }}>
+              <Box
+                as="button"
+                px={3}
+                py={1.5}
+                bg="orange.500"
+                color="white"
+                borderRadius="lg"
+                fontFamily="heading"
+                fontWeight="600"
+                fontSize="sm"
+                _hover={{ bg: "orange.600" }}
+                cursor="pointer"
+                display="flex"
+                alignItems="center"
+                gap={1.5}
+              >
+                <FiHome size={14} />
+                Go Home
+              </Box>
+            </Link>
           </Flex>
         );
       })()}

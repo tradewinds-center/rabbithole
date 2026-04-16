@@ -36,6 +36,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
   - **Test:** Visit `/guest` with no token param. Enter a name, click "Start Learning". Should create account and redirect to `/scholar`. Copy the link shown and visit it in incognito — should auto-sign-in as that guest.
 - [ ] **Time Limit Mode** - Parent sets a session time limit with a hardcoded parent password. Inserts a whisper to Claude to wrap things up with 1 minute to spare. Input is disabled when time expires.
   - **Test:** Click clock icon near input area. Enter parent password (set via PARENT_PASSWORD env var in Convex) and time limit (e.g., 2 minutes). Timer countdown appears. At 1 min remaining, check that a whisper is queued. When timer hits 0, input should be disabled with "Time's up!" message.
+- [x] **Password Reset & Change** - Teachers can reset a scholar's password (generates 4-digit temp PIN). Scholars forced to set new password on next login. Scholars can also voluntarily change password from Account Details modal.
 
 ---
 
