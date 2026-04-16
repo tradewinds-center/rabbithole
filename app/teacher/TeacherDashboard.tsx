@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -408,40 +409,48 @@ export default function TeacherDashboardInner() {
                 {scholars.map((scholar) => {
                   const isSelected = selectedScholarId === scholar.id;
                   return (
-                    <HStack
+                    <Link
                       key={scholar.id}
-                      px={4}
-                      py={3}
-                      gap={3}
-                      cursor="pointer"
-                      bg={isSelected ? "violet.50" : "transparent"}
-                      borderLeft="3px solid"
-                      borderColor={isSelected ? "violet.500" : "transparent"}
-                      _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
-                      transition="all 0.1s"
-                      onClick={() => setSelectedScholarId(scholar.id)}
+                      href={`/teacher?tab=scholars&scholar=${scholar.id}`}
+                      style={{ textDecoration: "none", color: "inherit", display: "contents" }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelectedScholarId(scholar.id);
+                      }}
                     >
-                      <Avatar
-                        size="sm"
-                        name={scholar.name}
-                        src={scholar.image || undefined}
-                      />
-                      <VStack gap={0} align="start" flex={1}>
-                        <Text
-                          fontWeight={isSelected ? "600" : "500"}
-                          fontFamily="heading"
-                          color={isSelected ? "violet.700" : "navy.500"}
-                          fontSize="sm"
-                        >
-                          {scholar.name}
-                        </Text>
-                        {scholar.lastMessageAt && (
-                          <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
-                            {timeAgo(scholar.lastMessageAt)}
+                      <HStack
+                        px={4}
+                        py={3}
+                        gap={3}
+                        cursor="pointer"
+                        bg={isSelected ? "violet.50" : "transparent"}
+                        borderLeft="3px solid"
+                        borderColor={isSelected ? "violet.500" : "transparent"}
+                        _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
+                        transition="all 0.1s"
+                      >
+                        <Avatar
+                          size="sm"
+                          name={scholar.name}
+                          src={scholar.image || undefined}
+                        />
+                        <VStack gap={0} align="start" flex={1}>
+                          <Text
+                            fontWeight={isSelected ? "600" : "500"}
+                            fontFamily="heading"
+                            color={isSelected ? "violet.700" : "navy.500"}
+                            fontSize="sm"
+                          >
+                            {scholar.name}
                           </Text>
-                        )}
-                      </VStack>
-                    </HStack>
+                          {scholar.lastMessageAt && (
+                            <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
+                              {timeAgo(scholar.lastMessageAt)}
+                            </Text>
+                          )}
+                        </VStack>
+                      </HStack>
+                    </Link>
                   );
                 })}
                 {scholars.length === 0 && (
@@ -2052,20 +2061,21 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
         <Box flex={1} />
         <Tooltip.Root openDelay={200} closeDelay={0}>
           <Tooltip.Trigger asChild>
-            <IconButton
-              aria-label="View profile"
-              size="2xs"
-              variant="ghost"
-              color="charcoal.300"
-              _hover={{ color: "violet.500", bg: "violet.50" }}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(`/teacher?tab=scholars&scholar=${String(s.scholarId)}`, "_self");
-              }}
+            <Link
+              href={`/teacher?tab=scholars&scholar=${String(s.scholarId)}`}
+              style={{ display: "contents" }}
+              onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
             >
-              <FiUser />
-            </IconButton>
+              <IconButton
+                aria-label="View profile"
+                size="2xs"
+                variant="ghost"
+                color="charcoal.300"
+                _hover={{ color: "violet.500", bg: "violet.50" }}
+              >
+                <FiUser />
+              </IconButton>
+            </Link>
           </Tooltip.Trigger>
           <Portal>
             <Tooltip.Positioner>
@@ -2075,20 +2085,24 @@ function ScholarCard({ scholar: s }: { scholar: ScholarInActivity }) {
         </Tooltip.Root>
         <Tooltip.Root openDelay={200} closeDelay={0}>
           <Tooltip.Trigger asChild>
-            <IconButton
-              aria-label="Open remote view"
-              size="2xs"
-              variant="ghost"
-              color="charcoal.300"
-              _hover={{ color: "violet.500", bg: "violet.50" }}
+            <a
+              href={`/scholar/${String(s.projectId)}?remote=${String(s.scholarId)}`}
+              target="_blank"
+              rel="noopener"
+              style={{ display: "contents" }}
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(`/scholar/${String(s.projectId)}?remote=${String(s.scholarId)}`, "_blank");
-              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <FiExternalLink />
-            </IconButton>
+              <IconButton
+                aria-label="Open remote view"
+                size="2xs"
+                variant="ghost"
+                color="charcoal.300"
+                _hover={{ color: "violet.500", bg: "violet.50" }}
+              >
+                <FiExternalLink />
+              </IconButton>
+            </a>
           </Tooltip.Trigger>
           <Portal>
             <Tooltip.Positioner>

@@ -359,16 +359,22 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                   </Text>
                 </HStack>
                 {!isParentMode && (
-                  <Text
-                    fontSize="xs"
-                    color="violet.500"
-                    fontFamily="heading"
-                    cursor="pointer"
-                    _hover={{ textDecoration: "underline" }}
-                    onClick={() => window.open(`/scholar?remote=${scholarId}`, "_blank")}
+                  <a
+                    href={`/scholar?remote=${scholarId}`}
+                    target="_blank"
+                    rel="noopener"
+                    style={{ textDecoration: "none" }}
                   >
-                    Show all
-                  </Text>
+                    <Text
+                      fontSize="xs"
+                      color="violet.500"
+                      fontFamily="heading"
+                      cursor="pointer"
+                      _hover={{ textDecoration: "underline" }}
+                    >
+                      Show all
+                    </Text>
+                  </a>
                 )}
               </HStack>
               {scholarProjects === undefined ? (
@@ -380,20 +386,23 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
               ) : (
                 <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(220px, 1fr))" gap={3}>
                   {scholarProjects.slice(0, 6).map((project) => (
-                    <Box
+                    <a
                       key={project._id}
-                      bg="white"
-                      borderRadius="lg"
-                      p={3}
-                      shadow="xs"
-                      cursor="pointer"
-                      _hover={{ shadow: "sm", borderColor: "violet.200" }}
-                      border="1px solid"
-                      borderColor="gray.100"
-                      onClick={() =>
-                        window.open(`/scholar/${String(project._id)}?remote=${scholarId}`, "_blank")
-                      }
+                      href={`/scholar/${String(project._id)}?remote=${scholarId}`}
+                      target="_blank"
+                      rel="noopener"
+                      style={{ textDecoration: "none", color: "inherit", display: "contents" }}
                     >
+                      <Box
+                        bg="white"
+                        borderRadius="lg"
+                        p={3}
+                        shadow="xs"
+                        cursor="pointer"
+                        _hover={{ shadow: "sm", borderColor: "violet.200" }}
+                        border="1px solid"
+                        borderColor="gray.100"
+                      >
                       <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" lineClamp={1}>
                         {project.title}
                       </Text>
@@ -417,6 +426,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                         </Text>
                       )}
                     </Box>
+                    </a>
                   ))}
                 </Box>
               )}
@@ -439,39 +449,43 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
               ) : (
                 <VStack gap={2} align="stretch">
                   {recentMessages.map((msg) => (
-                    <Box
+                    <a
                       key={msg._id}
-                      bg="white"
-                      borderRadius="md"
-                      p={3}
-                      shadow="xs"
-                      cursor="pointer"
-                      _hover={{ shadow: "sm" }}
-                      onClick={() =>
-                        window.open(`/scholar/${String(msg.projectId)}?remote=${scholarId}`, "_blank")
-                      }
+                      href={`/scholar/${String(msg.projectId)}?remote=${scholarId}`}
+                      target="_blank"
+                      rel="noopener"
+                      style={{ textDecoration: "none", color: "inherit" }}
                     >
-                      <HStack justify="space-between" mb={1}>
-                        <HStack gap={2}>
-                          <Badge
-                            bg={msg.role === "user" ? "cyan.100" : "violet.100"}
-                            color={msg.role === "user" ? "cyan.700" : "violet.700"}
-                            fontSize="xs"
-                          >
-                            {msg.role === "user" ? "scholar" : "ai"}
-                          </Badge>
-                          <Text fontSize="xs" color="violet.500" fontFamily="heading">
-                            {msg.projectTitle}
+                      <Box
+                        bg="white"
+                        borderRadius="md"
+                        p={3}
+                        shadow="xs"
+                        cursor="pointer"
+                        _hover={{ shadow: "sm" }}
+                      >
+                        <HStack justify="space-between" mb={1}>
+                          <HStack gap={2}>
+                            <Badge
+                              bg={msg.role === "user" ? "cyan.100" : "violet.100"}
+                              color={msg.role === "user" ? "cyan.700" : "violet.700"}
+                              fontSize="xs"
+                            >
+                              {msg.role === "user" ? "scholar" : "ai"}
+                            </Badge>
+                            <Text fontSize="xs" color="violet.500" fontFamily="heading">
+                              {msg.projectTitle}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                            {timeAgo(msg._creationTime)}
                           </Text>
                         </HStack>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                          {timeAgo(msg._creationTime)}
+                        <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineClamp={2}>
+                          {msg.content.slice(0, 200)}
                         </Text>
-                      </HStack>
-                      <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineClamp={2}>
-                        {msg.content.slice(0, 200)}
-                      </Text>
-                    </Box>
+                      </Box>
+                    </a>
                   ))}
                 </VStack>
               )}

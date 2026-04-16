@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Box, HStack, Text, Button, Menu } from "@chakra-ui/react";
 import { FiLogOut, FiSettings, FiUser, FiEye, FiCpu } from "react-icons/fi";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -90,33 +91,27 @@ export function AccountMenu({
           <Menu.Separator />
           {/* View toggle */}
           {isScholar && isOnScholarPage && (
-            <Menu.Item
-              value="parent-view"
-              cursor="pointer"
-              onClick={() => { window.location.href = "/parent"; }}
-            >
-              <FiEye />
-              Parent View
+            <Menu.Item value="parent-view" cursor="pointer" asChild>
+              <Link href="/parent" style={{ textDecoration: "none", color: "inherit" }}>
+                <FiEye />
+                Parent View
+              </Link>
             </Menu.Item>
           )}
           {isScholar && isOnParentPage && (
-            <Menu.Item
-              value="student-view"
-              cursor="pointer"
-              onClick={() => { window.location.href = "/scholar"; }}
-            >
-              <FiEye />
-              Student View
+            <Menu.Item value="student-view" cursor="pointer" asChild>
+              <Link href="/scholar" style={{ textDecoration: "none", color: "inherit" }}>
+                <FiEye />
+                Student View
+              </Link>
             </Menu.Item>
           )}
           {isAdmin && (
-            <Menu.Item
-              value="admin"
-              cursor="pointer"
-              onClick={() => { window.location.href = "/admin"; }}
-            >
-              <FiSettings />
-              Admin Tools
+            <Menu.Item value="admin" cursor="pointer" asChild>
+              <Link href="/admin" style={{ textDecoration: "none", color: "inherit" }}>
+                <FiSettings />
+                Admin Tools
+              </Link>
             </Menu.Item>
           )}
           <Menu.Item
