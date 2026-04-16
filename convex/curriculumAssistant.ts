@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalQuery, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { curriculumQuery, curriculumMutation } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 // ── Public (teacher-authed) ─────────────────────────────────────────
 
@@ -223,7 +224,7 @@ export const listScholarsInternal = internalQuery({
   handler: async (ctx) => {
     const scholars = await ctx.db
       .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .withIndex("by_role", (q) => q.eq("role", ROLES.SCHOLAR))
       .collect();
 
     const result = [];

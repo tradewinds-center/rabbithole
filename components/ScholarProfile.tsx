@@ -46,6 +46,7 @@ import { MasteryTab } from "@/components/MasteryTab";
 import { SeedsTab } from "@/components/SeedsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
 export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "notes" | "reading";
 type TabKey = ScholarTabKey;
@@ -944,7 +945,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         <Portal>
           <Dialog.Backdrop />
           <Dialog.Positioner>
-            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+            <StyledDialogContent>
               <Dialog.Header px={6} pt={5} pb={2}>
                 <Dialog.Title fontFamily="heading" fontSize="lg" color="navy.500">
                   {tempPassword ? "Password Reset" : "Reset Password"}
@@ -1019,7 +1020,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                   </>
                 )}
               </Dialog.Footer>
-            </Dialog.Content>
+            </StyledDialogContent>
           </Dialog.Positioner>
         </Portal>
       </Dialog.Root>
@@ -1033,7 +1034,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         <Portal>
           <Dialog.Backdrop />
           <Dialog.Positioner>
-            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+            <StyledDialogContent>
               <Dialog.Header px={6} pt={5} pb={2}>
                 <Dialog.Title fontFamily="heading" fontSize="lg" color="navy.500">
                   Delete Scholar
@@ -1068,7 +1069,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                   Delete
                 </Button>
               </Dialog.Footer>
-            </Dialog.Content>
+            </StyledDialogContent>
           </Dialog.Positioner>
         </Portal>
       </Dialog.Root>

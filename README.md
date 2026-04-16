@@ -100,7 +100,7 @@ convex/                 # Convex backend
   projects.ts           # Project CRUD + messaging
   projectHelpers.ts     # System prompt builder
   observer.ts           # AI observer (mastery, signals, seeds)
-  seed.ts               # Database seed data
+  seedData.ts           # Database seed data
   lib/                  # Auth helpers, custom function wrappers
 scripts/                # Utility scripts
 mcp-server/             # MCP server for parent access

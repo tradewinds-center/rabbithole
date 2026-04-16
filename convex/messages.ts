@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 /**
  * List messages for a project (used by reactive subscribers).
@@ -13,7 +14,7 @@ export const listByProject = authedQuery({
 
     // Access check
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) {
       return [];
     }
@@ -151,7 +152,7 @@ export const insertWhisper = internalMutation({
 export const getRecentByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) return [];
 
     const projects = await ctx.db

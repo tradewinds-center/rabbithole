@@ -28,6 +28,7 @@ import { ProjectHeader } from "./ProjectHeader";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
+import { DimensionOption } from "./DimensionPicker";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -44,13 +45,6 @@ const chatMarkdownComponents: Components = {
     return <em {...props}>{children}</em>;
   },
 };
-
-interface DimensionOption {
-  id: string;
-  title: string;
-  emoji?: string | null;
-  icon?: string | null;
-}
 
 interface ProjectInterfaceProps {
   projectId: string;

@@ -19,6 +19,7 @@ import {
 } from "@chakra-ui/react";
 import { FiChevronDown, FiChevronRight, FiLock, FiX } from "react-icons/fi";
 import { STRAND_CONFIG, STRAND_ORDER, type Strand } from "@/lib/constants";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
 interface UnitOption {
   id: string;
@@ -109,7 +110,7 @@ export function UnitPickerDialog({
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content maxW="xl" mx={4} borderRadius="xl" overflow="hidden">
+          <StyledDialogContent maxW="xl">
             <Dialog.Header px={6} pt={5} pb={2}>
               <Dialog.Title
                 fontFamily="heading"
@@ -250,7 +251,7 @@ export function UnitPickerDialog({
                 Start Project
               </Button>
             </Dialog.Footer>
-          </Dialog.Content>
+          </StyledDialogContent>
         </Dialog.Positioner>
       </Portal>
     </Dialog.Root>

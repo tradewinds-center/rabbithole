@@ -13,6 +13,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
 interface SetPasswordDialogProps {
   open: boolean;
@@ -111,7 +112,7 @@ export function SetPasswordDialog({
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+          <StyledDialogContent>
             <Dialog.Header px={6} pt={5} pb={2}>
               <Dialog.Title fontFamily="heading" fontSize="lg" color="navy.500">
                 {requireCurrentPassword ? "Change Password" : "Set a New Password"}
@@ -230,7 +231,7 @@ export function SetPasswordDialog({
                     : "Set Password"}
               </Button>
             </Dialog.Footer>
-          </Dialog.Content>
+          </StyledDialogContent>
         </Dialog.Positioner>
       </Portal>
     </Dialog.Root>

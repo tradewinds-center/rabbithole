@@ -106,7 +106,7 @@ async function main() {
   // First seed the Video Reflection process
   console.log("\nSeeding Video Reflection process...");
   execSync(
-    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seed:seedVideoReflection${prodFlag}`,
+    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seedData:seedVideoReflection${prodFlag}`,
     { stdio: "inherit" }
   );
 
@@ -117,7 +117,7 @@ async function main() {
   fs.writeFileSync(argsFile, argsJson);
 
   execSync(
-    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seed:seedVideoUnits "$(cat ${argsFile})"${prodFlag}`,
+    `CONVEX_DEPLOYMENT=${process.env.CONVEX_DEPLOYMENT} npx convex run seedData:seedVideoUnits "$(cat ${argsFile})"${prodFlag}`,
     { stdio: "inherit" }
   );
 

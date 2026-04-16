@@ -1,5 +1,6 @@
 import { internalMutation, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { ROLES } from "./lib/roles";
 
 export const clearAll = internalMutation({
   handler: async (ctx) => {
@@ -33,14 +34,14 @@ export const seedAll = internalMutation({
     const systemTeacherId = await ctx.db.insert("users", {
       username: "andyszy",
       name: "Andy Szybalski",
-      role: "admin",
+      role: ROLES.ADMIN,
     });
 
     // Create default guest scholar account
     await ctx.db.insert("users", {
       username: "guest",
       name: "Guest",
-      role: "scholar",
+      role: ROLES.SCHOLAR,
       profileSetupComplete: true,
     });
 
@@ -850,14 +851,14 @@ The document is plain text only. The document title becomes the story title.`,
         email: "test.teacher@tradewinds.school",
         name: "Test Teacher",
         image: "/avatars/teacher.png",
-        role: "teacher" as const,
+        role: ROLES.TEACHER,
       },
       {
         externalId: "test-scholar-001",
         email: "kai.nakamura@example.com",
         name: "Kai Nakamura",
         image: "/avatars/kai-nakamura.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "3",
         dateOfBirth: "2017-06-12",
       },
@@ -866,7 +867,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "lani.kealoha@example.com",
         name: "Lani Kealoha",
         image: "/avatars/lani-kealoha.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "2",
         dateOfBirth: "2018-11-03",
       },
@@ -875,7 +876,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "noah.takahashi@example.com",
         name: "Noah Takahashi",
         image: "/avatars/noah-takahashi.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "5",
         dateOfBirth: "2016-02-28",
       },
@@ -884,7 +885,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "sophie.anderson@example.com",
         name: "Sophie Anderson",
         image: "/avatars/sophie-anderson.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "4",
         dateOfBirth: "2016-09-15",
       },
@@ -893,7 +894,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "koa.medeiros@example.com",
         name: "Koa Medeiros",
         image: "/avatars/koa-medeiros.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "K",
         dateOfBirth: "2020-04-22",
       },
@@ -902,7 +903,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "lily.murphy@example.com",
         name: "Lily Murphy",
         image: "/avatars/lily-murphy.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "1",
         dateOfBirth: "2019-08-07",
       },
@@ -911,7 +912,7 @@ The document is plain text only. The document title becomes the story title.`,
         email: "jack.davis@example.com",
         name: "Jack Davis",
         image: "/avatars/jack-davis.png",
-        role: "scholar" as const,
+        role: ROLES.SCHOLAR,
         readingLevel: "5",
         dateOfBirth: "2015-12-19",
       },
@@ -1166,7 +1167,7 @@ This routine works for everything: a painting, a math problem, a rock, a histori
 
 /**
  * Add units and scholar topics to an already-seeded database.
- * Run once: npx convex run seed:seedUnitsAndTopics
+ * Run once: npx convex run seedData:seedUnitsAndTopics
  */
 export const seedUnitsAndTopics = internalMutation({
   handler: async (ctx) => {
@@ -1177,7 +1178,7 @@ export const seedUnitsAndTopics = internalMutation({
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .filter((q) => q.eq(q.field("role"), ROLES.TEACHER))
       .first();
     if (!teacher) {
       console.log("No teacher found, cannot seed units.");
@@ -1226,7 +1227,7 @@ export const seedUnitsAndTopics = internalMutation({
 
 /**
  * Seed the CRAFT writing process.
- * Run once: npx convex run seed:seedProcesses
+ * Run once: npx convex run seedData:seedProcesses
  */
 export const seedProcesses = internalMutation({
   handler: async (ctx) => {
@@ -1244,7 +1245,7 @@ export const seedProcesses = internalMutation({
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .filter((q) => q.eq(q.field("role"), ROLES.TEACHER))
       .first();
     if (!teacher) {
       console.log("No teacher found, cannot seed processes.");
@@ -1323,7 +1324,7 @@ export const seedProcesses = internalMutation({
 
 /**
  * Seed the Weekend News project + process.
- * Run once: npx convex run seed:seedWeekendNews
+ * Run once: npx convex run seedData:seedWeekendNews
  */
 export const seedWeekendNews = internalMutation({
   handler: async (ctx) => {
@@ -1334,7 +1335,7 @@ export const seedWeekendNews = internalMutation({
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .filter((q) => q.eq(q.field("role"), ROLES.TEACHER))
       .first();
     if (!teacher) {
       console.log("No teacher found, cannot seed Weekend News.");
@@ -1397,7 +1398,7 @@ The document title serves as the headline — do NOT repeat a headline or byline
 /**
  * Seed Democracy Education content: Citizen persona, Citizens' Report project,
  * Democratic Principles perspective, VOICE civic analysis process.
- * Run once: npx convex run seed:seedDemocracy
+ * Run once: npx convex run seedData:seedDemocracy
  */
 export const seedDemocracy = internalMutation({
   handler: async (ctx) => {
@@ -1408,7 +1409,7 @@ export const seedDemocracy = internalMutation({
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .filter((q) => q.eq(q.field("role"), ROLES.TEACHER))
       .first();
     if (!teacher) {
       console.log("No teacher found, cannot seed democracy content.");
@@ -1559,7 +1560,7 @@ When the scholar discusses any topic through this lens, help them see the civic 
 
 /**
  * Seed the Video Reflection process (WRDC steps) and two test video units.
- * Run: npx convex run seed:seedVideoReflection
+ * Run: npx convex run seedData:seedVideoReflection
  */
 export const seedVideoReflection = internalMutation({
   handler: async (ctx) => {
@@ -1570,7 +1571,7 @@ export const seedVideoReflection = internalMutation({
       .first();
     const teacher = systemTeacher ?? await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("role"), "teacher"))
+      .filter((q) => q.eq(q.field("role"), ROLES.TEACHER))
       .first();
     if (!teacher) {
       console.log("No teacher found, cannot seed video reflection.");
@@ -1652,8 +1653,8 @@ export const seedVideoUnits = internalMutation({
         .query("users")
         .filter((q) =>
           q.or(
-            q.eq(q.field("role"), "teacher"),
-            q.eq(q.field("role"), "admin")
+            q.eq(q.field("role"), ROLES.TEACHER),
+            q.eq(q.field("role"), ROLES.ADMIN)
           )
         )
         .first());
@@ -1719,11 +1720,11 @@ export const patchSlugs = internalMutation({
  */
 export const patchTestUsers = internalMutation({
   handler: async (ctx) => {
-    const testUserMap: Record<string, { name: string; image: string; role: "teacher" | "scholar"; readingLevel?: string; profileSetupComplete?: boolean }> = {
-      "test-teacher-001@test.rabbithole.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: "teacher" },
-      "test-scholar-001@test.rabbithole.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: "scholar", readingLevel: "3", profileSetupComplete: true },
-      "test-scholar-002@test.rabbithole.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: "scholar", readingLevel: "2", profileSetupComplete: true },
-      "test-scholar-003@test.rabbithole.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: "scholar", readingLevel: "5", profileSetupComplete: true },
+    const testUserMap: Record<string, { name: string; image: string; role: typeof ROLES.TEACHER | typeof ROLES.SCHOLAR; readingLevel?: string; profileSetupComplete?: boolean }> = {
+      "test-teacher-001@test.rabbithole.dev": { name: "Test Teacher", image: "/avatars/teacher.png", role: ROLES.TEACHER },
+      "test-scholar-001@test.rabbithole.dev": { name: "Kai Nakamura", image: "/avatars/kai-nakamura.png", role: ROLES.SCHOLAR, readingLevel: "3", profileSetupComplete: true },
+      "test-scholar-002@test.rabbithole.dev": { name: "Lani Kealoha", image: "/avatars/lani-kealoha.png", role: ROLES.SCHOLAR, readingLevel: "2", profileSetupComplete: true },
+      "test-scholar-003@test.rabbithole.dev": { name: "Noah Takahashi", image: "/avatars/noah-takahashi.png", role: ROLES.SCHOLAR, readingLevel: "5", profileSetupComplete: true },
     };
 
     let patched = 0;
@@ -1831,7 +1832,7 @@ function stripFakeDomain(value: string, fakeDomains: string[]): string {
 /**
  * Seed PCM (Parallel Curriculum Model) processes: D.E.E.P., L.I.N.K., A.R.C., B.E.C.O.M.E.
  * Additive — only inserts processes that don't already exist.
- * Run: npx convex run seed:seedPCMProcesses
+ * Run: npx convex run seedData:seedPCMProcesses
  */
 export const seedPCMProcesses = internalMutation({
   handler: async (ctx) => {
@@ -1840,8 +1841,8 @@ export const seedPCMProcesses = internalMutation({
       .query("users")
       .filter((q) =>
         q.or(
-          q.eq(q.field("role"), "admin"),
-          q.eq(q.field("role"), "teacher")
+          q.eq(q.field("role"), ROLES.ADMIN),
+          q.eq(q.field("role"), ROLES.TEACHER)
         )
       )
       .first();
@@ -1965,8 +1966,8 @@ export const migrateUnitsToPCM = internalMutation({
       .query("users")
       .filter((q) =>
         q.or(
-          q.eq(q.field("role"), "admin"),
-          q.eq(q.field("role"), "teacher")
+          q.eq(q.field("role"), ROLES.ADMIN),
+          q.eq(q.field("role"), ROLES.TEACHER)
         )
       )
       .first();

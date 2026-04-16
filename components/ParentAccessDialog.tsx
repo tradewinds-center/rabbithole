@@ -19,6 +19,7 @@ import {
   Badge,
 } from "@chakra-ui/react";
 import { FiX, FiPlus, FiTrash2, FiCopy, FiCheck } from "react-icons/fi";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
 interface ParentAccessDialogProps {
   /** Scholar whose tokens to manage (teacher view) or undefined for self-service */
@@ -135,7 +136,7 @@ export function ParentAccessDialog({
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content maxW="2xl" mx={4} borderRadius="xl" overflow="hidden">
+          <StyledDialogContent maxW="2xl">
             <Dialog.Header px={6} pt={5} pb={2}>
               <Dialog.Title
                 fontFamily="heading"
@@ -485,7 +486,7 @@ export function ParentAccessDialog({
                 )}
               </VStack>
             </Dialog.Body>
-          </Dialog.Content>
+          </StyledDialogContent>
         </Dialog.Positioner>
       </Portal>
     </Dialog.Root>

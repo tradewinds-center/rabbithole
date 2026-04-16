@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { authedQuery, authedMutation, teacherMutation } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 // ── Self-service token management (any logged-in user) ─────────────────
 
@@ -71,7 +72,7 @@ export const createForScholar = teacherMutation({
   },
   handler: async (ctx, args) => {
     const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
+    if (!scholar || scholar.role !== ROLES.SCHOLAR) {
       throw new Error("Scholar not found");
     }
 
@@ -98,7 +99,7 @@ export const createForScholar = teacherMutation({
 export const listForScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const tokens = await ctx.db
@@ -125,7 +126,7 @@ export const revokeToken = authedMutation({
     const token = await ctx.db.get(args.tokenId);
     if (!token) throw new Error("Token not found");
 
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && token.userId !== ctx.user._id) throw new Error("Forbidden");
 
     await ctx.db.delete(args.tokenId);
@@ -155,7 +156,7 @@ export const validateToken = internalQuery({
       userId: tokenDoc.userId,
       userName: user.name ?? "User",
       label: tokenDoc.label,
-      role: user.role ?? "scholar",
+      role: user.role ?? ROLES.SCHOLAR,
     };
   },
 });
@@ -248,7 +249,7 @@ export const listScholars = internalQuery({
   handler: async (ctx) => {
     const scholars = await ctx.db
       .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .withIndex("by_role", (q) => q.eq("role", ROLES.SCHOLAR))
       .collect();
 
     return scholars.map((s) => ({

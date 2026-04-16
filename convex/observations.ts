@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery, authedMutation, teacherQuery, teacherMutation } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 const observationTypeValidator = v.union(
   v.literal("praise"),
@@ -14,7 +15,7 @@ const observationTypeValidator = v.union(
 export const listByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     return await ctx.db
@@ -52,7 +53,7 @@ export const add = authedMutation({
     type: observationTypeValidator,
   },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const id = await ctx.db.insert("observations", {
@@ -72,7 +73,7 @@ export const add = authedMutation({
 export const remove = authedMutation({
   args: { observationId: v.id("observations") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher) {
       const obs = await ctx.db.get(args.observationId);
       if (!obs || obs.scholarId !== ctx.user._id) throw new Error("Forbidden");

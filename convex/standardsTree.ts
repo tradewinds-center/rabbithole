@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authedQuery } from "./lib/customFunctions";
 import { internalQuery } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
+import { ROLES } from "./lib/roles";
 
 /** Helper: filter out nodes with empty/placeholder descriptions */
 function hasRealDescription(s: { description: string }): boolean {
@@ -111,7 +112,7 @@ export const gradeSummary = authedQuery({
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const allStandards = await ctx.db
@@ -201,7 +202,7 @@ export const observationsForStandard = authedQuery({
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     // Get all current observations for the scholar, filter for this standard
@@ -228,7 +229,7 @@ export const getSubtreeCoverage = authedQuery({
     scholarId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     // Collect all leaf IDs in the subtree

@@ -24,7 +24,7 @@ done
 
 echo ""
 echo "=== Re-seeding ==="
-npx convex run seed:seedAll $FLAG
+npx convex run seedData:seedAll $FLAG
 
 echo ""
 echo "=== Importing Common Core Standards ==="

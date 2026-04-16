@@ -7,7 +7,7 @@ set -euo pipefail
 FLAG="${1:-}"
 
 echo "=== Seeding test data ${FLAG:+(${FLAG})} ==="
-npx convex run seed:seedAll $FLAG
+npx convex run seedData:seedAll $FLAG
 
 echo ""
 echo "=== Importing Common Core Standards ==="

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery, curriculumMutation } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 /**
  * List all personas. Scholars see only active; teachers see all.
@@ -8,7 +9,7 @@ export const list = authedQuery({
   args: {},
   handler: async (ctx) => {
     const canManageCurriculum =
-      ctx.user.role === "teacher" || ctx.user.role === "admin" || ctx.user.role === "curriculum_designer";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN || ctx.user.role === ROLES.CURRICULUM_DESIGNER;
 
     let personaList;
     if (canManageCurriculum) {

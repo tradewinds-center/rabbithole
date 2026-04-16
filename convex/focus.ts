@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { authedQuery, teacherMutation, teacherQuery } from "./lib/customFunctions";
 import { Id } from "./_generated/dataModel";
+import { ROLES } from "./lib/roles";
 
 /**
  * Get the current active focus setting (if any).
@@ -22,7 +23,7 @@ export const getCurrent = authedQuery({
     // Per-scholar filtering: scholars only see the lock if they're in the list.
     // No scholars assigned = lock applies to nobody.
     const user = ctx.user;
-    if (user.role === "scholar") {
+    if (user.role === ROLES.SCHOLAR) {
       if (!active.scholarIds || active.scholarIds.length === 0) return null;
       if (!active.scholarIds.includes(user._id)) return null;
     }

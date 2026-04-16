@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authedQuery, authedMutation, teacherMutation, teacherQuery } from "./lib/customFunctions";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { ROLES } from "./lib/roles";
 
 /** Parent password for time limit mode (set via PARENT_PASSWORD env var in Convex dashboard). */
 const PARENT_PASSWORD = process.env.PARENT_PASSWORD ?? "";
@@ -16,7 +17,7 @@ export const list = authedQuery({
   },
   handler: async (ctx, args) => {
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     const targetUserId =
       isTeacher && args.userId ? args.userId : ctx.user._id;
 
@@ -77,7 +78,7 @@ export const getWithMessages = authedQuery({
 
     // Access check: scholars can only view their own
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) {
       throw new Error("Forbidden");
     }
@@ -116,7 +117,7 @@ export const create = authedMutation({
   },
   handler: async (ctx, args) => {
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     const ownerUserId =
       isTeacher && args.userId ? args.userId : ctx.user._id;
 
@@ -206,7 +207,7 @@ export const update = authedMutation({
     if (!project) throw new Error("Project not found");
 
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
 
     // Scholars can only update their own projects
     if (!isTeacher && project.userId !== ctx.user._id) {
@@ -287,7 +288,7 @@ export const archive = authedMutation({
     if (!project) throw new Error("Project not found");
 
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) {
       throw new Error("Forbidden");
     }
@@ -313,7 +314,7 @@ export const sendMessage = authedMutation({
 
     // Access check: teachers can send in any project, scholars only their own
     const isTeacher =
-      ctx.user.role === "teacher" || ctx.user.role === "admin";
+      ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) {
       throw new Error("Forbidden");
     }
@@ -508,7 +509,7 @@ export const listActiveByUnit = teacherQuery({
     // Include scholars with no active projects at all
     const allScholars = await ctx.db
       .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .withIndex("by_role", (q) => q.eq("role", ROLES.SCHOLAR))
       .collect();
     const scholarsWithProjects = new Set(allProjects.map((p) => String(p.userId)));
     const noProjectScholars = allScholars

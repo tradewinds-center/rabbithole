@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedQuery, teacherMutation } from "./lib/customFunctions";
 import { internalQuery, internalMutation } from "./_generated/server";
+import { ROLES } from "./lib/roles";
 
 const VALID_READING_LEVELS = [
   "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college",
@@ -13,11 +14,11 @@ const VALID_READING_LEVELS = [
 export const getProfile = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
+    if (!scholar || scholar.role !== ROLES.SCHOLAR) {
       throw new Error("Scholar not found");
     }
 
@@ -84,7 +85,7 @@ export const updateReadingLevel = teacherMutation({
     }
 
     const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
+    if (!scholar || scholar.role !== ROLES.SCHOLAR) {
       throw new Error("Scholar not found");
     }
 
@@ -159,7 +160,7 @@ export const updateAudioSettings = teacherMutation({
   },
   handler: async (ctx, args) => {
     const scholar = await ctx.db.get(args.scholarId);
-    if (!scholar || scholar.role !== "scholar") {
+    if (!scholar || scholar.role !== ROLES.SCHOLAR) {
       throw new Error("Scholar not found");
     }
     const patch: Record<string, boolean> = {};

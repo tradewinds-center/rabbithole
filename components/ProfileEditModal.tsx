@@ -20,6 +20,7 @@ import {
 import { Avatar } from "@/components/Avatar";
 import { FiCamera, FiKey } from "react-icons/fi";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -138,12 +139,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
       <Portal>
         <Dialog.Backdrop />
         <Dialog.Positioner>
-          <Dialog.Content
-            maxW="lg"
-            w="90vw"
-            borderRadius="2xl"
-            overflow="hidden"
-          >
+          <StyledDialogContent maxW="lg">
             <Dialog.Header px={6} pt={6} pb={0}>
               <HStack gap={4} w="full">
                 {/* Avatar upload */}
@@ -290,7 +286,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                 </Button>
               </HStack>
             </Dialog.Footer>
-          </Dialog.Content>
+          </StyledDialogContent>
         </Dialog.Positioner>
       </Portal>
 

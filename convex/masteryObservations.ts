@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { authedQuery, teacherQuery } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 /**
  * Record a mastery observation (called by the observer action).
@@ -102,7 +103,7 @@ export const currentByScholar = internalQuery({
 export const byScholarDomain = authedQuery({
   args: { scholarId: v.id("users"), domain: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const observations = await ctx.db
@@ -135,7 +136,7 @@ export const inspectConcept = authedQuery({
     conceptLabel: v.string(),
   },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const allForScholar = await ctx.db
@@ -170,7 +171,7 @@ export const inspectConcept = authedQuery({
 export const withStandardsByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const observations = await ctx.db

@@ -54,6 +54,7 @@ import dynamic from "next/dynamic";
 const CurriculumAssistant = dynamic(() => import("@/components/CurriculumAssistant"), { ssr: false });
 import { Lectern } from "@phosphor-icons/react";
 import { ScholarProfile, EntityManager } from "@/components";
+import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 import type { ScholarTabKey } from "@/components";
 import { AppLogo } from "@/components/AppLogo";
 import { AppHeader } from "@/components/AppHeader";
@@ -1043,7 +1044,7 @@ function ActivitySidebar({
           <Portal>
             <Dialog.Backdrop />
             <Dialog.Positioner>
-              <Dialog.Content maxW="xl" mx={4} borderRadius="xl" overflow="hidden">
+              <StyledDialogContent maxW="xl">
                 <Dialog.Header px={6} pt={5} pb={2}>
                   <Dialog.Title fontFamily="heading" fontWeight="700" color="navy.500" fontSize="lg" flex={1}>
                     Start an Activity
@@ -1203,7 +1204,7 @@ function ActivitySidebar({
                     </Button>
                   </VStack>
                 </Dialog.Footer>
-              </Dialog.Content>
+              </StyledDialogContent>
             </Dialog.Positioner>
           </Portal>
         </Dialog.Root>
@@ -1458,7 +1459,7 @@ function AddScholarsButton({
         <Portal>
           <Dialog.Backdrop />
           <Dialog.Positioner>
-            <Dialog.Content maxW="sm" mx={4} borderRadius="xl" overflow="hidden">
+            <StyledDialogContent>
               <Dialog.Header px={6} pt={5} pb={2}>
                 <Dialog.Title fontFamily="heading" fontWeight="700" color="navy.500">
                   Add Scholars
@@ -1549,7 +1550,7 @@ function AddScholarsButton({
                     : `Add ${selected.size} Scholar${selected.size !== 1 ? "s" : ""}`}
                 </Button>
               </Dialog.Footer>
-            </Dialog.Content>
+            </StyledDialogContent>
           </Dialog.Positioner>
         </Portal>
       </Dialog.Root>

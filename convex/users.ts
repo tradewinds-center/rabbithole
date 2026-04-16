@@ -3,6 +3,7 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { authedQuery, authedMutation, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
 import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { ROLES } from "./lib/roles";
 
 /**
  * Pre-register a user with an invite code.
@@ -39,7 +40,7 @@ export const registerWithCode = mutation({
     await ctx.db.insert("users", {
       username,
       name: username,
-      role: "scholar",
+      role: ROLES.SCHOLAR,
     });
   },
 });
@@ -94,7 +95,7 @@ export const listScholars = teacherQuery({
   handler: async (ctx) => {
     const scholars = await ctx.db
       .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "scholar"))
+      .withIndex("by_role", (q) => q.eq("role", ROLES.SCHOLAR))
       .collect();
 
     const scholarData = await Promise.all(
@@ -207,10 +208,10 @@ export const updateRole = adminMutation({
   args: {
     userId: v.id("users"),
     role: v.union(
-      v.literal("scholar"),
-      v.literal("teacher"),
-      v.literal("admin"),
-      v.literal("curriculum_designer")
+      v.literal(ROLES.SCHOLAR),
+      v.literal(ROLES.TEACHER),
+      v.literal(ROLES.ADMIN),
+      v.literal(ROLES.CURRICULUM_DESIGNER)
     ),
   },
   handler: async (ctx, args) => {
@@ -225,7 +226,7 @@ export const updateRole = adminMutation({
 export const fixRole = internalMutation({
   args: {
     userId: v.id("users"),
-    role: v.union(v.literal("scholar"), v.literal("teacher"), v.literal("admin"), v.literal("curriculum_designer")),
+    role: v.union(v.literal(ROLES.SCHOLAR), v.literal(ROLES.TEACHER), v.literal(ROLES.ADMIN), v.literal(ROLES.CURRICULUM_DESIGNER)),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
@@ -266,7 +267,7 @@ export const listAllUsers = adminQuery({
       _id: u._id,
       username: u.username ?? null,
       name: u.name ?? null,
-      role: u.role ?? "scholar",
+      role: u.role ?? ROLES.SCHOLAR,
       _creationTime: u._creationTime,
     }));
   },
@@ -472,7 +473,7 @@ export const resetScholarPassword = teacherMutation({
   handler: async (ctx, args) => {
     const scholar = await ctx.db.get(args.scholarId);
     if (!scholar) throw new Error("Scholar not found");
-    if (scholar.role !== "scholar") throw new Error("Can only reset scholar passwords");
+    if (scholar.role !== ROLES.SCHOLAR) throw new Error("Can only reset scholar passwords");
 
     // Generate random 4-digit PIN
     const tempPassword = String(Math.floor(1000 + Math.random() * 9000));
@@ -567,7 +568,7 @@ export const createScholar = teacherMutation({
     const userId = await ctx.db.insert("users", {
       name: args.name.trim(),
       username: args.username?.trim(),
-      role: "scholar",
+      role: ROLES.SCHOLAR,
     });
     return { userId };
   },

@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import { ROLES } from "./lib/roles";
 
 export default defineSchema({
   // Spread @convex-dev/auth internal tables (authAccounts, authSessions, etc.)
@@ -21,10 +22,10 @@ export default defineSchema({
     externalId: v.optional(v.string()),
     role: v.optional(
       v.union(
-        v.literal("scholar"),
-        v.literal("teacher"),
-        v.literal("admin"),
-        v.literal("curriculum_designer")
+        v.literal(ROLES.SCHOLAR),
+        v.literal(ROLES.TEACHER),
+        v.literal(ROLES.ADMIN),
+        v.literal(ROLES.CURRICULUM_DESIGNER)
       )
     ),
     readingLevel: v.optional(v.string()),

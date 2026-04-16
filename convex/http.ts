@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { buildSystemPrompt } from "./projectHelpers";
+import { ROLES } from "./lib/roles";
 
 const http = httpRouter();
 
@@ -1389,7 +1390,7 @@ async function resolveScholarId(
   auth: { userId: Id<"users">; role: string },
   request: Request
 ): Promise<Id<"users"> | null> {
-  if (auth.role === "teacher" || auth.role === "admin") {
+  if (auth.role === ROLES.TEACHER || auth.role === ROLES.ADMIN) {
     try {
       const body = await request.clone().json();
       if (body?.scholarId) return body.scholarId as Id<"users">;
@@ -1422,7 +1423,7 @@ http.route({
     if (!token) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: PARENT_API_CORS });
     const auth = await ctx.runQuery(internal.tokens.validateToken, { token });
     if (!auth) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: PARENT_API_CORS });
-    if (auth.role !== "teacher" && auth.role !== "admin") {
+    if (auth.role !== ROLES.TEACHER && auth.role !== ROLES.ADMIN) {
       return new Response(JSON.stringify({ error: "Teacher access required" }), { status: 403, headers: PARENT_API_CORS });
     }
     const scholars = await ctx.runQuery(internal.tokens.listScholars, {});

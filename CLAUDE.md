@@ -117,7 +117,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 | `seeds.ts` | AI-generated + teacher-created exploration seeds |
 | `analysisHelpers.ts` | Internal mutations for pulse/analysis results |
 | `audioActions.ts` | "use node" action for OpenAI Whisper transcription |
-| `seed.ts` | Seed personas, perspectives, test users |
+| `seedData.ts` | Seed personas, perspectives, test users |
 
 ### Frontend
 

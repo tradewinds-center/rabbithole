@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedQuery, authedMutation } from "./lib/customFunctions";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { ROLES } from "./lib/roles";
 
 /**
  * Get all artifacts for a project (reactive, used by ArtifactPanel).
@@ -11,7 +12,7 @@ export const getByProject = authedQuery({
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) return [];
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) return [];
 
     return await ctx.db
@@ -37,7 +38,7 @@ export const scholarUpdate = authedMutation({
     if (!artifact) return;
     const project = await ctx.db.get(artifact.projectId);
     if (!project) return;
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) return;
 
     const patch: { content?: string; title?: string; lastEditedBy: "scholar" } = {
@@ -60,7 +61,7 @@ export const scholarCreate = authedMutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) throw new Error("Forbidden");
 
     return await ctx.db.insert("artifacts", {
@@ -82,7 +83,7 @@ export const deleteArtifact = authedMutation({
     if (!artifact) return;
     const project = await ctx.db.get(artifact.projectId);
     if (!project) return;
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && project.userId !== ctx.user._id) return;
 
     await ctx.db.delete(args.artifactId);
@@ -96,7 +97,7 @@ export const deleteArtifact = authedMutation({
 export const getByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     const projects = await ctx.db

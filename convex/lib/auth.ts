@@ -1,6 +1,7 @@
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { ROLES } from "./roles";
 
 /**
  * Get the currently authenticated user document.
@@ -32,7 +33,7 @@ export async function requireTeacher(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users">> {
   const user = await requireUser(ctx);
-  if (user.role !== "teacher" && user.role !== "admin") {
+  if (user.role !== ROLES.TEACHER && user.role !== ROLES.ADMIN) {
     throw new Error("Forbidden: teacher or admin role required");
   }
   return user;
@@ -46,9 +47,9 @@ export async function requireCurriculumAccess(
 ): Promise<Doc<"users">> {
   const user = await requireUser(ctx);
   if (
-    user.role !== "teacher" &&
-    user.role !== "admin" &&
-    user.role !== "curriculum_designer"
+    user.role !== ROLES.TEACHER &&
+    user.role !== ROLES.ADMIN &&
+    user.role !== ROLES.CURRICULUM_DESIGNER
   ) {
     throw new Error("Forbidden: curriculum access required");
   }
@@ -62,7 +63,7 @@ export async function requireAdmin(
   ctx: QueryCtx | MutationCtx
 ): Promise<Doc<"users">> {
   const user = await requireUser(ctx);
-  if (user.role !== "admin") {
+  if (user.role !== ROLES.ADMIN) {
     throw new Error("Forbidden: admin role required");
   }
   return user;

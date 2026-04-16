@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { authedQuery } from "./lib/customFunctions";
+import { ROLES } from "./lib/roles";
 
 /**
  * Record a cross-domain connection (called by the observer action).
@@ -36,7 +37,7 @@ export const record = internalMutation({
 export const listByScholar = authedQuery({
   args: { scholarId: v.id("users") },
   handler: async (ctx, args) => {
-    const isTeacher = ctx.user.role === "teacher" || ctx.user.role === "admin";
+    const isTeacher = ctx.user.role === ROLES.TEACHER || ctx.user.role === ROLES.ADMIN;
     if (!isTeacher && ctx.user._id !== args.scholarId) throw new Error("Forbidden");
 
     return await ctx.db

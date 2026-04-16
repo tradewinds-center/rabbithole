@@ -1,5 +1,6 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
+import { ROLES } from "./lib/roles";
 
 export const { auth, signIn, signOut, store } = convexAuth({
   providers: [
@@ -39,7 +40,7 @@ export const { auth, signIn, signOut, store } = convexAuth({
       // First user to sign up gets admin role; everyone else is a scholar.
       // Admins can promote others to teacher/admin via /admin.
       const userCount = (await ctx.db.query("users").collect()).length;
-      const role = userCount === 0 ? "admin" as const : "scholar" as const;
+      const role = userCount === 0 ? ROLES.ADMIN : ROLES.SCHOLAR;
 
       return await ctx.db.insert("users", {
         username,
