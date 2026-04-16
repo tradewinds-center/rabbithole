@@ -20,6 +20,7 @@ import {
   Tabs,
   Dialog,
   Portal,
+  Switch,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -116,6 +117,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const removeReport = useMutation(api.reports.remove);
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
+  const updateAudioSettings = useMutation(api.scholars.updateAudioSettings);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
   const { scholar, stats } = profile ?? {
@@ -793,38 +795,98 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         )}
 
         {activeTab === "reading" && (
-          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="400px">
-            <HStack mb={2}>
-              <FiBookOpen color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                Reading Level
+          <VStack gap={4} align="stretch" maxW="400px">
+            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+              <HStack mb={2}>
+                <FiBookOpen color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Reading Level
+                </Text>
+                {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+              </HStack>
+              <select
+                value={scholar?.readingLevel || ""}
+                onChange={(e) => handleReadingLevelChange(e.target.value)}
+                disabled={isSavingReadingLevel}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "14px",
+                  fontFamily: "inherit",
+                  backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
+                }}
+              >
+                {READING_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
+                Adjusts vocabulary and complexity in conversations
               </Text>
-              {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
-            </HStack>
-            <select
-              value={scholar?.readingLevel || ""}
-              onChange={(e) => handleReadingLevelChange(e.target.value)}
-              disabled={isSavingReadingLevel}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: "6px",
-                border: "1px solid #e2e8f0",
-                fontSize: "14px",
-                fontFamily: "inherit",
-                backgroundColor: isSavingReadingLevel ? "#f7f7f7" : "white",
-              }}
-            >
-              {READING_LEVELS.map((level) => (
-                <option key={level.value} value={level.value}>
-                  {level.label}
-                </option>
-              ))}
-            </select>
-            <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-              Adjusts vocabulary and complexity in conversations
-            </Text>
-          </Box>
+            </Box>
+
+            {!isParentMode && (
+              <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm" mb={3}>
+                  Audio Controls
+                </Text>
+                <VStack gap={3} align="stretch">
+                  <HStack justify="space-between">
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                        Text-to-Speech
+                      </Text>
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                        Read AI responses aloud
+                      </Text>
+                    </VStack>
+                    <Switch.Root
+                      checked={scholar?.ttsEnabled !== false}
+                      onCheckedChange={(e) =>
+                        updateAudioSettings({
+                          scholarId: scholarId as Id<"users">,
+                          ttsEnabled: e.checked,
+                        })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                        Voice Dictation
+                      </Text>
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                        Speech-to-text input
+                      </Text>
+                    </VStack>
+                    <Switch.Root
+                      checked={scholar?.sttEnabled !== false}
+                      onCheckedChange={(e) =>
+                        updateAudioSettings({
+                          scholarId: scholarId as Id<"users">,
+                          sttEnabled: e.checked,
+                        })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </HStack>
+                </VStack>
+              </Box>
+            )}
+          </VStack>
         )}
       </Box>
 

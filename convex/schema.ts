@@ -31,6 +31,8 @@ export default defineSchema({
     readingLevelSuggestion: v.optional(v.string()), // Observer-inferred level, pending teacher review
     dateOfBirth: v.optional(v.string()), // ISO date string, e.g. "2018-03-15"
     profileSetupComplete: v.optional(v.boolean()),
+    ttsEnabled: v.optional(v.boolean()), // Text-to-speech (undefined = enabled)
+    sttEnabled: v.optional(v.boolean()), // Speech-to-text / voice dictation (undefined = enabled)
   })
     .index("by_email", ["email"])
     .index("by_username", ["username"])
