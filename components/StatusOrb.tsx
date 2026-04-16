@@ -89,18 +89,10 @@ function buildOrbStyle(
   return { background: gradient, boxShadow };
 }
 
-// Build a CSS linear-gradient string from the chroma scale for the popover bar
-const GRADIENT_BAR_CSS = (() => {
-  const stops = 20;
-  const colors: string[] = [];
-  for (let i = 0; i <= stops; i++) {
-    const val = (i / stops) * 5;
-    colors.push(colorScale(val).hex());
-  }
-  return `linear-gradient(to right, ${colors.join(", ")})`;
-})();
+// Pre-compute the 6 discrete block colors (0–5)
+const BLOCK_COLORS = [0, 1, 2, 3, 4, 5].map((n) => colorScale(n).hex());
 
-/** Reusable pulse score detail panel (score + label + gradient bar) */
+/** Reusable pulse score detail panel (label + discrete colored blocks) */
 export function PulseScoreDetail({
   pulseScore,
   lastMessageAt,
@@ -109,73 +101,42 @@ export function PulseScoreDetail({
   lastMessageAt: number | null;
 }) {
   const effectiveScore = computeEffectiveScore(pulseScore, lastMessageAt);
-  const heroHex = colorScale(effectiveScore).hex();
+  const discreteScore = Math.round(effectiveScore);
+  const heroHex = colorScale(discreteScore).hex();
   const label = getScoreLabel(effectiveScore);
-  const markerPct = Math.min(100, Math.max(0, (effectiveScore / 5) * 100));
 
   return (
-    <VStack gap={2} align="stretch">
-      <HStack gap={2} align="baseline">
-        <Text
-          fontSize="2xl"
-          fontWeight="700"
-          fontFamily="heading"
-          lineHeight="1"
-          style={{ color: heroHex }}
-        >
-          {effectiveScore.toFixed(1)}
-        </Text>
-        <Text
-          fontSize="xs"
-          fontWeight="600"
-          fontFamily="heading"
-          style={{ color: heroHex }}
-        >
-          / 5
-        </Text>
+    <VStack gap={1} align="stretch">
+      <Text
+        fontSize="xs"
+        fontWeight="500"
+        fontFamily="heading"
+        lineHeight="1.2"
+        color="charcoal.400"
+      >
+        Current Status
+      </Text>
+      <HStack gap="4px">
+        {BLOCK_COLORS.map((_color, i) => (
+          <Box
+            key={i}
+            flex="1"
+            h="8px"
+            borderRadius="sm"
+            style={{ background: i <= discreteScore ? heroHex : undefined }}
+            bg={i <= discreteScore ? undefined : "gray.100"}
+          />
+        ))}
       </HStack>
       <Text
         fontSize="sm"
-        fontWeight="600"
+        fontWeight="700"
         fontFamily="heading"
         lineHeight="1.2"
         style={{ color: heroHex }}
       >
         {label}
       </Text>
-      <Box mt={1}>
-        <Box position="relative" h="10px">
-          <Box
-            h="6px"
-            borderRadius="full"
-            position="absolute"
-            top="2px"
-            left={0}
-            right={0}
-            style={{ background: GRADIENT_BAR_CSS }}
-          />
-          <Box
-            position="absolute"
-            top="0px"
-            w="10px"
-            h="10px"
-            borderRadius="full"
-            border="2px solid white"
-            shadow="0 0 3px rgba(0,0,0,0.3)"
-            style={{
-              left: `calc(${markerPct}% - 5px)`,
-              background: heroHex,
-            }}
-          />
-        </Box>
-        <HStack justify="space-between" mt="2px">
-          {[0, 1, 2, 3, 4, 5].map((n) => (
-            <Text key={n} fontSize="9px" fontFamily="heading" color="charcoal.300">
-              {n}
-            </Text>
-          ))}
-        </HStack>
-      </Box>
     </VStack>
   );
 }

@@ -83,12 +83,9 @@ export function AccountMenu({
           {showOrb && (
             <>
               <Menu.Separator />
-              <Menu.ItemGroup>
-                <Menu.ItemGroupLabel>Pulse Score</Menu.ItemGroupLabel>
-                <Box px={3} pb={2}>
-                  <PulseScoreDetail pulseScore={pulseScore ?? null} lastMessageAt={lastMessageAt ?? null} />
-                </Box>
-              </Menu.ItemGroup>
+              <Box px={3} py={2}>
+                <PulseScoreDetail pulseScore={pulseScore ?? null} lastMessageAt={lastMessageAt ?? null} />
+              </Box>
             </>
           )}
           <Menu.Separator />
