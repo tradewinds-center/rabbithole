@@ -16,8 +16,8 @@ From Amber & Carl meeting — April 15, 2026
 
 ## AI Tutor Behavior (Prompt Tuning)
 
-- [ ] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
-- [ ] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
+- [x] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
+- [x] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
 - [ ] **Loved the feedback comments** — (positive signal, keep this) Amber loved when the AI commented on how she was doing. Make sure this stays prominent
 - [ ] **Silly mode guardrails** — Amber can be silly at times. Tune how the AI handles silly/off-task moments (gentle redirect vs. playing along briefly then refocusing)
 
