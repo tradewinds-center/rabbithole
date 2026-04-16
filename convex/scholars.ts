@@ -54,6 +54,8 @@ export const getProfile = authedQuery({
         image: scholar.image,
         readingLevel: scholar.readingLevel ?? null,
         readingLevelSuggestion: scholar.readingLevelSuggestion ?? null,
+        ttsEnabled: scholar.ttsEnabled ?? true,
+        sttEnabled: scholar.sttEnabled ?? true,
         createdAt: scholar._creationTime,
       },
       stats: {
@@ -143,5 +145,28 @@ export const dismissReadingLevelSuggestion = teacherMutation({
     await ctx.db.patch(args.scholarId, {
       readingLevelSuggestion: undefined,
     });
+  },
+});
+
+/**
+ * Toggle TTS or STT for a scholar (teachers only).
+ */
+export const updateAudioSettings = teacherMutation({
+  args: {
+    scholarId: v.id("users"),
+    ttsEnabled: v.optional(v.boolean()),
+    sttEnabled: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const scholar = await ctx.db.get(args.scholarId);
+    if (!scholar || scholar.role !== "scholar") {
+      throw new Error("Scholar not found");
+    }
+    const patch: Record<string, boolean> = {};
+    if (args.ttsEnabled !== undefined) patch.ttsEnabled = args.ttsEnabled;
+    if (args.sttEnabled !== undefined) patch.sttEnabled = args.sttEnabled;
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(args.scholarId, patch);
+    }
   },
 });

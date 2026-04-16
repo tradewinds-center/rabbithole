@@ -433,13 +433,13 @@ export const deleteUser = adminMutation({
 
 /**
  * Update the current user's profile.
- * Scholars can update their own name, email, dateOfBirth, readingLevel, image.
+ * Scholars can update their own name, dateOfBirth, image.
+ * Reading level is teacher-only (use scholars.updateReadingLevel).
  */
 export const updateProfile = authedMutation({
   args: {
     name: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
-    readingLevel: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     profileSetupComplete: v.optional(v.boolean()),
   },
@@ -447,13 +447,6 @@ export const updateProfile = authedMutation({
     const patch: Record<string, string | boolean | undefined | null> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.dateOfBirth !== undefined) patch.dateOfBirth = args.dateOfBirth;
-    if (args.readingLevel !== undefined) {
-      const allowed = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];
-      if (!allowed.includes(args.readingLevel)) {
-        throw new Error("Invalid reading level");
-      }
-      patch.readingLevel = args.readingLevel;
-    }
     if (args.imageStorageId !== undefined) {
       const url = await ctx.storage.getUrl(args.imageStorageId);
       if (url) patch.image = url;

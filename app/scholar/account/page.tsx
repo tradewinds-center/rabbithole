@@ -22,8 +22,6 @@ import { Avatar } from "@/components/Avatar";
 import { FiCamera } from "react-icons/fi";
 import { toaster } from "@/lib/toaster";
 
-const READING_LEVELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "college"];
-
 export default function AccountPage() {
   return (
     <Suspense
@@ -49,7 +47,6 @@ function AccountForm() {
 
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [readingLevel, setReadingLevel] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>();
   const [pendingStorageId, setPendingStorageId] = useState<Id<"_storage"> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -64,7 +61,6 @@ function AccountForm() {
       initialized.current = true;
       setName(user.name ?? "");
       setDateOfBirth(user.dateOfBirth ?? "");
-      setReadingLevel(user.readingLevel ?? "");
       setAvatarPreview(user.image ?? undefined);
     }
   }, [user]);
@@ -112,13 +108,11 @@ function AccountForm() {
       const args: {
         name?: string;
         dateOfBirth?: string;
-        readingLevel?: string;
         imageStorageId?: Id<"_storage">;
         profileSetupComplete?: boolean;
       } = {};
       if (name) args.name = name;
       if (dateOfBirth) args.dateOfBirth = dateOfBirth;
-      if (readingLevel) args.readingLevel = readingLevel;
       if (pendingStorageId) args.imageStorageId = pendingStorageId;
       if (isSetup) args.profileSetupComplete = true;
 
@@ -136,7 +130,7 @@ function AccountForm() {
     } finally {
       setIsSaving(false);
     }
-  }, [updateProfile, name, dateOfBirth, readingLevel, pendingStorageId, isSetup, router]);
+  }, [updateProfile, name, dateOfBirth, pendingStorageId, isSetup, router]);
 
   if (isLoading || !user) {
     return (
@@ -260,35 +254,6 @@ function AccountForm() {
                 _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
                 _focusVisible={{ boxShadow: "none", outline: "none" }}
               />
-            </Box>
-
-            <Box w="full">
-              <Text fontSize="xs" fontFamily="heading" color="charcoal.400" mb={1} fontWeight="500">
-                Reading Level
-              </Text>
-              <select
-                value={readingLevel}
-                onChange={(e) => setReadingLevel(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: "48px",
-                  padding: "0 16px",
-                  backgroundColor: "var(--chakra-colors-gray-50)",
-                  border: "1px solid var(--chakra-colors-gray-300)",
-                  borderRadius: "var(--chakra-radii-lg)",
-                  fontFamily: "var(--chakra-fonts-body)",
-                  fontSize: "var(--chakra-fontSizes-md)",
-                  color: "var(--chakra-colors-charcoal-500, #333)",
-                  appearance: "auto",
-                }}
-              >
-                <option value="">Not set</option>
-                {READING_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level === "K" ? "Kindergarten" : level === "college" ? "College" : `Grade ${level}`}
-                  </option>
-                ))}
-              </select>
             </Box>
 
             <Button
