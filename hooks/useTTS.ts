@@ -22,11 +22,6 @@ function stopGlobal() {
     activeAbort.abort();
     activeAbort = null;
   }
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio.src = "";
-    activeAudio = null;
-  }
   if (activeMediaSource) {
     try {
       if (activeMediaSource.readyState === "open") {
@@ -34,6 +29,12 @@ function stopGlobal() {
       }
     } catch (_) {}
     activeMediaSource = null;
+  }
+  if (activeAudio) {
+    activeAudio.pause();
+    activeAudio.onended = null;
+    activeAudio.onerror = null;
+    activeAudio = null;
   }
   if (activeBlobUrl) {
     URL.revokeObjectURL(activeBlobUrl);
@@ -188,7 +189,9 @@ async function streamAudio(
         throw e;
       }
 
-      // Start playback after first chunk is appended
+      // Start playback after first chunk — DON'T await play() here.
+      // The browser may need more decoded audio before it can start,
+      // and awaiting would deadlock the pump (no more chunks arrive).
       if (!playStarted) {
         await new Promise<void>((resolve) =>
           sourceBuffer.addEventListener("updateend", () => resolve(), {
@@ -202,18 +205,19 @@ async function streamAudio(
             ? `${sourceBuffer.buffered.start(0).toFixed(2)}-${sourceBuffer.buffered.end(0).toFixed(2)}s`
             : "empty",
           "audio.readyState:", audio.readyState,
-          "audio.paused:", audio.paused,
-          "audio.error:", audio.error?.code, audio.error?.message
         );
 
         setState("playing");
-        try {
-          await audio.play();
-          log("audio.play() resolved, paused:", audio.paused);
-        } catch (playErr) {
-          log("audio.play() FAILED:", playErr);
-          throw playErr;
-        }
+        // Fire-and-forget: let the browser play when it has enough data.
+        // The pump keeps feeding chunks in the meantime.
+        audio.play().then(
+          () => log("audio.play() resolved, paused:", audio.paused),
+          (err) => {
+            if (err?.name !== "AbortError") {
+              log("audio.play() FAILED:", err);
+            }
+          }
+        );
         playStarted = true;
       }
     }
