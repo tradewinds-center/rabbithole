@@ -449,7 +449,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 </Text>
               ) : (
                 <VStack gap={2} align="stretch">
-                  {recentMessages.map((msg) => (
+                  {recentMessages.filter((m) => !(m.role === "user" && m.content === "<start>")).map((msg) => (
                     <a
                       key={msg._id}
                       href={`/scholar/${String(msg.projectId)}?remote=${scholarId}`}

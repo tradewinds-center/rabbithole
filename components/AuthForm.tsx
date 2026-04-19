@@ -98,7 +98,15 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
     } catch (err) {
       console.error("Auth failed:", err);
-      setError(c.errorMessage);
+      // Surface a specific message when the server gave us one (e.g. "Invalid invite code")
+      const raw = err instanceof Error ? err.message : "";
+      if (/invalid invite code/i.test(raw)) {
+        setError("That invite code isn't valid. Check with whoever invited you.");
+      } else if (/username is required/i.test(raw)) {
+        setError("Username is required.");
+      } else {
+        setError(c.errorMessage);
+      }
       setIsSubmitting(false);
     }
   };
@@ -216,7 +224,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               disabled={!username.trim() || !password || isSubmitting}
               onClick={handleSubmit}
             >
-              {c.button}
+              {isSubmitting ? (mode === "signUp" ? "Creating account…" : "Signing in…") : c.button}
             </Button>
           </VStack>
 

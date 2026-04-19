@@ -208,6 +208,24 @@ function ScholarHome() {
           </HStack>
         </Flex>
 
+        {projects.length === 0 && seeds.length === 0 && (
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            py={16}
+            color="charcoal.400"
+            fontFamily="heading"
+          >
+            <Text fontSize="lg" fontWeight="600" color="navy.500" mb={2}>
+              Ready when you are
+            </Text>
+            <Text fontSize="sm" textAlign="center" maxW="320px">
+              Tap <Text as="span" color="violet.500" fontWeight="600">New Project</Text> to start something new.
+            </Text>
+          </Flex>
+        )}
+
         <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={4}>
           {/* Seed cards */}
           {seeds.map((seed) => (
@@ -335,7 +353,8 @@ function ScholarHome() {
                   </HStack>
                 )}
 
-                {project.analysisSummary && (
+                {/* analysisSummary is teacher-facing observer text — only show in remote (teacher) mode */}
+                {isRemoteMode && project.analysisSummary && (
                   <Text
                     fontSize="xs"
                     color="charcoal.400"

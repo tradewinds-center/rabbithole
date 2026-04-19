@@ -124,19 +124,23 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
     setModalOpen(true);
   };
 
-  const handleDelete = async (entityId: string) => {
+  const handleDelete = async (entity: Entity) => {
+    const ok = window.confirm(
+      `Archive "${entity.title}"? Scholars will no longer see it. You can restore it later if needed.`,
+    );
+    if (!ok) return;
     try {
       if (entityType === "persona") {
-        await deactivatePersona({ id: entityId as Id<"personas"> });
+        await deactivatePersona({ id: entity.id as Id<"personas"> });
       } else if (entityType === "unit") {
-        await deactivateUnit({ id: entityId as Id<"units"> });
+        await deactivateUnit({ id: entity.id as Id<"units"> });
       } else if (entityType === "process") {
-        await deactivateProcess({ id: entityId as Id<"processes"> });
+        await deactivateProcess({ id: entity.id as Id<"processes"> });
       } else {
-        await deactivatePerspective({ id: entityId as Id<"perspectives"> });
+        await deactivatePerspective({ id: entity.id as Id<"perspectives"> });
       }
     } catch (error) {
-      console.error(`Error deleting ${config.label}:`, error);
+      console.error(`Error archiving ${config.label}:`, error);
     }
   };
 
@@ -234,12 +238,13 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
                     </HStack>
                     {entity.isActive && (
                       <IconButton
-                        aria-label="Delete"
+                        aria-label="Archive"
+                        title="Archive"
                         size="xs"
                         variant="ghost"
                         color="charcoal.300"
                         _hover={{ color: "red.500", bg: "red.50" }}
-                        onClick={() => handleDelete(entity.id)}
+                        onClick={() => handleDelete(entity)}
                       >
                         <FiTrash2 />
                       </IconButton>

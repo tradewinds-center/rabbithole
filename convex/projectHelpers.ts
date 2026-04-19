@@ -10,6 +10,21 @@ import {
 } from "./prompts";
 
 /**
+ * Return a human display name suitable for the AI's greeting, or null if the
+ * stored name looks like an auto-generated username (digits, underscores,
+ * or identical to username). Real first names don't contain digits/underscores.
+ */
+function friendlyScholarName(
+  name: string | null | undefined,
+  username: string | null | undefined,
+): string | null {
+  if (!name) return null;
+  if (username && name === username) return null;
+  if (/[_0-9]/.test(name)) return null;
+  return name;
+}
+
+/**
  * Get all context needed to call Claude for a project.
  * Called by the HTTP action before streaming.
  */
@@ -244,7 +259,7 @@ export const getProjectContext = internalQuery({
       teacherWhisper: project.teacherWhisper ?? null,
       pendingWhisper: project.pendingWhisper ?? null,
       readingLevel,
-      scholarName: scholar?.name ?? null,
+      scholarName: friendlyScholarName(scholar?.name, scholar?.username),
       scholarId: project.userId,
       dossierContent: dossier?.content ?? null,
       masteryContext,

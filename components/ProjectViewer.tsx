@@ -25,6 +25,7 @@ import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { toaster } from "@/lib/toaster";
 
 interface Message {
   id: string;
@@ -147,9 +148,12 @@ export function ProjectViewer({
         const data = await res.json();
         if (data.detailed) setAiAnalysis(data.detailed);
         // Observer analysis is auto-saved to DB, so latestAnalysis query will update reactively
+      } else {
+        toaster.error({ title: "Analysis failed", description: "Try again in a moment." });
       }
     } catch (error) {
       console.error("Error analyzing:", error);
+      toaster.error({ title: "Analysis failed", description: "Check your connection and try again." });
     } finally {
       setIsAnalyzing(false);
     }
@@ -163,8 +167,10 @@ export function ProjectViewer({
         id: projectId as Id<"projects">,
         teacherWhisper: whisper || undefined,
       });
+      toaster.success({ title: whisper ? "Whisper saved" : "Whisper cleared" });
     } catch (error) {
       console.error("Error saving whisper:", error);
+      toaster.error({ title: "Couldn't save whisper", description: "Try again." });
     } finally {
       setIsSavingWhisper(false);
     }

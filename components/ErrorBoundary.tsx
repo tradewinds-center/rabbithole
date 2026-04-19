@@ -25,10 +25,23 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info.componentStack);
+    // An auth error here almost always means the session expired — bounce to sign-in
+    if (typeof window !== "undefined" && /not authenticated/i.test(error.message)) {
+      window.location.replace("/sign-in");
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      const raw = this.state.error?.message ?? "";
+      // Auth errors are handled in componentDidCatch by redirecting; show a brief stub while that happens
+      if (/not authenticated/i.test(raw)) {
+        return (
+          <Box p={8} textAlign="center">
+            <Text fontSize="sm" color="gray.500">Signing out…</Text>
+          </Box>
+        );
+      }
       return (
         <Box p={8} textAlign="center">
           <VStack gap={4}>
@@ -36,7 +49,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               {this.props.fallbackMessage || "Something went wrong"}
             </Text>
             <Text fontSize="sm" color="gray.500">
-              {this.state.error?.message}
+              Please try again. If this keeps happening, reload the page.
             </Text>
             <Button
               size="sm"

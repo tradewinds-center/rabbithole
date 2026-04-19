@@ -827,8 +827,10 @@ function ChatColumn({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       // Don't hijack Tab when user is in an input/textarea that isn't ours
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "SELECT") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if (target?.isContentEditable) return;
       e.preventDefault();
       if (e.repeat) return;
       if (!tabHeldRef.current && !isStreaming && dictationState === "idle") {
@@ -1432,7 +1434,8 @@ function ChatColumn({
                 value={timeLimit?.isExpired ? "" : input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isFocusMismatch ? "Read-only — teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Chat"}
+                maxLength={4000}
+                placeholder={isFocusMismatch ? "Read-only — your teacher set a different activity" : timeLimit?.isExpired ? "Session ended" : "Type a message or question…"}
                 resize="none"
                 rows={1}
                 overflow="hidden"
