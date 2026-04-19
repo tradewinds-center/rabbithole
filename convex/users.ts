@@ -3,7 +3,7 @@ import { query, mutation, internalMutation, internalQuery } from "./_generated/s
 import { authedQuery, authedMutation, teacherQuery, teacherMutation, adminMutation, adminQuery } from "./lib/customFunctions";
 import { getCurrentUser } from "./lib/auth";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ROLES } from "./lib/roles";
+import { ROLES, type Role } from "./lib/roles";
 
 /**
  * Pre-register a user with an invite code.
@@ -16,14 +16,26 @@ export const registerWithCode = mutation({
     code: v.string(),
   },
   handler: async (ctx, args) => {
-    const expected = process.env.SIGNUP_CODE;
-    if (!expected) {
+    const codeToRole: Array<{ envCode: string | undefined; role: Role }> = [
+      { envCode: process.env.SIGNUP_CODE, role: ROLES.SCHOLAR },
+      { envCode: process.env.DESIGNER_SIGNUP_CODE, role: ROLES.CURRICULUM_DESIGNER },
+      { envCode: process.env.TEACHER_SIGNUP_CODE, role: ROLES.TEACHER },
+    ];
+
+    const anyCodeConfigured = codeToRole.some((entry) => entry.envCode);
+    if (!anyCodeConfigured) {
       // No code required — nothing to do, auth callback will create the user
       return;
     }
-    if (args.code.toLowerCase() !== expected.toLowerCase()) {
+
+    const submitted = args.code.toLowerCase();
+    const matched = codeToRole.find(
+      (entry) => entry.envCode && entry.envCode.toLowerCase() === submitted,
+    );
+    if (!matched) {
       throw new Error("Invalid invite code");
     }
+
     const username = args.username.trim();
     if (!username) throw new Error("Username is required");
 
@@ -40,7 +52,7 @@ export const registerWithCode = mutation({
     await ctx.db.insert("users", {
       username,
       name: username,
-      role: ROLES.SCHOLAR,
+      role: matched.role,
     });
   },
 });
