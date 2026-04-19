@@ -76,7 +76,7 @@ function formatSeeds(data: { topic: string; domain?: string | null; rationale: s
 
 function createParentServer(token: string) {
   const server = new McpServer({
-    name: "Tradewinds Learn — Parent View",
+    name: "Rabbithole — Parent View",
     version: "1.0.0",
   });
 
@@ -160,7 +160,7 @@ function createParentServer(token: string) {
 
 function createTeacherServer(token: string) {
   const server = new McpServer({
-    name: "Tradewinds Learn — Teacher View",
+    name: "Rabbithole — Teacher View",
     version: "1.0.0",
   });
 

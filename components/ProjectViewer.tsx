@@ -629,8 +629,8 @@ export function ProjectViewer({
           Teacher Whisper
         </Text>
         <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mb={2}>
-          Guidance injected into AI system prompt. Scholar won&apos;t see this
-          directly.
+          Guidance injected into the AI system prompt. Takes effect on the
+          scholar&apos;s next message. Scholar won&apos;t see this directly.
         </Text>
         <Textarea
           value={whisper}

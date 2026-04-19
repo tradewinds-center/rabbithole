@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useSignOut } from "@/hooks/useSignOut";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -135,7 +135,7 @@ function computeAge(dob: string): number {
 
 export default function TeacherDashboardInner() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
-  const { signOut } = useAuthActions();
+  const signOut = useSignOut();
   const router = useRouter();
   const isCurriculumDesigner = user?.role === "curriculum_designer";
   const scholars = useQuery(api.users.listScholars, isCurriculumDesigner ? "skip" : {}) ?? [];
@@ -287,12 +287,7 @@ export default function TeacherDashboardInner() {
 
         {/* Account menu */}
         <Box ml="auto">
-          <AccountMenu
-            onSignOut={() => {
-              signOut();
-              router.push("/sign-in");
-            }}
-          />
+          <AccountMenu onSignOut={signOut} />
         </Box>
       </AppHeader>
 
@@ -1326,13 +1321,7 @@ function ActivitySidebar({
           </>
         )}
 
-        {!focusedUnit && completedActivities.length === 0 && (
-          <VStack py={8} gap={3} px={4}>
-            <Text color="charcoal.300" fontFamily="heading" fontSize="sm" textAlign="center">
-              Click Start to begin an activity
-            </Text>
-          </VStack>
-        )}
+        {/* Left panel intentionally empty when no activities — main panel shows the call to action */}
       </VStack>
     </Box>
   );

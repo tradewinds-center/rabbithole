@@ -76,3 +76,11 @@ From Amber & Carl meeting — April 15, 2026
 - [ ] Self-Serve Guest Mode
 - [ ] Time Limit Mode
 - [ ] Generate Images loading indicator (bug verification)
+
+---
+
+## Future Work — Scaling (from UX audit 2026-04-19)
+
+- [ ] **Scholar scoping for teachers** — Currently any teacher sees every scholar in the system (Scholars tab + clicking into a profile). Fine for one-teacher school but becomes a privacy issue when onboarding more staff. Need a class/assignment model so teachers only see their own scholars (with explicit admin override).
+- [ ] **ScholarProfile tab density** — 9 tabs (Activity / Mastery / Seeds / Standards / Strengths / Documents / Notes / Dossier / Reading & Audio) wrap oddly on smaller laptops. Consider super-tabs (e.g. "Now" / "Progress" / "Library") or prioritize by usage frequency.
+- [ ] **Forced password-reset escape hatch** — `SetPasswordDialog` in forced mode has no Cancel / "Contact teacher" link. If a scholar hits it and forgot their temp PIN, they're stuck. Owned by teacher workflow.

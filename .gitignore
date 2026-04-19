@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Obsidian
 .obsidian/
+
+# Local-only notes (e.g. test credentials)
+*.local.md

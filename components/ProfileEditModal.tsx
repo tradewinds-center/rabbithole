@@ -190,7 +190,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                 {/* Label-left, input-right rows */}
                 <Flex gap={3} w="full" align="center">
                   <Text fontSize="sm" fontFamily="heading" color="charcoal.400" fontWeight="500" w="120px" flexShrink={0}>
-                    Name
+                    Name{isSetup && <Text as="span" color="red.500"> *</Text>}
                   </Text>
                   <Input
                     value={name}
@@ -224,23 +224,28 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                   />
                 </Flex>
 
-                <Flex gap={3} w="full" align="center">
-                  <Text fontSize="sm" fontFamily="heading" color="charcoal.400" fontWeight="500" w="120px" flexShrink={0}>
+                <Flex gap={3} w="full" align="start">
+                  <Text fontSize="sm" fontFamily="heading" color="charcoal.400" fontWeight="500" w="120px" flexShrink={0} mt={2.5}>
                     Date of Birth
                   </Text>
-                  <Input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    bg="gray.50"
-                    border="1px solid"
-                    borderColor="gray.300"
-                    borderRadius="lg"
-                    fontFamily="body"
-                    h={10}
-                    _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
-                    _focusVisible={{ boxShadow: "none", outline: "none" }}
-                  />
+                  <VStack gap={1} align="stretch" flex={1}>
+                    <Input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      bg="gray.50"
+                      border="1px solid"
+                      borderColor="gray.300"
+                      borderRadius="lg"
+                      fontFamily="body"
+                      h={10}
+                      _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+                      _focusVisible={{ boxShadow: "none", outline: "none" }}
+                    />
+                    <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
+                      Helps us match you to the right reading level.
+                    </Text>
+                  </VStack>
                 </Flex>
 
               </VStack>
@@ -262,16 +267,18 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                     Change Password
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  color="charcoal.400"
-                  fontFamily="heading"
-                  _hover={{ color: "violet.500" }}
-                  onClick={handleSkipOrCancel}
-                >
-                  {isSetup ? "Skip for now" : "Cancel"}
-                </Button>
+                {!isSetup && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    color="charcoal.400"
+                    fontFamily="heading"
+                    _hover={{ color: "violet.500" }}
+                    onClick={handleSkipOrCancel}
+                  >
+                    Cancel
+                  </Button>
+                )}
                 <Button
                   bg="violet.500"
                   color="white"
@@ -279,7 +286,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                   fontFamily="heading"
                   fontWeight="500"
                   px={8}
-                  disabled={isSaving}
+                  disabled={isSaving || (isSetup && !name.trim())}
                   onClick={handleSave}
                 >
                   {isSaving ? "Saving..." : saved ? "Saved!" : "Save"}

@@ -97,9 +97,11 @@ export function EntityManager({ entityType, hideHeader }: EntityManagerProps) {
   const isLoading = entities === undefined;
 
   const handleCreate = async () => {
-    // For units, create a blank unit and navigate to the designer
+    // For units, prompt for a title first so the grid never fills with "New Unit" placeholders
     if (entityType === "unit") {
-      const unitId = await createUnit({ title: "New Unit" });
+      const title = window.prompt("Name this unit:", "");
+      if (!title || !title.trim()) return;
+      const unitId = await createUnit({ title: title.trim() });
       router.push(`/teacher/unit/${unitId}`);
       return;
     }

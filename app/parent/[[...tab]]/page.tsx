@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useSignOut } from "@/hooks/useSignOut";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Box, Flex, Spinner } from "@chakra-ui/react";
 import { AppLogo } from "@/components/AppLogo";
@@ -32,7 +32,7 @@ export default function ParentPage() {
 
 function ParentView() {
   const { user, isLoading } = useCurrentUser();
-  const { signOut } = useAuthActions();
+  const signOut = useSignOut();
   const router = useRouter();
   const params = useParams();
 
@@ -63,9 +63,7 @@ function ParentView() {
       <AppHeader>
         <AppLogo variant="dark" />
         <Box flex={1} />
-        <AccountMenu
-          onSignOut={() => signOut()}
-        />
+        <AccountMenu onSignOut={signOut} />
       </AppHeader>
 
       {/* Scholar profile in parent mode */}

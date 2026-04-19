@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useSignOut } from "@/hooks/useSignOut";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -56,7 +56,7 @@ export default function ScholarPage() {
 
 function ScholarHome() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
-  const { signOut } = useAuthActions();
+  const signOut = useSignOut();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -180,7 +180,7 @@ function ScholarHome() {
         isRemoteMode={isRemoteMode}
         scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
         scholarImage={isRemoteMode ? remoteUser?.image ?? null : null}
-        onSignOut={() => signOut()}
+        onSignOut={signOut}
         pulseScore={pulseScore}
         lastMessageAt={lastMessageAt}
       />

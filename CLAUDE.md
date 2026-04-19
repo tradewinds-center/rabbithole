@@ -1,6 +1,8 @@
-# CLAUDE.md - Tradewinds Learn
+# CLAUDE.md - Rabbithole
 
 AI-powered classroom learning app for Tradewinds School's gifted scholars.
+
+The product name is **Rabbithole** — use it in all user-facing copy. The repo slug `makawulu` and any older "Tradewinds Learn" references are internal/legacy.
 
 ---
 
@@ -23,7 +25,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 - [x] **AI Personas** - Scholars can talk to different AI personas (e.g., scientist, historian, author)
 - [x] **Scholar Dossier** - AI maintains a persistent profile per scholar (reading level, learning style, interests, etc.) + observer data flows into system prompt
 - [ ] **Claude Agent SDK Migration** - Switch to agent SDK with tools for reading/writing dossier, web search, etc.
-- [x] **Text-to-Speech** - Click to have Tradewinds Learn read responses aloud (browser SpeechSynthesis, hover to reveal speaker button)
+- [x] **Text-to-Speech** - Click to have Rabbithole read responses aloud (browser SpeechSynthesis, hover to reveal speaker button)
 - [x] **Convex Migration** - Migrated from SQLite/Drizzle/NextAuth to Convex (Feb 2026)
 - [x] **Teacher Remote Into Scholar** - Teachers can open a scholar's view in a new tab (?remote={userId})
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
@@ -43,7 +45,7 @@ AI-powered classroom learning app for Tradewinds School's gifted scholars.
 
 ## Overview
 
-**Tradewinds Learn** (from Hawaiian "makawalu" - seeing with eight eyes, multiple perspectives) is a Socratic AI tutoring platform where:
+**Rabbithole** (repo slug `makawulu`, from Hawaiian "makawalu" — seeing with eight eyes, multiple perspectives) is a Socratic AI tutoring platform where:
 
 - **Scholars** work on projects with Claude (AI tutor)
 - **Teachers** monitor, analyze, and guide learning through a dashboard

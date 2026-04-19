@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useSignOut } from "@/hooks/useSignOut";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -60,7 +60,7 @@ export default function ScholarProjectPage() {
 
 function ScholarProjectInner() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
-  const { signOut } = useAuthActions();
+  const signOut = useSignOut();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -445,7 +445,7 @@ function ScholarProjectInner() {
                       variant="ghost"
                       color="charcoal.500"
                       _hover={{ bg: "gray.100" }}
-                      onClick={() => signOut()}
+                      onClick={signOut}
                     >
                       <FiLogOut />
                     </IconButton>
@@ -465,7 +465,7 @@ function ScholarProjectInner() {
               projectId={projectId}
               onProjectUpdate={() => {}}
               onOpenSidebar={isRemoteMode ? undefined : () => setIsSidebarOpen(true)}
-              onSignOut={() => signOut()}
+              onSignOut={signOut}
               isTestMode={isTestMode}
               isRemoteMode={isRemoteMode}
               scholarName={isRemoteMode ? remoteUser?.name ?? null : null}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useSignOut } from "@/hooks/useSignOut";
 import { useQuery, useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -57,7 +57,7 @@ function RoleSelect({
 
 export default function AdminPage() {
   const { user, isLoading } = useCurrentUser();
-  const { signOut } = useAuthActions();
+  const signOut = useSignOut();
   const router = useRouter();
   const users = useQuery(api.users.listAllUsers);
   const deleteUser = useMutation(api.users.deleteUser);
@@ -115,7 +115,7 @@ export default function AdminPage() {
                 variant="outline"
                 fontFamily="heading"
                 colorPalette="red"
-                onClick={() => signOut().then(() => router.push("/sign-in"))}
+                onClick={signOut}
               >
                 Sign Out
               </Button>

@@ -32,6 +32,7 @@ import type * as perspectives from "../perspectives.js";
 import type * as processState from "../processState.js";
 import type * as processes from "../processes.js";
 import type * as projectHelpers from "../projectHelpers.js";
+import type * as projectTitles from "../projectTitles.js";
 import type * as projects from "../projects.js";
 import type * as prompts from "../prompts.js";
 import type * as reports from "../reports.js";
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   processState: typeof processState;
   processes: typeof processes;
   projectHelpers: typeof projectHelpers;
+  projectTitles: typeof projectTitles;
   projects: typeof projects;
   prompts: typeof prompts;
   reports: typeof reports;

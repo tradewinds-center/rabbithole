@@ -189,6 +189,11 @@ export function AuthForm({ mode }: AuthFormProps) {
               autoComplete={c.autoComplete}
             />
             {mode === "signUp" && (
+              <Text fontSize="xs" color="charcoal.400" fontFamily="heading" alignSelf="flex-start" mt={-2}>
+                At least 4 characters.
+              </Text>
+            )}
+            {mode === "signUp" && (
               <Input
                 placeholder="Invite code"
                 value={inviteCode}

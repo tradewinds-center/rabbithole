@@ -328,6 +328,7 @@ export const finalizeStream = internalMutation({
 
     // Update project title if first exchange
     const project = await ctx.db.get(args.projectId);
+    let isFirstExchange = false;
     if (project && project.title === "New Project") {
       // Count user messages to see if this is the first exchange
       const messages = await ctx.db
@@ -341,10 +342,12 @@ export const finalizeStream = internalMutation({
         (m) => m.role === "user" && m.content !== "<start>"
       );
       if (userMessages.length <= 1 && userMessages[0]) {
+        // Stopgap title from first 6 words — gets replaced by generateTitle below
         const words = userMessages[0].content.split(" ").slice(0, 6).join(" ");
         const title =
           words.length > 40 ? words.slice(0, 40) + "..." : words;
         await ctx.db.patch(args.projectId, { title });
+        isFirstExchange = true;
       }
     }
 
@@ -352,6 +355,60 @@ export const finalizeStream = internalMutation({
     await ctx.scheduler.runAfter(0, internal.observer.analyzeProject, {
       projectId: args.projectId,
     });
+
+    // After the first exchange, ask Haiku for a tight 2-5 word title
+    if (isFirstExchange) {
+      await ctx.scheduler.runAfter(0, internal.projectTitles.generateTitle, {
+        projectId: args.projectId,
+      });
+    }
+  },
+});
+
+/**
+ * Snapshot of the first user message + first assistant message for title gen.
+ */
+export const getFirstExchange = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const firstUser = messages.find(
+      (m) => m.role === "user" && m.content !== "<start>",
+    );
+    const firstAssistant = messages.find((m) => m.role === "assistant");
+    if (!firstUser) return null;
+    return {
+      firstUserMessage: firstUser.content,
+      firstAssistantMessage: firstAssistant?.content ?? null,
+    };
+  },
+});
+
+/**
+ * Apply an AI-generated title, only if the project still has the short stopgap
+ * title (i.e. the teacher/scholar hasn't renamed it manually in the meantime).
+ */
+export const setGeneratedTitle = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return;
+    // Skip if the project title was manually set (not a truncated-first-message stopgap)
+    // Heuristic: stopgap titles end with "..." OR match the first user message's first 6 words.
+    // To keep this conservative, we only overwrite if the title hasn't been hand-edited since
+    // generation was scheduled. We approximate that by checking the current title isn't already
+    // short/clean (under 40 chars with no ellipsis and no "?" at the end).
+    const current = project.title ?? "";
+    const looksLikeStopgap =
+      current === "New Project" || current.endsWith("...") || current.endsWith("?");
+    if (!looksLikeStopgap) return;
+    await ctx.db.patch(args.projectId, { title: args.title });
   },
 });
 
