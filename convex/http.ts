@@ -5,6 +5,7 @@ import { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { buildSystemPrompt } from "./projectHelpers";
 import { ROLES } from "./lib/roles";
+import { MODELS } from "./lib/models";
 
 const http = httpRouter();
 
@@ -611,7 +612,7 @@ http.route({
           if (tools.length > 0) {
             // Use beta tool runner for automatic multi-turn handling
             const runner = anthropic.beta.messages.toolRunner({
-              model: "claude-sonnet-4-5-20250929",
+              model: MODELS.SONNET,
               max_tokens: 4096,
               system: systemPrompt,
               messages: apiMessages,
@@ -658,7 +659,7 @@ http.route({
           } else {
             // No tools: simple streaming (no tool runner needed)
             const anthropicStream = anthropic.messages.stream({
-              model: "claude-sonnet-4-5-20250929",
+              model: MODELS.SONNET,
               max_tokens: 4096,
               system: systemPrompt,
               messages: apiMessages,
@@ -1059,7 +1060,7 @@ http.route({
             }));
 
           const runner = anthropic.beta.messages.toolRunner({
-            model: "claude-sonnet-4-5-20250929",
+            model: MODELS.SONNET,
             max_tokens: 4096,
             system: CURRICULUM_ASSISTANT_SYSTEM_PROMPT,
             messages: apiMessages,
@@ -2004,7 +2005,7 @@ http.route({
             }));
 
           const runner = anthropic.beta.messages.toolRunner({
-            model: "claude-sonnet-4-5-20250929",
+            model: MODELS.SONNET,
             max_tokens: 4096,
             system: systemPrompt,
             messages: apiMessages,

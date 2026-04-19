@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { MODELS } from "./lib/models";
 
 // ─── System Prompt ──────────────────────────────────────────────────
 
@@ -211,7 +212,7 @@ export const mapToStandards = internalAction({
       let result: MapperResult;
       try {
         const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: MODELS.HAIKU,
           max_tokens: 2048,
           system: MAPPER_SYSTEM_PROMPT,
           tools: [MAPPER_TOOL],

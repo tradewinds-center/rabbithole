@@ -22,6 +22,7 @@ import type * as http from "../http.js";
 import type * as lessons from "../lessons.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_customFunctions from "../lib/customFunctions.js";
+import type * as lib_models from "../lib/models.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as masteryObservations from "../masteryObservations.js";
 import type * as messages from "../messages.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   lessons: typeof lessons;
   "lib/auth": typeof lib_auth;
   "lib/customFunctions": typeof lib_customFunctions;
+  "lib/models": typeof lib_models;
   "lib/roles": typeof lib_roles;
   masteryObservations: typeof masteryObservations;
   messages: typeof messages;

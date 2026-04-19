@@ -84,3 +84,14 @@ From Amber & Carl meeting — April 15, 2026
 - [ ] **Scholar scoping for teachers** — Currently any teacher sees every scholar in the system (Scholars tab + clicking into a profile). Fine for one-teacher school but becomes a privacy issue when onboarding more staff. Need a class/assignment model so teachers only see their own scholars (with explicit admin override).
 - [ ] **ScholarProfile tab density** — 9 tabs (Activity / Mastery / Seeds / Standards / Strengths / Documents / Notes / Dossier / Reading & Audio) wrap oddly on smaller laptops. Consider super-tabs (e.g. "Now" / "Progress" / "Library") or prioritize by usage frequency.
 - [ ] **Forced password-reset escape hatch** — `SetPasswordDialog` in forced mode has no Cancel / "Contact teacher" link. If a scholar hits it and forgot their temp PIN, they're stuck. Owned by teacher workflow.
+
+---
+
+## Housekeeping (carried over from old HOUSEKEEPING_PLAN.md)
+
+Phase 1 cleanups (DimensionOption import, StyledDialogContent, role constants, seed.ts rename) are all done. These are the stragglers:
+
+- [ ] **Chakra theme recipes for repeated style props** — `borderRadius="full"` (35+ occurrences), `color="charcoal.500"`, Menu item patterns all repeated inline. Move into `lib/theme.ts` component recipes. Lowers surface for brand tweaks. (Medium effort — touch a lot of files, easy to get wrong with Chakra v3's slot recipe merging quirks — see `MEMORY.md` notes.)
+- [ ] **`components/index.ts` barrel exports** — Currently exports 6 of 33 components. Either export all public components or add a comment explaining the "primary feature only" convention.
+- [ ] **Remove deprecated `projects.status` field** — `convex/schema.ts:58-59` still has `status: v.optional(v.union(v.literal("green"), v.literal("yellow"), v.literal("red")))` with a "remove after migration" comment. No `removeStatusField` migration exists in the repo. Needs a migration pass to clear the field on existing prod docs *before* removing from schema, otherwise validation errors.
+- [ ] **Wrapper components for recurring compositions** — Only pursue if a pattern shows up 5+ times and the abstraction is obvious (message bubbles, card layouts, status-orb containers). Don't over-abstract.

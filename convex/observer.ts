@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { OBSERVER_SYSTEM_PROMPT } from "./prompts";
+import { MODELS } from "./lib/models";
 
 // ─── Tool Schema for Structured Output ───────────────────────────────
 
@@ -314,7 +315,7 @@ export const analyzeProject = internalAction({
     let result: ObserverResult;
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929",
+        model: MODELS.SONNET,
         max_tokens: 4096,
         system: OBSERVER_SYSTEM_PROMPT,
         tools: [OBSERVER_TOOL],

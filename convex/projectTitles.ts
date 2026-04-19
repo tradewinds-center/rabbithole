@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { MODELS } from "./lib/models";
 
 /**
  * Generate a short (3-5 word) human-readable project title from the first
@@ -28,7 +29,7 @@ export const generateTitle = internalAction({
       const { default: Anthropic } = await import("@anthropic-ai/sdk");
       const anthropic = new Anthropic();
       const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: MODELS.HAIKU,
         max_tokens: 40,
         system:
           "You title a student's tutoring session based on their first question and the tutor's first reply. " +

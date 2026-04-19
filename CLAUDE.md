@@ -60,7 +60,7 @@ The product name is **Rabbithole** — use it in all user-facing copy. The repo 
 | Frontend | Next.js 14, React 18, Chakra UI 3 |
 | Backend | Convex (queries, mutations, actions, HTTP actions) |
 | Database | Convex (real-time, reactive) |
-| AI | Anthropic Claude (claude-sonnet-4-20250514) |
+| AI | Anthropic Claude (Sonnet 4.6 for tutor/observer, Haiku 4.5 for titles/standards). See `convex/lib/models.ts` — single source of truth. |
 | Auth | @convex-dev/auth with Google OAuth |
 | Voice | OpenAI Whisper (transcription via Convex action) |
 
