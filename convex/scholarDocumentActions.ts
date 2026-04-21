@@ -68,15 +68,41 @@ qualitative, plain language):
   "reads above grade level," "strong pattern recognition").
 - Examples of tasks the child found engaging or frustrating (if given in
   qualitative form).
+- **Relative gaps and asymmetries across cognitive and academic domains.**
+  These are the highest-signal pedagogical findings and they are easy to
+  miss if you redact numbers aggressively. When the document shows that
+  reasoning / language / cognitive ability is markedly higher than
+  academic skill (reading, writing, spelling, math fluency), or that
+  processing speed trails the rest of the profile, or that one academic
+  domain trails the others, NAME THAT GAP explicitly in qualitative
+  language — never with numbers. Examples of correct phrasing:
+  * "Verbal reasoning is well above the student's reading and spelling
+    skill, which is a pattern consistent with stealth dyslexia — academic
+    skills may look merely average on paper while the underlying ability
+    is much higher."
+  * "Strong reasoning paired with a relative weakness in processing speed
+    is characteristic of a twice-exceptional profile where rote/timed
+    output masks genuine mastery."
+  * "Reading and spelling sit well below what the student's verbal
+    reasoning would predict — worth investigating for specific learning
+    difference."
+  These asymmetries are the single most important pedagogical output
+  of most assessments. A redacted summary that describes both halves
+  (strong X + average Y) without naming the gap misses the point.
 
 OUTPUT FORMAT — respond with valid JSON matching exactly this shape:
 {
   "summary": "<2-6 paragraphs of prose, no bullets, no headings, suitable for a
 teacher skim-read. Refer to the child by first name only or 'the student'.
-Never include numbers from the assessment.>",
+Never include numbers from the assessment. If the document shows any gap
+between cognitive ability and academic achievement, or any asymmetry across
+cognitive domains, name that gap qualitatively in the summary.>",
   "keyFindings": [
     "<3-7 short bullets, each <= 200 chars, each pedagogically actionable.
-Phrased as observations a teacher could act on, not as clinical findings.>"
+Phrased as observations a teacher could act on, not as clinical findings.
+IMPORTANT: at least one bullet must name every significant asymmetry or
+cognitive-vs-academic gap the document surfaces — these are the
+highest-leverage pedagogical findings and must be called out explicitly.>"
   ]
 }
 
