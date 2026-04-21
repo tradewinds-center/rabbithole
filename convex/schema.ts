@@ -420,4 +420,70 @@ export default defineSchema({
       })
     ),
   }).index("by_project", ["projectId"]),
+
+  // ─── Scholar Documents (Phase 2 — cognitive-assessment-first onboarding) ──
+  //
+  // Sensitive per-scholar source documents (cognitive assessments, IEPs,
+  // parent notes, observations). Read/write gated to teacher + admin only.
+  // Scholars must NEVER access this table — the redactedSummary is used to
+  // generate directives/seeds that eventually surface to the tutor (and thus
+  // potentially to the scholar), so the redaction pass is load-bearing.
+  scholarDocuments: defineTable({
+    scholarId: v.id("users"),
+    kind: v.union(
+      v.literal("assessment"), // cognitive / neuropsych eval
+      v.literal("iep"), // IEP or 504 plan
+      v.literal("parent_email"), // email or note from a parent
+      v.literal("observation"), // teacher/staff written observation
+      v.literal("other"),
+    ),
+    title: v.string(), // human-facing label
+    fileStorageId: v.optional(v.id("_storage")), // optional because purge policy may delete it
+    fileMimeType: v.optional(v.string()),
+    fileSizeBytes: v.optional(v.number()),
+    extractedText: v.optional(v.string()), // full OCR/PDF text, internal-only
+    redactedSummary: v.optional(v.string()), // AI-produced safe-for-internal-use summary
+    aiKeyFindings: v.optional(v.array(v.string())), // short pedagogically-actionable bullets
+    uploadedBy: v.id("users"),
+    processingStatus: v.union(
+      v.literal("pending"),
+      v.literal("extracting"),
+      v.literal("redacting"),
+      v.literal("ready"),
+      v.literal("error"),
+    ),
+    processingError: v.optional(v.string()),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_scholar_kind", ["scholarId", "kind"]),
+
+  // Audit trail for every access to scholarDocuments.
+  documentAccessLog: defineTable({
+    documentId: v.id("scholarDocuments"),
+    scholarId: v.id("users"), // denormalized for easy per-scholar audit
+    userId: v.id("users"), // who accessed
+    action: v.union(
+      v.literal("upload"),
+      v.literal("view_summary"), // read redactedSummary
+      v.literal("view_extracted"), // read full extractedText
+      v.literal("download_pdf"),
+      v.literal("delete"),
+      v.literal("generate_proposal"),
+    ),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_scholar", ["scholarId"])
+    .index("by_user", ["userId"]),
+
+  // Cached proposal output for a document so teachers can re-open the diff
+  // without re-running the LLM. Keyed 1:1 (or latest-per-doc) by documentId.
+  documentProposals: defineTable({
+    documentId: v.id("scholarDocuments"),
+    scholarId: v.id("users"),
+    proposal: v.any(), // structured { rationale, directives[], seeds[], unitSuggestion? }
+    generatedBy: v.id("users"), // teacher who triggered generation
+    model: v.optional(v.string()),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_scholar", ["scholarId"]),
 });
