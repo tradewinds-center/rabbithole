@@ -9,7 +9,6 @@
  */
 
 import type * as adminMigrateDossierTeacherBlocks from "../adminMigrateDossierTeacherBlocks.js";
-import type * as adminSeedNoahMorphology from "../adminSeedNoahMorphology.js";
 import type * as analyses from "../analyses.js";
 import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
@@ -67,7 +66,6 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   adminMigrateDossierTeacherBlocks: typeof adminMigrateDossierTeacherBlocks;
-  adminSeedNoahMorphology: typeof adminSeedNoahMorphology;
   analyses: typeof analyses;
   analysisHelpers: typeof analysisHelpers;
   artifacts: typeof artifacts;
