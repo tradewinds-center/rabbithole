@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Box,
   Flex,
@@ -10,19 +11,44 @@ import {
   IconButton,
   Button,
   Spinner,
+  Badge,
 } from "@chakra-ui/react";
-import { FiSend, FiTrash2 } from "react-icons/fi";
+import { FiSend, FiTrash2, FiX, FiUser } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
 
 export default function CurriculumAssistant() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawScholar = searchParams.get("scholar");
+  const scholarId = rawScholar && rawScholar.length > 0 ? rawScholar : null;
+  const isScoped = !!scholarId;
+
   const { user } = useCurrentUser();
-  const messages = useQuery(api.curriculumAssistant.getMessages) ?? [];
+  // Unscoped: global teacher thread. Scoped: scholar thread.
+  const globalMessages = useQuery(
+    api.curriculumAssistant.getMessages,
+    isScoped ? "skip" : {}
+  );
+  const scholarMessages = useQuery(
+    api.curriculumAssistant.listMessagesForScholar,
+    isScoped ? { scholarId: scholarId as Id<"users"> } : "skip"
+  );
+  const messages = (isScoped ? scholarMessages : globalMessages) ?? [];
+
+  // Fetch scholar name when scoped — used in header + empty state.
+  const scholarProfile = useQuery(
+    api.scholars.getProfile,
+    isScoped ? { scholarId: scholarId as Id<"users"> } : "skip"
+  );
+  const scholarName = scholarProfile?.scholar?.name ?? null;
+
   const sendMessage = useMutation(api.curriculumAssistant.sendMessage);
   const clearHistory = useMutation(api.curriculumAssistant.clearHistory);
 
@@ -55,7 +81,10 @@ export default function CurriculumAssistant() {
     setInput("");
 
     try {
-      const result = await sendMessage({ message: text });
+      const result = await sendMessage({
+        message: text,
+        scholarId: scholarId ? (scholarId as Id<"users">) : undefined,
+      });
 
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
         ".cloud",
@@ -67,13 +96,14 @@ export default function CurriculumAssistant() {
           teacherId: String(user._id),
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
+          ...(scholarId ? { scholarId } : {}),
         },
         result.assistantMsgId,
       );
     } catch (error) {
       console.error("Error sending message:", error);
     }
-  }, [input, isStreaming, user, sendMessage, stream]);
+  }, [input, isStreaming, user, sendMessage, stream, scholarId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -84,7 +114,13 @@ export default function CurriculumAssistant() {
 
   const handleClear = async () => {
     if (isStreaming) return;
-    await clearHistory();
+    await clearHistory(
+      scholarId ? { scholarId: scholarId as Id<"users"> } : {}
+    );
+  };
+
+  const handleClearScope = () => {
+    router.push("/teacher?tab=assistant", { scroll: false });
   };
 
   return (
@@ -95,18 +131,59 @@ export default function CurriculumAssistant() {
         py={3}
         borderBottom="1px solid"
         borderColor="gray.200"
+        bg={isScoped ? "violet.50" : "white"}
         align="center"
         gap={3}
       >
-        <Text
-          fontFamily="heading"
-          fontWeight="600"
-          fontSize="md"
-          color="navy.500"
-        >
-          Curriculum Assistant
-        </Text>
+        {isScoped ? (
+          <>
+            <Badge
+              bg="violet.500"
+              color="white"
+              fontFamily="heading"
+              fontSize="2xs"
+              px={2}
+              py={0.5}
+              borderRadius="md"
+            >
+              <FiUser style={{ marginRight: "4px" }} />
+              Scoped
+            </Badge>
+            <Text
+              fontFamily="heading"
+              fontWeight="600"
+              fontSize="md"
+              color="violet.700"
+            >
+              Chatting about {scholarName ?? "…"}
+            </Text>
+          </>
+        ) : (
+          <Text
+            fontFamily="heading"
+            fontWeight="600"
+            fontSize="md"
+            color="navy.500"
+          >
+            Curriculum Assistant
+          </Text>
+        )}
         <Box flex={1} />
+        {isScoped && (
+          <Button
+            size="xs"
+            variant="ghost"
+            color="violet.700"
+            fontFamily="heading"
+            fontSize="xs"
+            _hover={{ bg: "violet.100" }}
+            onClick={handleClearScope}
+            aria-label="Clear scholar scope"
+          >
+            <FiX style={{ marginRight: "4px" }} />
+            Clear scope
+          </Button>
+        )}
         {messages.length > 0 && (
           <Button
             size="xs"
@@ -129,12 +206,32 @@ export default function CurriculumAssistant() {
         <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
           {messages.length === 0 && !streamingContent && (
             <VStack py={12} gap={3} color="charcoal.300">
-              <Text fontFamily="heading" fontSize="md">
-                Ask me about your scholars or curriculum
-              </Text>
-              <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
-                I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
-              </Text>
+              {isScoped ? (
+                <>
+                  <Text fontFamily="heading" fontSize="md" color="violet.700">
+                    No messages yet in this thread.
+                  </Text>
+                  <Text
+                    fontFamily="body"
+                    fontSize="sm"
+                    color="charcoal.400"
+                    textAlign="center"
+                    maxW="md"
+                  >
+                    Ask about {scholarName ?? "this scholar"}&rsquo;s dossier, directives,
+                    recent projects, or what to plan next.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text fontFamily="heading" fontSize="md">
+                    Ask me about your scholars or curriculum
+                  </Text>
+                  <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
+                    I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
+                  </Text>
+                </>
+              )}
             </VStack>
           )}
 
@@ -258,7 +355,11 @@ export default function CurriculumAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about scholars, mastery data, or curriculum design..."
+            placeholder={
+              isScoped
+                ? `Ask about ${scholarName ?? "this scholar"} — directives, seeds, next steps…`
+                : "Ask about scholars, mastery data, or curriculum design..."
+            }
             resize="none"
             rows={1}
             overflow="hidden"

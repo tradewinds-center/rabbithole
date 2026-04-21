@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { authedQuery, curriculumMutation } from "./lib/customFunctions";
+import { internalQuery } from "./_generated/server";
 import { ROLES } from "./lib/roles";
 
 export const list = authedQuery({
@@ -12,11 +13,18 @@ export const list = authedQuery({
     if (canManageCurriculum) {
       unitList = await ctx.db.query("units").order("desc").collect();
     } else {
-      unitList = await ctx.db
+      // Scholar path: only active units, and scholar-scoped filter:
+      //   include units with no scholarId (general teacher-created)
+      //   include units whose scholarId matches the current scholar
+      //   exclude units whose scholarId is another scholar
+      const allActive = await ctx.db
         .query("units")
         .withIndex("by_active", (q) => q.eq("isActive", true))
         .order("desc")
         .collect();
+      unitList = allActive.filter(
+        (u) => u.scholarId === undefined || u.scholarId === ctx.user._id
+      );
     }
 
     return Promise.all(
@@ -31,6 +39,9 @@ export const list = authedQuery({
           .query("lessons")
           .withIndex("by_unit", (q) => q.eq("unitId", u._id))
           .collect();
+        // If this unit is scholar-scoped, annotate with the scholar's name so
+        // the teacher UI can visually mark "this is Noah's Word Detective".
+        const scopedScholar = u.scholarId ? await ctx.db.get(u.scholarId) : null;
         return {
           ...u,
           id: u._id,
@@ -42,6 +53,8 @@ export const list = authedQuery({
           processTitle: process?.title ?? null,
           processEmoji: process?.emoji ?? null,
           lessonCount: lessons.length,
+          isScoped: !!u.scholarId,
+          scopedScholarName: scopedScholar?.name ?? null,
           createdAt: u._creationTime,
         };
       })
@@ -162,5 +175,27 @@ export const deactivate = curriculumMutation({
   args: { id: v.id("units") },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { isActive: false });
+  },
+});
+
+/**
+ * Internal — simulate what a specific scholar would see from units.list().
+ * Only used by Phase 3 verification tooling; not called from the UI.
+ */
+export const listForScholarInternal = internalQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const activeUnits = await ctx.db
+      .query("units")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+    const filtered = activeUnits.filter(
+      (u) => u.scholarId === undefined || u.scholarId === args.scholarId
+    );
+    return filtered.map((u) => ({
+      id: u._id,
+      title: u.title,
+      scholarId: u.scholarId ?? null,
+    }));
   },
 });

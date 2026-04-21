@@ -793,15 +793,22 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const body = await request.json();
-    const { teacherId, streamId, assistantMsgId } = body as {
-      teacherId: string;
-      streamId: string;
-      assistantMsgId: string;
-    };
+    const { teacherId, streamId, assistantMsgId, scholarId, threadLabel } =
+      body as {
+        teacherId: string;
+        streamId: string;
+        assistantMsgId: string;
+        scholarId?: string;
+        threadLabel?: string;
+      };
 
     const context = await ctx.runQuery(
       internal.curriculumAssistant.getContext,
-      { teacherId: teacherId as Id<"users"> }
+      {
+        teacherId: teacherId as Id<"users">,
+        scholarId: scholarId ? (scholarId as Id<"users">) : undefined,
+        threadLabel,
+      }
     );
 
     if (!context) {
@@ -1131,6 +1138,201 @@ http.route({
       },
     });
 
+    const createScholarUnitTool = betaTool({
+      name: "create_scholar_unit",
+      description:
+        "Create a new curriculum unit scoped to a specific scholar. The unit will only be visible to that scholar in their unit picker (in addition to all general teacher-created units). Use this to spin up a bespoke unit for an individual scholar's project (e.g., \"Word Detective\" for a scholar working on structured word inquiry). Idempotent by (scholarName, title) — if a unit with the same title already exists for this scholar, returns the existing unitId without creating a duplicate. IMPORTANT: a unit is an empty container; to make it useful, follow up with create_scholar_lesson calls to populate it with lessons.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          scholarName: {
+            type: "string" as const,
+            description: "The scholar's name (case-insensitive partial match)",
+          },
+          title: {
+            type: "string" as const,
+            description: "Unit title (e.g., \"Word Detective\", \"Fractions Deep Dive\")",
+          },
+          emoji: {
+            type: "string" as const,
+            description: "Optional emoji to represent the unit in the UI",
+          },
+          description: {
+            type: "string" as const,
+            description: "Short description of what this unit is about",
+          },
+          bigIdea: {
+            type: "string" as const,
+            description: "The enduring big idea of the unit (PCM curriculum field)",
+          },
+          essentialQuestions: {
+            type: "array" as const,
+            items: { type: "string" as const },
+            description: "Essential questions driving inquiry",
+          },
+          enduringUnderstandings: {
+            type: "array" as const,
+            items: { type: "string" as const },
+            description: "Enduring understandings scholars should take away",
+          },
+          subject: {
+            type: "string" as const,
+            description: "Broad subject (e.g., \"Language Arts\", \"Mathematics\")",
+          },
+          gradeLevel: {
+            type: "string" as const,
+            description: "Grade level (e.g., \"3\", \"K-2\")",
+          },
+        },
+        required: ["scholarName", "title"] as const,
+      },
+      run: async (input) => {
+        const scholar = await resolveScholar(input.scholarName);
+        if (!scholar) return `No scholar found matching "${input.scholarName}".`;
+        const result = await ctx.runMutation(
+          internal.teacherAide.createScholarUnit,
+          {
+            scholarId: scholar.id as Id<"users">,
+            authorId: teacherId as Id<"users">,
+            title: input.title,
+            emoji: input.emoji,
+            description: input.description,
+            bigIdea: input.bigIdea,
+            essentialQuestions: input.essentialQuestions,
+            enduringUnderstandings: input.enduringUnderstandings,
+            subject: input.subject,
+            gradeLevel: input.gradeLevel,
+          }
+        );
+        emitSSE({
+          toolComplete: {
+            name: "create_scholar_unit",
+            result: result.existed
+              ? `Unit "${input.title}" already exists for ${scholar.name}`
+              : `Created unit "${input.title}" for ${scholar.name}`,
+          },
+        });
+        return JSON.stringify({
+          unitId: result.unitId,
+          existed: result.existed,
+          scholarName: scholar.name,
+          title: input.title,
+        });
+      },
+    });
+
+    const createScholarLessonTool = betaTool({
+      name: "create_scholar_lesson",
+      description:
+        "Create a lesson inside a unit. Provide EITHER a direct unitId (returned from create_scholar_unit) OR a unitTitle + scholarName pair that will be resolved to a scholar-scoped unit. Idempotent by (unitId, title) — if a lesson with the same title already exists under this unit, returns the existing lessonId without creating a duplicate. Strand is the lesson's pedagogical role: core (main concept), connections (interdisciplinary links), practice (application), or identity (reflection / ownership).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          unitId: {
+            type: "string" as const,
+            description: "Direct unitId (preferred if available). If omitted, supply unitTitle + scholarName.",
+          },
+          unitTitle: {
+            type: "string" as const,
+            description: "Unit title to resolve (case-insensitive partial match). Required if unitId is not provided.",
+          },
+          scholarName: {
+            type: "string" as const,
+            description: "Scholar name, used together with unitTitle to disambiguate a scholar-scoped unit.",
+          },
+          title: {
+            type: "string" as const,
+            description: "Lesson title",
+          },
+          strand: {
+            type: "string" as const,
+            enum: ["core", "connections", "practice", "identity"] as const,
+            description: "Pedagogical strand: core | connections | practice | identity",
+          },
+          systemPrompt: {
+            type: "string" as const,
+            description: "Optional system prompt specifically for the tutor when this lesson is the current focus",
+          },
+          durationMinutes: {
+            type: "number" as const,
+            description: "Optional expected duration in minutes",
+          },
+        },
+        required: ["title"] as const,
+      },
+      run: async (input) => {
+        // Resolve unit: unitId takes precedence, else unitTitle (+ scholar scope).
+        let unitId: Id<"units"> | null = null;
+        let unitLabel = "(unknown)";
+        if (input.unitId) {
+          unitId = input.unitId as Id<"units">;
+          const details = await ctx.runQuery(
+            internal.curriculumAssistant.getUnitDetails,
+            { unitId }
+          );
+          unitLabel = details?.title ?? "(unknown)";
+        } else if (input.unitTitle) {
+          const scholar = input.scholarName
+            ? await resolveScholar(input.scholarName)
+            : null;
+          const allUnits = await ctx.runQuery(
+            internal.curriculumAssistant.listUnitsInternal,
+            {}
+          );
+          const lower = input.unitTitle.toLowerCase();
+          const candidates = allUnits.filter((u) =>
+            u.title.toLowerCase().includes(lower)
+          );
+          if (candidates.length === 0) {
+            return `No unit found matching "${input.unitTitle}".`;
+          }
+          // Prefer a unit scoped to the named scholar if provided.
+          let chosen = null as (typeof candidates)[number] | null;
+          if (scholar) {
+            chosen =
+              candidates.find((c) => c.scholarId === scholar.id) ?? null;
+          }
+          if (!chosen) chosen = candidates[0];
+          unitId = chosen.id as Id<"units">;
+          unitLabel = chosen.title;
+        } else {
+          return "Either unitId or unitTitle must be provided.";
+        }
+
+        const strand = input.strand as
+          | "core"
+          | "connections"
+          | "practice"
+          | "identity"
+          | undefined;
+
+        const result = await ctx.runMutation(
+          internal.teacherAide.createScholarLesson,
+          {
+            unitId,
+            title: input.title,
+            strand,
+            systemPrompt: input.systemPrompt,
+            durationMinutes: input.durationMinutes,
+          }
+        );
+        emitSSE({
+          toolComplete: {
+            name: "create_scholar_lesson",
+            result: result.existed
+              ? `Lesson "${input.title}" already exists in "${unitLabel}"`
+              : `Created lesson "${input.title}" in "${unitLabel}"`,
+          },
+        });
+        return JSON.stringify({
+          lessonId: result.lessonId,
+          existed: result.existed,
+          unitTitle: unitLabel,
+          title: input.title,
+        });
+      },
+    });
+
     const tools = [
       listScholarsTool,
       getScholarDossierTool,
@@ -1142,7 +1344,68 @@ http.route({
       getUnitDetailsTool,
       upsertTeacherDirectiveTool,
       createScholarSeedTool,
+      createScholarUnitTool,
+      createScholarLessonTool,
     ];
+
+    // Build the system prompt. When the current thread is scoped to a scholar,
+    // pre-load the scholar's redacted context so the AI doesn't need to tool-
+    // call on every turn to remember who we're talking about.
+    const systemPromptSections: string[] = [CURRICULUM_ASSISTANT_SYSTEM_PROMPT];
+    if (context.scholarContext) {
+      const sc = context.scholarContext;
+      const lines: string[] = [];
+      lines.push("");
+      lines.push(`## Current scholar: ${sc.scholarName}`);
+      lines.push("");
+      lines.push(
+        `This chat thread is scoped to one specific scholar. Assume every question is about ${sc.scholarName} unless stated otherwise. The context below is pre-loaded — you do NOT need to call get_scholar_dossier / get_scholar_seeds / get_scholar_observations for this scholar (but you may still call get_scholar_mastery and get_scholar_signals if useful).`
+      );
+      lines.push("");
+      if (sc.readingLevel) {
+        lines.push(`Reading level: ${sc.readingLevel}`);
+        lines.push("");
+      }
+      lines.push(`### Dossier`);
+      lines.push(sc.dossier);
+      lines.push("");
+      if (sc.directives.length > 0) {
+        lines.push(`### Active teacher directives (${sc.directives.length})`);
+        for (const d of sc.directives) {
+          lines.push(`- **${d.label}** — ${d.content}`);
+        }
+        lines.push("");
+      } else {
+        lines.push(`### Active teacher directives`);
+        lines.push(`(none yet)`);
+        lines.push("");
+      }
+      if (sc.seeds.length > 0) {
+        lines.push(`### Active exploration seeds (${sc.seeds.length})`);
+        for (const s of sc.seeds) {
+          let line = `- "${s.topic}"`;
+          if (s.domain) line += ` (${s.domain})`;
+          line += ` — ${s.rationale}`;
+          if (s.approachHint) line += ` [approach: ${s.approachHint}]`;
+          lines.push(line);
+        }
+        lines.push("");
+      }
+      if (sc.recentObservations.length > 0) {
+        lines.push(
+          `### Recent teacher observations (last ${sc.recentObservations.length})`
+        );
+        for (const o of sc.recentObservations) {
+          lines.push(`- [${o.type}] ${o.note}`);
+        }
+        lines.push("");
+      }
+      lines.push(
+        `When suggesting new directives, seeds, units, or lessons, use the tools (upsert_teacher_directive, create_scholar_seed, create_scholar_unit, create_scholar_lesson) and default scholarName to "${sc.scholarName}".`
+      );
+      systemPromptSections.push(lines.join("\n"));
+    }
+    const systemPrompt = systemPromptSections.join("\n");
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -1165,7 +1428,7 @@ http.route({
           const runner = anthropic.beta.messages.toolRunner({
             model: MODELS.SONNET,
             max_tokens: 4096,
-            system: CURRICULUM_ASSISTANT_SYSTEM_PROMPT,
+            system: systemPrompt,
             messages: apiMessages,
             tools,
             stream: true,

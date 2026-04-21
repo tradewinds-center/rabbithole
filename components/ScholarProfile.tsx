@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "@/convex/_generated/api";
@@ -109,6 +110,7 @@ function timeAgo(timestamp: number): string {
 
 export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChange, onDelete, mode = "teacher" }: ScholarProfileProps) {
   const isParentMode = mode === "parent";
+  const router = useRouter();
   const { user: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === "admin";
   const deleteUser = useMutation(api.users.deleteUser);
@@ -277,6 +279,20 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             </Button>
           ) : (
             <>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="violet.500"
+                fontFamily="heading"
+                fontSize="xs"
+                _hover={{ bg: "violet.50" }}
+                onClick={() =>
+                  router.push(`/teacher?tab=assistant&scholar=${scholarId}`)
+                }
+              >
+                <FiCpu style={{ marginRight: "4px" }} />
+                Chat with AI
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"

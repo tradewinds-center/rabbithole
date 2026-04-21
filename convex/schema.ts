@@ -385,6 +385,13 @@ export default defineSchema({
   curriculumMessages: defineTable({
     teacherId: v.id("users"),
     unitId: v.optional(v.id("units")),
+    // When set, this message is part of a thread scoped to a specific scholar.
+    // When unset, the message belongs to the teacher's global curriculum thread
+    // (legacy behavior — kept for backward compatibility).
+    scholarId: v.optional(v.id("users")),
+    // Future-proofing for multi-thread-per-scholar. null/undefined means the
+    // scholar's primary thread.
+    threadLabel: v.optional(v.string()),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     model: v.optional(v.string()),
@@ -393,6 +400,7 @@ export default defineSchema({
   })
     .index("by_teacher", ["teacherId"])
     .index("by_teacher_unit", ["teacherId", "unitId"])
+    .index("by_scholar_and_creation", ["scholarId"])
     .index("by_stream", ["streamId"]),
 
   tokens: defineTable({

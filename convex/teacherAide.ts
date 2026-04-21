@@ -91,3 +91,111 @@ export const createScholarSeed = internalMutation({
     });
   },
 });
+
+/**
+ * Create a scholar-scoped unit. `scholarId` identifies which scholar this unit
+ * belongs to; `authorId` is the teacher/admin who authored it.
+ *
+ * Idempotent by (scholarId, title) — case-insensitive. If a unit with the same
+ * title already exists for this scholar, returns the existing unitId with
+ * `existed: true` instead of creating a duplicate.
+ */
+export const createScholarUnit = internalMutation({
+  args: {
+    scholarId: v.id("users"),
+    authorId: v.id("users"),
+    title: v.string(),
+    emoji: v.optional(v.string()),
+    description: v.optional(v.string()),
+    bigIdea: v.optional(v.string()),
+    essentialQuestions: v.optional(v.array(v.string())),
+    enduringUnderstandings: v.optional(v.array(v.string())),
+    subject: v.optional(v.string()),
+    gradeLevel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const title = args.title.trim();
+    if (!title) throw new Error("title must be a non-empty string");
+
+    // Idempotency: look for an existing unit for this scholar with the same
+    // (case-insensitive) title.
+    const existingForScholar = await ctx.db
+      .query("units")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
+      .collect();
+    const titleLower = title.toLowerCase();
+    const match = existingForScholar.find(
+      (u) => u.title.trim().toLowerCase() === titleLower
+    );
+    if (match) {
+      return { unitId: match._id, existed: true as const };
+    }
+
+    const unitId = await ctx.db.insert("units", {
+      teacherId: args.authorId,
+      scholarId: args.scholarId,
+      title,
+      emoji: args.emoji?.trim() || undefined,
+      description: args.description?.trim() || undefined,
+      bigIdea: args.bigIdea?.trim() || undefined,
+      essentialQuestions: args.essentialQuestions,
+      enduringUnderstandings: args.enduringUnderstandings,
+      subject: args.subject?.trim() || undefined,
+      gradeLevel: args.gradeLevel?.trim() || undefined,
+      isActive: true,
+    });
+    return { unitId, existed: false as const };
+  },
+});
+
+/**
+ * Create a lesson under a given unit. Computes the next order slot.
+ *
+ * Idempotent by (unitId, title) — case-insensitive. If a lesson with the same
+ * title already exists under this unit, returns the existing lessonId with
+ * `existed: true` instead of creating a duplicate.
+ */
+export const createScholarLesson = internalMutation({
+  args: {
+    unitId: v.id("units"),
+    title: v.string(),
+    strand: v.optional(
+      v.union(
+        v.literal("core"),
+        v.literal("connections"),
+        v.literal("practice"),
+        v.literal("identity")
+      )
+    ),
+    systemPrompt: v.optional(v.string()),
+    durationMinutes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const title = args.title.trim();
+    if (!title) throw new Error("title must be a non-empty string");
+
+    const existing = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", args.unitId))
+      .collect();
+
+    const titleLower = title.toLowerCase();
+    const match = existing.find(
+      (l) => l.title.trim().toLowerCase() === titleLower
+    );
+    if (match) {
+      return { lessonId: match._id, existed: true as const };
+    }
+
+    const maxOrder = existing.reduce((max, l) => Math.max(max, l.order), -1);
+    const lessonId = await ctx.db.insert("lessons", {
+      unitId: args.unitId,
+      title,
+      strand: args.strand,
+      systemPrompt: args.systemPrompt?.trim() || undefined,
+      order: maxOrder + 1,
+      durationMinutes: args.durationMinutes,
+    });
+    return { lessonId, existed: false as const };
+  },
+});

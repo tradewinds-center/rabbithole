@@ -9,21 +9,64 @@ import { ROLES } from "./lib/roles";
 export const getMessages = curriculumQuery({
   args: {},
   handler: async (ctx) => {
+    // Global (unscoped) thread: only rows without a scholarId.
     const messages = await ctx.db
       .query("curriculumMessages")
       .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
       .order("asc")
       .take(200);
-    return messages;
+    return messages.filter((m) => m.scholarId === undefined && m.unitId === undefined);
+  },
+});
+
+/**
+ * Messages for a scholar-scoped thread. Teacher/admin/curriculum_designer only.
+ *
+ * `threadLabel` is reserved for multi-thread-per-scholar — for now, pass
+ * nothing (or an empty string) and we return messages with no threadLabel
+ * (the primary thread).
+ */
+export const listMessagesForScholar = curriculumQuery({
+  args: {
+    scholarId: v.id("users"),
+    threadLabel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_scholar_and_creation", (q) =>
+        q.eq("scholarId", args.scholarId)
+      )
+      .order("asc")
+      .take(400);
+    // Only show messages authored by the current teacher for their own thread.
+    // Admins can see everything (useful for debugging / supervision).
+    const teacherFiltered = ctx.user.role === ROLES.ADMIN
+      ? messages
+      : messages.filter((m) => m.teacherId === ctx.user._id);
+    return teacherFiltered.filter(
+      (m) => (m.threadLabel ?? undefined) === label
+    );
   },
 });
 
 export const sendMessage = curriculumMutation({
-  args: { message: v.string() },
+  args: {
+    message: v.string(),
+    // Optional scholar scoping — when set, this message joins the
+    // scholar-scoped thread (see listMessagesForScholar).
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+
     // Insert user message
     await ctx.db.insert("curriculumMessages", {
       teacherId: ctx.user._id,
+      scholarId: args.scholarId,
+      threadLabel: label,
       role: "user",
       content: args.message,
     });
@@ -32,6 +75,8 @@ export const sendMessage = curriculumMutation({
     const streamId = crypto.randomUUID();
     const assistantMsgId = await ctx.db.insert("curriculumMessages", {
       teacherId: ctx.user._id,
+      scholarId: args.scholarId,
+      threadLabel: label,
       role: "assistant",
       content: "",
       streamId,
@@ -42,13 +87,36 @@ export const sendMessage = curriculumMutation({
 });
 
 export const clearHistory = curriculumMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    // When set, clears only the scholar-scoped thread; otherwise clears the
+    // global (unscoped) thread for this teacher.
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+
+    if (args.scholarId) {
+      const messages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_scholar_and_creation", (q) =>
+          q.eq("scholarId", args.scholarId)
+        )
+        .collect();
+      for (const msg of messages) {
+        if (msg.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN) continue;
+        if ((msg.threadLabel ?? undefined) !== label) continue;
+        await ctx.db.delete(msg._id);
+      }
+      return;
+    }
+
     const messages = await ctx.db
       .query("curriculumMessages")
       .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
       .collect();
     for (const msg of messages) {
+      if (msg.scholarId !== undefined || msg.unitId !== undefined) continue;
       await ctx.db.delete(msg._id);
     }
   },
@@ -167,14 +235,115 @@ export const getUnitDesignerContext = internalQuery({
 // ── Internal (called by HTTP action) ────────────────────────────────
 
 export const getContext = internalQuery({
-  args: { teacherId: v.id("users") },
+  args: {
+    teacherId: v.id("users"),
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const teacher = await ctx.db.get(args.teacherId);
-    const messages = await ctx.db
-      .query("curriculumMessages")
-      .withIndex("by_teacher", (q) => q.eq("teacherId", args.teacherId))
-      .order("asc")
-      .take(200);
+    const label = args.threadLabel?.trim() || undefined;
+
+    // Pick the right thread. If scholarId is set, we want messages with
+    // (scholarId, threadLabel). Otherwise the global (unscoped) thread.
+    let messages;
+    if (args.scholarId) {
+      const scholarMessages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_scholar_and_creation", (q) =>
+          q.eq("scholarId", args.scholarId)
+        )
+        .order("asc")
+        .take(400);
+      messages = scholarMessages.filter(
+        (m) =>
+          m.teacherId === args.teacherId &&
+          (m.threadLabel ?? undefined) === label
+      );
+    } else {
+      const teacherMessages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_teacher", (q) => q.eq("teacherId", args.teacherId))
+        .order("asc")
+        .take(400);
+      messages = teacherMessages.filter(
+        (m) => m.scholarId === undefined && m.unitId === undefined
+      );
+    }
+
+    // Scholar context (pre-loaded so the system prompt can include it).
+    let scholarContext:
+      | null
+      | {
+          scholarId: Id<"users">;
+          scholarName: string;
+          readingLevel: string | null;
+          dossier: string;
+          directives: { label: string; content: string }[];
+          seeds: {
+            topic: string;
+            domain: string | null;
+            rationale: string;
+            approachHint: string | null;
+          }[];
+          recentObservations: { note: string; type: string; createdAt: number }[];
+        } = null;
+
+    if (args.scholarId) {
+      const scholar = await ctx.db.get(args.scholarId);
+      if (scholar) {
+        const dossier = await ctx.db
+          .query("scholarDossiers")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId!))
+          .first();
+
+        const directives = await ctx.db
+          .query("teacherDirectives")
+          .withIndex("by_scholar_active", (q) =>
+            q.eq("scholarId", args.scholarId!).eq("isActive", true)
+          )
+          .collect();
+        directives.sort((a, b) => a._creationTime - b._creationTime);
+
+        const allSeeds = await ctx.db
+          .query("seeds")
+          .withIndex("by_scholar_status", (q) =>
+            q.eq("scholarId", args.scholarId!)
+          )
+          .collect();
+        const seeds = allSeeds
+          .filter((s) => s.status === "active" || s.status === "pending")
+          .map((s) => ({
+            topic: s.topic,
+            domain: s.domain ?? null,
+            rationale: s.rationale,
+            approachHint: s.approachHint ?? null,
+          }));
+
+        const observations = await ctx.db
+          .query("observations")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId!))
+          .order("desc")
+          .take(20);
+
+        scholarContext = {
+          scholarId: args.scholarId,
+          scholarName: scholar.name ?? "this scholar",
+          readingLevel: scholar.readingLevel ?? null,
+          dossier: dossier?.content ?? "No dossier data available yet.",
+          directives: directives.map((d) => ({
+            label: d.label,
+            content: d.content,
+          })),
+          seeds,
+          recentObservations: observations.map((o) => ({
+            note: o.note,
+            type: o.type,
+            createdAt: o._creationTime,
+          })),
+        };
+      }
+    }
 
     return {
       teacherName: teacher?.name ?? "Teacher",
@@ -182,6 +351,7 @@ export const getContext = internalQuery({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
+      scholarContext,
     };
   },
 });
@@ -357,6 +527,7 @@ export const listUnitsInternal = internalQuery({
         description: u.description ?? null,
         targetBloomLevel: u.targetBloomLevel ?? null,
         isActive: u.isActive,
+        scholarId: u.scholarId ?? null,
         personaTitle: persona?.title ?? null,
         perspectiveTitle: perspective?.title ?? null,
         processTitle: process?.title ?? null,
