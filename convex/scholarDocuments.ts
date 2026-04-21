@@ -45,7 +45,8 @@ async function logAccess(
       | "view_extracted"
       | "download_pdf"
       | "delete"
-      | "generate_proposal";
+      | "generate_proposal"
+      | "apply_proposal";
   }
 ): Promise<void> {
   await ctx.db.insert("documentAccessLog", args);
@@ -406,6 +407,7 @@ export const aiLogAccess = internalMutation({
       v.literal("download_pdf"),
       v.literal("delete"),
       v.literal("generate_proposal"),
+      v.literal("apply_proposal"),
     ),
   },
   handler: async (ctx, args) => {
@@ -439,6 +441,137 @@ export const adminTestCreateFixture = internalMutation({
       processingStatus: "redacting",
     });
     return id;
+  },
+});
+
+/**
+ * Test/fixture: insert a scholar document in `ready` state with pre-populated
+ * redactedSummary + aiKeyFindings, bypassing the Gemini extraction pipeline.
+ * Used by the Playwright verification script so we don't burn Gemini credits
+ * on a fake PDF. Admin-only, internal (not browser-reachable).
+ *
+ * Requires the uploader to already exist; we audit the upload as if it came
+ * from that user. Only ever pointed at a test scholar — never a real scholar.
+ */
+export const adminFixtureInsertReady = internalMutation({
+  args: {
+    scholarId: v.id("users"),
+    uploadedBy: v.id("users"),
+    title: v.string(),
+    extractedText: v.string(),
+    redactedSummary: v.string(),
+    aiKeyFindings: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const documentId = await ctx.db.insert("scholarDocuments", {
+      scholarId: args.scholarId,
+      kind: "assessment",
+      title: args.title,
+      uploadedBy: args.uploadedBy,
+      extractedText: args.extractedText,
+      redactedSummary: args.redactedSummary,
+      aiKeyFindings: args.aiKeyFindings,
+      processingStatus: "ready",
+    });
+
+    await ctx.db.insert("documentAccessLog", {
+      documentId,
+      scholarId: args.scholarId,
+      userId: args.uploadedBy,
+      action: "upload",
+    });
+
+    return documentId;
+  },
+});
+
+/**
+ * Test/fixture: hard-delete a document by id, its audit log entries, and any
+ * cached proposal. Used by the Playwright verification script for cleanup.
+ * Admin-only, internal (not browser-reachable).
+ */
+export const adminFixtureDelete = internalMutation({
+  args: { documentId: v.id("scholarDocuments") },
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) return { deleted: false };
+    if (doc.fileStorageId) {
+      try {
+        await ctx.storage.delete(doc.fileStorageId);
+      } catch {
+        // ignore
+      }
+    }
+
+    const auditRows = await ctx.db
+      .query("documentAccessLog")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .collect();
+    for (const r of auditRows) await ctx.db.delete(r._id);
+
+    const proposals = await ctx.db
+      .query("documentProposals")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .collect();
+    for (const p of proposals) await ctx.db.delete(p._id);
+
+    await ctx.db.delete(args.documentId);
+    return { deleted: true };
+  },
+});
+
+/**
+ * Test/fixture cleanup: remove every teacherDirective + seed for a given
+ * scholar that matches any of the provided labels / topics. Used by the
+ * Playwright verification script to clean up anything the proposal flow
+ * created. Admin-only, internal.
+ */
+export const adminFixtureCleanupScholar = internalMutation({
+  args: {
+    scholarId: v.id("users"),
+    directiveLabels: v.array(v.string()),
+    seedTopics: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let directivesDeleted = 0;
+    let seedsDeleted = 0;
+
+    if (args.directiveLabels.length > 0) {
+      const labelLowerSet = new Set(
+        args.directiveLabels.map((l) => l.trim().toLowerCase())
+      );
+      const dirs = await ctx.db
+        .query("teacherDirectives")
+        .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
+        .collect();
+      for (const d of dirs) {
+        if (labelLowerSet.has(d.label.toLowerCase())) {
+          await ctx.db.delete(d._id);
+          directivesDeleted += 1;
+        }
+      }
+    }
+
+    if (args.seedTopics.length > 0) {
+      const topicSet = new Set(args.seedTopics.map((t) => t.trim()));
+      // Check both pending and active statuses
+      for (const status of ["pending", "active", "dismissed"]) {
+        const rows = await ctx.db
+          .query("seeds")
+          .withIndex("by_scholar_status", (q) =>
+            q.eq("scholarId", args.scholarId).eq("status", status)
+          )
+          .collect();
+        for (const s of rows) {
+          if (topicSet.has(s.topic.trim())) {
+            await ctx.db.delete(s._id);
+            seedsDeleted += 1;
+          }
+        }
+      }
+    }
+
+    return { directivesDeleted, seedsDeleted };
   },
 });
 

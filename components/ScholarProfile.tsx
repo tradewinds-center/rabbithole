@@ -46,6 +46,7 @@ import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
 import { MasteryTab } from "@/components/MasteryTab";
 import { SeedsTab } from "@/components/SeedsTab";
 import { DirectivesTab } from "@/components/DirectivesTab";
+import { DocumentsTab } from "@/components/DocumentsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
@@ -552,58 +553,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         )}
 
         {activeTab === "documents" && (
-          <VStack gap={3} align="stretch" maxW="700px">
-            {artifacts === undefined ? (
-              <Flex justify="center" py={8}>
-                <Spinner size="md" color="violet.500" />
-              </Flex>
-            ) : artifacts.length === 0 ? (
-              <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={8}>
-                No documents yet. Documents are created during projects.
-              </Text>
-            ) : (
-              artifacts.map((artifact) => (
-                <Box
-                  key={artifact._id}
-                  bg="white"
-                  borderRadius="lg"
-                  p={4}
-                  shadow="xs"
-                  borderLeft="3px solid"
-                  borderColor={artifact.lastEditedBy === "scholar" ? "cyan.400" : "violet.400"}
-                >
-                  <HStack justify="space-between" align="start" mb={1}>
-                    <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
-                      {artifact.title}
-                    </Text>
-                    <HStack gap={2}>
-                      <Badge
-                        bg={artifact.lastEditedBy === "scholar" ? "cyan.100" : "violet.100"}
-                        color={artifact.lastEditedBy === "scholar" ? "cyan.700" : "violet.700"}
-                        fontSize="xs"
-                      >
-                        {artifact.lastEditedBy === "scholar" ? <><FiEdit3 style={{ display: "inline", marginRight: "3px" }} />scholar</> : <><FiCpu style={{ display: "inline", marginRight: "3px" }} />ai</>}
-                      </Badge>
-                      <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                        {timeAgo(artifact._creationTime)}
-                      </Text>
-                    </HStack>
-                  </HStack>
-                  {artifact.content && (
-                    <Text fontSize="sm" color="charcoal.500" fontFamily="body" lineHeight="1.4" mb={2} lineClamp={2}>
-                      {artifact.content.slice(0, 150)}{artifact.content.length > 150 ? "..." : ""}
-                    </Text>
-                  )}
-                  <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                    from:{" "}
-                    <Text as="span" color="violet.500" cursor="pointer" _hover={{ textDecoration: "underline" }}>
-                      {artifact.projectTitle}
-                    </Text>
-                  </Text>
-                </Box>
-              ))
-            )}
-          </VStack>
+          <DocumentsTab scholarId={scholarId} />
         )}
 
         {activeTab === "notes" && (

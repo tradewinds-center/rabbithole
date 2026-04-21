@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { authedMutation, authedQuery } from "./lib/customFunctions";
+import { authedMutation, authedQuery, teacherMutation } from "./lib/customFunctions";
 import { internal } from "./_generated/api";
 import { ROLES } from "./lib/roles";
 
@@ -141,5 +141,169 @@ export const getLatestProposal = authedQuery({
       .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
       .order("desc")
       .first();
+  },
+});
+
+// ── Public: apply (some or all of) a cached proposal ────────────────────
+
+/**
+ * Apply selected directives + seeds from the cached proposal for a document.
+ *
+ * The teacher picks which directives (by label) and seeds (by index into the
+ * proposal.seeds array) to approve. We then:
+ *   - For each approved directive: upsertByLabel — create new or patch existing
+ *   - For each approved seed: insert a new row with origin="teacher" and
+ *     status="active" (same shape seeds.create produces)
+ *   - Mark the proposal applied (appliedAt, appliedBy)
+ *   - Audit-log `apply_proposal`
+ *
+ * We intentionally SKIP unitSuggestion in this flow — Phase 2 doesn't wire
+ * unit creation through the approval path. The UI surfaces the suggestion as
+ * read-only text for the teacher to copy manually into the Curriculum tab.
+ */
+export const applyProposal = teacherMutation({
+  args: {
+    documentId: v.id("scholarDocuments"),
+    approvedDirectiveLabels: v.array(v.string()),
+    approvedSeedIndexes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const proposalRow = await ctx.db
+      .query("documentProposals")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .order("desc")
+      .first();
+    if (!proposalRow) throw new Error("No proposal cached for this document");
+
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document not found");
+
+    const proposal = proposalRow.proposal as {
+      rationale: string;
+      directives: Array<{
+        action: "create" | "update";
+        label: string;
+        content: string;
+        reason: string;
+      }>;
+      seeds: Array<{
+        topic: string;
+        domain: string;
+        rationale: string;
+        approachHint: string | null;
+      }>;
+      unitSuggestion:
+        | null
+        | {
+            title: string;
+            bigIdea: string;
+            essentialQuestions: string[];
+            rationale: string;
+          };
+    };
+
+    const approvedLabelSet = new Set(
+      args.approvedDirectiveLabels.map((l) => l.trim().toLowerCase())
+    );
+    const approvedSeedIndexSet = new Set(args.approvedSeedIndexes);
+
+    // ── Apply directives ──────────────────────────────────────────────
+    let directivesApplied = 0;
+    for (const d of proposal.directives) {
+      if (!approvedLabelSet.has(d.label.trim().toLowerCase())) continue;
+      if (!d.label.trim() || !d.content.trim()) continue;
+
+      // Mirror teacherDirectives.upsertByLabel logic inline (we can't call
+      // another mutation from a mutation in Convex — and this lets us use
+      // the teacher's user id as authorId).
+      const existing = await ctx.db
+        .query("teacherDirectives")
+        .withIndex("by_scholar", (q) => q.eq("scholarId", doc.scholarId))
+        .collect();
+      const labelLower = d.label.trim().toLowerCase();
+      const match = existing.find(
+        (r) => r.label.toLowerCase() === labelLower
+      );
+      const now = Date.now();
+      if (match) {
+        await ctx.db.patch(match._id, {
+          content: d.content.trim(),
+          authorId: ctx.user._id,
+          updatedAt: now,
+          isActive: true,
+        });
+      } else {
+        await ctx.db.insert("teacherDirectives", {
+          scholarId: doc.scholarId,
+          label: d.label.trim(),
+          content: d.content.trim(),
+          authorId: ctx.user._id,
+          isActive: true,
+          updatedAt: now,
+        });
+      }
+      directivesApplied += 1;
+    }
+
+    // ── Apply seeds ───────────────────────────────────────────────────
+    let seedsApplied = 0;
+    for (let i = 0; i < proposal.seeds.length; i++) {
+      if (!approvedSeedIndexSet.has(i)) continue;
+      const s = proposal.seeds[i];
+      if (!s.topic.trim()) continue;
+
+      await ctx.db.insert("seeds", {
+        scholarId: doc.scholarId,
+        origin: "teacher",
+        status: "active",
+        topic: s.topic,
+        domain: s.domain || undefined,
+        suggestionType: "teacher_suggestion",
+        rationale: s.rationale,
+        approachHint: s.approachHint ?? undefined,
+        teacherId: ctx.user._id,
+      });
+      seedsApplied += 1;
+    }
+
+    // ── Mark proposal applied + audit-log ─────────────────────────────
+    await ctx.db.patch(proposalRow._id, {
+      appliedAt: Date.now(),
+      appliedBy: ctx.user._id,
+    });
+
+    await ctx.db.insert("documentAccessLog", {
+      documentId: args.documentId,
+      scholarId: doc.scholarId,
+      userId: ctx.user._id,
+      action: "apply_proposal",
+    });
+
+    return {
+      directivesApplied,
+      seedsApplied,
+      skippedUnit: proposal.unitSuggestion !== null,
+    };
+  },
+});
+
+/**
+ * Reject a proposal without applying anything. Sets rejectedAt + rejectedBy so
+ * the UI can distinguish "pending" vs. "rejected" in future views.
+ */
+export const rejectProposal = teacherMutation({
+  args: { documentId: v.id("scholarDocuments") },
+  handler: async (ctx, args) => {
+    const proposalRow = await ctx.db
+      .query("documentProposals")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .order("desc")
+      .first();
+    if (!proposalRow) throw new Error("No proposal cached for this document");
+
+    await ctx.db.patch(proposalRow._id, {
+      rejectedAt: Date.now(),
+      rejectedBy: ctx.user._id,
+    });
   },
 });

@@ -469,6 +469,7 @@ export default defineSchema({
       v.literal("download_pdf"),
       v.literal("delete"),
       v.literal("generate_proposal"),
+      v.literal("apply_proposal"),
     ),
   })
     .index("by_document", ["documentId"])
@@ -483,6 +484,12 @@ export default defineSchema({
     proposal: v.any(), // structured { rationale, directives[], seeds[], unitSuggestion? }
     generatedBy: v.id("users"), // teacher who triggered generation
     model: v.optional(v.string()),
+    // Set when teacher approves (some-or-all of) the proposal.
+    appliedAt: v.optional(v.number()),
+    appliedBy: v.optional(v.id("users")),
+    // Set when teacher rejects the proposal outright.
+    rejectedAt: v.optional(v.number()),
+    rejectedBy: v.optional(v.id("users")),
   })
     .index("by_document", ["documentId"])
     .index("by_scholar", ["scholarId"]),
