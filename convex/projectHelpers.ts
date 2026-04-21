@@ -149,6 +149,19 @@ export const getProjectContext = internalQuery({
       .withIndex("by_scholar", (q) => q.eq("scholarId", project.userId))
       .first();
 
+    // Get active teacher directives for this scholar
+    const directiveRows = await ctx.db
+      .query("teacherDirectives")
+      .withIndex("by_scholar_active", (q) =>
+        q.eq("scholarId", project.userId).eq("isActive", true)
+      )
+      .collect();
+    directiveRows.sort((a, b) => a._creationTime - b._creationTime);
+    const teacherDirectives = directiveRows.map((d) => ({
+      label: d.label,
+      content: d.content,
+    }));
+
     // Get current mastery observations (non-superseded) for system prompt context
     const masteryObs = await ctx.db
       .query("masteryObservations")
@@ -262,6 +275,7 @@ export const getProjectContext = internalQuery({
       scholarName: friendlyScholarName(scholar?.name, scholar?.username),
       scholarId: project.userId,
       dossierContent: dossier?.content ?? null,
+      teacherDirectives,
       masteryContext,
       signalContext,
       unitContext,
@@ -486,6 +500,11 @@ export type MasteryContextEntry = {
 
 export type SignalContext = Record<string, { count: number; highCount: number }>;
 
+export type TeacherDirective = {
+  label: string;
+  content: string;
+};
+
 export type TimingContext = {
   unitEndsAt: number | null;
   projectStartedAt: number;
@@ -677,6 +696,18 @@ function buildSeedsSection(seedsData: SeedData[] | null): string | null {
   return lines.join("\n");
 }
 
+function buildDirectivesSection(directives: TeacherDirective[] | null): string | null {
+  if (!directives || directives.length === 0) return null;
+
+  const lines: string[] = [];
+  lines.push(`\n\n## Teacher directives for this scholar`);
+  lines.push(`\nThese are persistent pedagogical instructions authored by a teacher. Treat them as standing rules that govern your behavior with this scholar — they take precedence over general tutoring heuristics.`);
+  for (const d of directives) {
+    lines.push(`\n### ${d.label}\n${d.content.trim()}`);
+  }
+  return lines.join("\n");
+}
+
 // ── Main Composer ────────────────────────────────────────────────────
 
 /**
@@ -698,11 +729,13 @@ export function buildSystemPrompt(
   masteryContext: MasteryContextEntry[] | null = null,
   signalContext: SignalContext | null = null,
   timingContext: TimingContext | null = null,
-  lessonContext: LessonContext | null = null
+  lessonContext: LessonContext | null = null,
+  teacherDirectives: TeacherDirective[] | null = null
 ): string {
   const sections: (string | null)[] = [
     buildBasePrompt(scholarName),
     buildDossierSection(dossierContent),
+    buildDirectivesSection(teacherDirectives),
     buildMasterySection(masteryContext),
     buildSignalSection(signalContext),
     readingLevel ? `\n\nREADING LEVEL: The scholar's reading level is set to "${readingLevel}". Adjust your vocabulary and sentence complexity accordingly. You can still explore advanced topics, but frame explanations at this reading level.` : null,

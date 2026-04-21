@@ -39,16 +39,18 @@ import {
   FiActivity,
   FiVolume2,
   FiKey,
+  FiFlag,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
 import { MasteryTab } from "@/components/MasteryTab";
 import { SeedsTab } from "@/components/SeedsTab";
+import { DirectivesTab } from "@/components/DirectivesTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
-export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "strengths" | "documents" | "notes" | "reading";
+export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "directives" | "strengths" | "documents" | "notes" | "reading";
 type TabKey = ScholarTabKey;
 
 interface ScholarProfileProps {
@@ -82,6 +84,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: Re
   { key: "activity", label: "Activity", icon: FiActivity },
   { key: "mastery", label: "Mastery", icon: FiCpu },
   { key: "seeds", label: "Seeds", icon: Plant },
+  { key: "directives", label: "Directives", icon: FiFlag },
   { key: "standards", label: "Standards", icon: FiClipboard },
   { key: "strengths", label: "Strengths", icon: ShootingStar },
   { key: "documents", label: "Documents", icon: FiFolder },
@@ -538,6 +541,10 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
 
         {activeTab === "seeds" && (
           <SeedsTab scholarId={scholarId} />
+        )}
+
+        {activeTab === "directives" && (
+          <DirectivesTab scholarId={scholarId} />
         )}
 
         {activeTab === "strengths" && (

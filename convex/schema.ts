@@ -364,6 +364,17 @@ export default defineSchema({
     content: v.string(),
   }).index("by_scholar", ["scholarId"]),
 
+  teacherDirectives: defineTable({
+    scholarId: v.id("users"),
+    label: v.string(), // e.g. "SWI / stealth-dyslexia"
+    content: v.string(), // teacher-authored instructions to the tutor
+    authorId: v.id("users"), // teacher or admin who last wrote it
+    isActive: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_scholar_active", ["scholarId", "isActive"]),
+
   reports: defineTable({
     teacherId: v.id("users"),
     scholarId: v.id("users"),

@@ -54,7 +54,7 @@ http.route({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    // Build system prompt (now includes artifact data + dossier + mastery context)
+    // Build system prompt (now includes artifact data + dossier + directives + mastery context)
     const systemPrompt = buildSystemPrompt(
       project.teacherWhisper,
       project.readingLevel,
@@ -70,7 +70,8 @@ http.route({
       project.masteryContext,
       project.signalContext,
       project.timingContext,
-      project.lessonContext
+      project.lessonContext,
+      project.teacherDirectives.length > 0 ? project.teacherDirectives : null
     );
 
     const encoder = new TextEncoder();
@@ -1030,6 +1031,106 @@ http.route({
       },
     });
 
+    const upsertTeacherDirectiveTool = betaTool({
+      name: "upsert_teacher_directive",
+      description:
+        "Create or update a teacher directive — a persistent pedagogical instruction for the AI tutor about a specific scholar. Directives are standing rules (e.g., \"Use Structured Word Inquiry, not phonics drills\", \"Frame math as visual reasoning\", \"Cognitive profile and accommodations\") that the tutor treats as governing behavior for that scholar. Directives persist across sessions and are separate from the scholar dossier (which is observer/tutor-authored learning notes). If a directive with the same label already exists for this scholar, its content is REPLACED; otherwise a new directive is CREATED.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          scholarName: {
+            type: "string" as const,
+            description: "The scholar's name (case-insensitive partial match)",
+          },
+          label: {
+            type: "string" as const,
+            description:
+              "Short human-readable label identifying this directive (e.g., \"SWI directives\", \"Family context\", \"Cognitive profile\"). Used as the directive key — re-using the same label (case-insensitive) replaces the existing directive.",
+          },
+          content: {
+            type: "string" as const,
+            description:
+              "The teacher-authored body of the directive. Preserves formatting verbatim; use plain prose or markdown bullets as you like.",
+          },
+        },
+        required: ["scholarName", "label", "content"] as const,
+      },
+      run: async (input) => {
+        const scholar = await resolveScholar(input.scholarName);
+        if (!scholar) return `No scholar found matching "${input.scholarName}".`;
+        const result = await ctx.runMutation(
+          internal.teacherAide.upsertTeacherDirective,
+          {
+            scholarId: scholar.id as Id<"users">,
+            label: input.label,
+            content: input.content,
+            authorId: teacherId as Id<"users">,
+          }
+        );
+        emitSSE({
+          toolComplete: {
+            name: "upsert_teacher_directive",
+            result: `${result.action === "updated" ? "Updated" : "Created"} "${result.label}" directive for ${scholar.name}`,
+          },
+        });
+        return `Teacher directive "${result.label}" ${result.action} for ${scholar.name}.`;
+      },
+    });
+
+    const createScholarSeedTool = betaTool({
+      name: "create_scholar_seed",
+      description:
+        "Create an active teacher-authored exploration seed for a scholar. Seeds are suggested topics the AI tutor will weave into future sessions — the teacher equivalent of the AI observer's own seed suggestions. Use this when you want to steer a specific scholar toward a topic (e.g., \"The -spect- morpheme family\" for a kid working on SWI).",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          scholarName: {
+            type: "string" as const,
+            description: "The scholar's name (case-insensitive partial match)",
+          },
+          topic: {
+            type: "string" as const,
+            description: "Short topic phrase (e.g., \"Latin and Greek roots in filmmaking\")",
+          },
+          domain: {
+            type: "string" as const,
+            description:
+              "Optional broad academic domain (e.g., \"Language Arts\", \"Mathematics\", \"Science\").",
+          },
+          rationale: {
+            type: "string" as const,
+            description:
+              "Why this topic, for this scholar, right now. Informs the tutor on how to frame it.",
+          },
+          approachHint: {
+            type: "string" as const,
+            description:
+              "Optional hint on how the tutor should approach the topic (pedagogical steer, example, on-ramp).",
+          },
+        },
+        required: ["scholarName", "topic", "rationale"] as const,
+      },
+      run: async (input) => {
+        const scholar = await resolveScholar(input.scholarName);
+        if (!scholar) return `No scholar found matching "${input.scholarName}".`;
+        await ctx.runMutation(internal.teacherAide.createScholarSeed, {
+          scholarId: scholar.id as Id<"users">,
+          teacherId: teacherId as Id<"users">,
+          topic: input.topic,
+          domain: input.domain,
+          rationale: input.rationale,
+          approachHint: input.approachHint,
+        });
+        emitSSE({
+          toolComplete: {
+            name: "create_scholar_seed",
+            result: `Seeded "${input.topic}" for ${scholar.name}`,
+          },
+        });
+        return `Active seed "${input.topic}" created for ${scholar.name}.`;
+      },
+    });
+
     const tools = [
       listScholarsTool,
       getScholarDossierTool,
@@ -1039,6 +1140,8 @@ http.route({
       getScholarObservationsTool,
       listUnitsTool,
       getUnitDetailsTool,
+      upsertTeacherDirectiveTool,
+      createScholarSeedTool,
     ];
 
     const stream = new ReadableStream({

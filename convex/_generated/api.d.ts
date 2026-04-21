@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as adminMigrateDossierTeacherBlocks from "../adminMigrateDossierTeacherBlocks.js";
+import type * as adminSeedNoahMorphology from "../adminSeedNoahMorphology.js";
 import type * as analyses from "../analyses.js";
 import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
@@ -45,6 +47,8 @@ import type * as standardsImport from "../standardsImport.js";
 import type * as standardsImportHelpers from "../standardsImportHelpers.js";
 import type * as standardsMapper from "../standardsMapper.js";
 import type * as standardsTree from "../standardsTree.js";
+import type * as teacherAide from "../teacherAide.js";
+import type * as teacherDirectives from "../teacherDirectives.js";
 import type * as teacherMasteryOverrides from "../teacherMasteryOverrides.js";
 import type * as tokens from "../tokens.js";
 import type * as units from "../units.js";
@@ -58,6 +62,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminMigrateDossierTeacherBlocks: typeof adminMigrateDossierTeacherBlocks;
+  adminSeedNoahMorphology: typeof adminSeedNoahMorphology;
   analyses: typeof analyses;
   analysisHelpers: typeof analysisHelpers;
   artifacts: typeof artifacts;
@@ -95,6 +101,8 @@ declare const fullApi: ApiFromModules<{
   standardsImportHelpers: typeof standardsImportHelpers;
   standardsMapper: typeof standardsMapper;
   standardsTree: typeof standardsTree;
+  teacherAide: typeof teacherAide;
+  teacherDirectives: typeof teacherDirectives;
   teacherMasteryOverrides: typeof teacherMasteryOverrides;
   tokens: typeof tokens;
   units: typeof units;
