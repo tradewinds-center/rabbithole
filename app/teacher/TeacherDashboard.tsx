@@ -44,7 +44,7 @@ import {
   FiUnlock,
   FiPlus,
   FiCopy,
-  FiCpu,
+  FiMessageSquare,
   FiCompass,
   FiExternalLink,
   FiUserPlus,
@@ -74,10 +74,10 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 type Tab = "scholars" | "live" | "curriculum" | "assistant";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
+  { key: "assistant", label: "Chat", icon: FiMessageSquare },
   { key: "live", label: "Activities", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
   { key: "curriculum", label: "Curriculum", icon: FiBook },
-  { key: "assistant", label: "Assistant", icon: FiCpu },
 ];
 
 type CurriculumSubTab = "units" | "personas" | "perspectives" | "processes";
@@ -152,7 +152,7 @@ export default function TeacherDashboardInner() {
   const rawScholar = searchParams.get("scholar");
   const rawStab = searchParams.get("stab");
   const rawUnit = searchParams.get("unit");
-  const defaultTab: Tab = isCurriculumDesigner ? "curriculum" : "live";
+  const defaultTab: Tab = isCurriculumDesigner ? "curriculum" : "assistant";
   const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : defaultTab;
   const curriculumSubTab: CurriculumSubTab = VALID_SUB_TABS.includes(rawSub as CurriculumSubTab) ? (rawSub as CurriculumSubTab) : "units";
   const selectedScholarId: string | null = activeTab === "scholars" && rawScholar ? rawScholar : null;
