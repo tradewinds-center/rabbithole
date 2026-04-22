@@ -67,6 +67,9 @@ importers:
       react:
         specifier: ^18.3.1
         version: 18.3.1
+      react-diff-viewer-continued:
+        specifier: ^4.2.0
+        version: 4.2.0(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
@@ -101,6 +104,9 @@ importers:
       eslint-config-next:
         specifier: 14.2.35
         version: 14.2.35(eslint@8.57.1)(typescript@5.9.3)
+      playwright:
+        specifier: ^1.59.1
+        version: 1.59.1
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -248,6 +254,9 @@ packages:
 
   '@emotion/cache@11.14.0':
     resolution: {integrity: sha512-L/B1lc/TViYk4DcpGxtAVbx0ZyiKM5ktoIyafGkH6zg/tj+mA+NE//aPYKG0k8kCHSHVJrpLpcAlOBEXQ3SavA==}
+
+  '@emotion/css@11.13.5':
+    resolution: {integrity: sha512-wQdD0Xhkn3Qy2VNcIzbLP9MR8TafI0MJb7BEAXKp+w4+XqErksWR4OXomuDzPsN4InLdGhVe6EYcn2ZIUCpB8w==}
 
   '@emotion/hash@0.9.2':
     resolution: {integrity: sha512-MyqliTZGuOm3+5ZRSaaBGP3USLw6+EGykkwZns2EPC5g8jJ4z9OrdZY9apkl3+UP9+sdz76YYkwCKP5gh8iY3g==}
@@ -1269,6 +1278,9 @@ packages:
   chroma-js@3.2.0:
     resolution: {integrity: sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw==}
 
+  classnames@2.5.1:
+    resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
+
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
@@ -1420,6 +1432,10 @@ packages:
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
+
+  diff@8.0.4:
+    resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
 
   doctrine@2.1.0:
     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
@@ -1713,6 +1729,11 @@ packages:
 
   fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
+
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
@@ -2157,6 +2178,9 @@ packages:
     resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
     engines: {node: '>= 0.8'}
 
+  memoize-one@6.0.0:
+    resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
+
   merge-descriptors@2.0.0:
     resolution: {integrity: sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g==}
     engines: {node: '>=18'}
@@ -2421,6 +2445,16 @@ packages:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
 
+  playwright-core@1.59.1:
+    resolution: {integrity: sha512-HBV/RJg81z5BiiZ9yPzIiClYV/QMsDCKUyogwH9p3MCP6IYjUFu/MActgYAvK0oWyV9NlwM3GLBjADyWgydVyg==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.59.1:
+    resolution: {integrity: sha512-C8oWjPR3F81yljW9o5OxcWzfh6avkVwDD2VYdwIGqTkl+OGFISgypqzfu7dOe4QNLL2aqcWBmI3PMtLIK233lw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
@@ -2480,6 +2514,13 @@ packages:
   raw-body@3.0.2:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
+
+  react-diff-viewer-continued@4.2.0:
+    resolution: {integrity: sha512-KXeevuPpMRNDAtF878G04Yih/01DBBoC+RjDzWiA5S6TPtUzSfqF5XOlEWyXVWvJuz5n+EQ9QdUQd0ffK2By6w==}
+    engines: {node: '>= 16'}
+    peerDependencies:
+      react: ^15.3.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^15.3.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   react-dom@18.3.1:
     resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
@@ -3184,6 +3225,16 @@ snapshots:
       '@emotion/utils': 1.4.2
       '@emotion/weak-memoize': 0.4.0
       stylis: 4.2.0
+
+  '@emotion/css@11.13.5':
+    dependencies:
+      '@emotion/babel-plugin': 11.13.5
+      '@emotion/cache': 11.14.0
+      '@emotion/serialize': 1.3.3
+      '@emotion/sheet': 1.4.0
+      '@emotion/utils': 1.4.2
+    transitivePeerDependencies:
+      - supports-color
 
   '@emotion/hash@0.9.2': {}
 
@@ -4472,6 +4523,8 @@ snapshots:
 
   chroma-js@3.2.0: {}
 
+  classnames@2.5.1: {}
+
   client-only@0.0.1: {}
 
   color-convert@2.0.1:
@@ -4590,6 +4643,8 @@ snapshots:
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
+
+  diff@8.0.4: {}
 
   doctrine@2.1.0:
     dependencies:
@@ -5070,6 +5125,9 @@ snapshots:
   fresh@2.0.0: {}
 
   fs.realpath@1.0.0: {}
+
+  fsevents@2.3.2:
+    optional: true
 
   function-bind@1.1.2: {}
 
@@ -5635,6 +5693,8 @@ snapshots:
 
   media-typer@1.1.0: {}
 
+  memoize-one@6.0.0: {}
+
   merge-descriptors@2.0.0: {}
 
   micromark-core-commonmark@2.0.3:
@@ -6006,6 +6066,14 @@ snapshots:
 
   pkce-challenge@5.0.1: {}
 
+  playwright-core@1.59.1: {}
+
+  playwright@1.59.1:
+    dependencies:
+      playwright-core: 1.59.1
+    optionalDependencies:
+      fsevents: 2.3.2
+
   possible-typed-array-names@1.1.0: {}
 
   postcss@8.4.31:
@@ -6059,6 +6127,20 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       unpipe: 1.0.0
+
+  react-diff-viewer-continued@4.2.0(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      '@emotion/css': 11.13.5
+      '@emotion/react': 11.14.0(@types/react@18.3.28)(react@18.3.1)
+      classnames: 2.5.1
+      diff: 8.0.4
+      js-yaml: 4.1.1
+      memoize-one: 6.0.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - '@types/react'
+      - supports-color
 
   react-dom@18.3.1(react@18.3.1):
     dependencies:
