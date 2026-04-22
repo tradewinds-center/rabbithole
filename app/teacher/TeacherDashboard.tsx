@@ -2442,7 +2442,6 @@ function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
       open={isOpen}
       onOpenChange={(e) => { if (!e.open) onClose(); }}
       placement="top"
-      motionPreset="slide-in-bottom"
     >
       <Portal>
         <Dialog.Backdrop />
