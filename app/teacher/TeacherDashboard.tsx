@@ -2457,7 +2457,7 @@ function buildEntries(
     })),
     ...units.filter((u) => match(u.title)).map((u) => ({
       kind: "curriculum" as const, key: `unit-${u._id}`,
-      href: `/teacher?tab=curriculum&sub=units`,
+      href: `/teacher/unit/${u._id}`,
       label: u.title, emoji: u.emoji ?? "📚", category: "Unit",
     })),
     ...personas.filter((p) => match(p.title)).map((p) => ({
