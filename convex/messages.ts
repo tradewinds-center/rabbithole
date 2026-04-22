@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
-import { authedQuery } from "./lib/customFunctions";
+import { authedQuery, teacherQuery } from "./lib/customFunctions";
 import { ROLES } from "./lib/roles";
 
 /**
@@ -202,6 +202,39 @@ export const getRecentByScholar = authedQuery({
     // Sort by creation time descending, take 10
     allMessages.sort((a, b) => b._creationTime - a._creationTime);
     return allMessages.slice(0, 10);
+  },
+});
+
+/**
+ * All user-role message texts for a scholar from the last 30 days.
+ * Shared by FK (client-side) and AI (server action) reading level analysis.
+ */
+export const getScholarUserMessages30d = teacherQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", args.scholarId))
+      .collect();
+
+    const texts: string[] = [];
+    for (const project of projects) {
+      const msgs = await ctx.db
+        .query("messages")
+        .withIndex("by_project", (q) => q.eq("projectId", project._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("role"), "user"),
+            q.gte(q.field("_creationTime"), since)
+          )
+        )
+        .collect();
+      for (const m of msgs) {
+        if (typeof m.content === "string") texts.push(m.content);
+      }
+    }
+    return texts;
   },
 });
 

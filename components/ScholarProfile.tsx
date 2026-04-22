@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -52,6 +52,7 @@ import { DocumentsTab } from "@/components/DocumentsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
+import { fleschKincaid, type FKResult } from "@/lib/readability";
 
 export type ScholarTabKey = "overview" | "progress" | "guidance" | "records" | "profile" | "ai-chat";
 type TabKey = ScholarTabKey;
@@ -130,6 +131,9 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const updateAudioSettings = useMutation(api.scholars.updateAudioSettings);
+  const acceptReadingLevelSuggestion = useMutation(api.scholars.acceptReadingLevelSuggestion);
+  const dismissReadingLevelSuggestion = useMutation(api.scholars.dismissReadingLevelSuggestion);
+  const runAIAnalysis = useAction(api.readingLevelAnalysis.analyzeReadingLevelAI);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
   const { scholar, stats } = profile ?? {
@@ -145,6 +149,17 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [progressSection, setProgressSection] = useState<ProgressSection>("mastery");
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
+  type AnalysisMethod = "fk" | "ai";
+  const [analysisMethod, setAnalysisMethod] = useState<AnalysisMethod>("fk");
+  const [analyzeTriggered, setAnalyzeTriggered] = useState(false);
+  const [fkResult, setFkResult] = useState<FKResult | null | "no-data">(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const messages30d = useQuery(
+    api.messages.getScholarUserMessages30d,
+    analyzeTriggered && analysisMethod === "fk" && !isParentMode
+      ? { scholarId: scholarId as Id<"users"> }
+      : "skip"
+  );
   const [newObservation, setNewObservation] = useState({ type: "praise" as "praise" | "concern" | "suggestion" | "intervention", note: "" });
   const [isAddingObservation, setIsAddingObservation] = useState(false);
   const [newReport, setNewReport] = useState({ title: "", content: "" });
@@ -165,6 +180,36 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
       console.error("Error updating reading level:", error);
     } finally {
       setIsSavingReadingLevel(false);
+    }
+  };
+
+  useEffect(() => {
+    if (analysisMethod === "fk" && analyzeTriggered && messages30d !== undefined) {
+      const r = fleschKincaid(messages30d);
+      setFkResult(r ?? "no-data");
+      setAnalyzeTriggered(false);
+      setIsAnalyzing(false);
+    }
+  }, [messages30d, analyzeTriggered, analysisMethod]);
+
+  useEffect(() => {
+    setFkResult(null);
+    setAnalyzeTriggered(false);
+    setIsAnalyzing(false);
+  }, [scholarId]);
+
+  const handleAnalyze = async () => {
+    setFkResult(null);
+    setIsAnalyzing(true);
+    if (analysisMethod === "fk") {
+      setAnalyzeTriggered(true);
+    } else {
+      try {
+        await runAIAnalysis({ scholarId: scholarId as Id<"users"> });
+        // result written to readingLevelSuggestion, which surfaces via profile query
+      } finally {
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -857,6 +902,122 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={2}>
                   Adjusts vocabulary and complexity in conversations
                 </Text>
+
+                {/* AI suggestion badge (set by observer or manual AI analysis) */}
+                {scholar?.readingLevelSuggestion && !isParentMode && (
+                  <Box mt={3} p={2} bg="violet.50" borderRadius="md">
+                    <Text fontSize="xs" color="violet.700" fontFamily="body" mb={2}>
+                      AI suggested:{" "}
+                      <strong>
+                        {scholar.readingLevelSuggestion === "K"
+                          ? "Kindergarten"
+                          : scholar.readingLevelSuggestion === "college"
+                          ? "College"
+                          : `Grade ${scholar.readingLevelSuggestion}`}
+                      </strong>
+                    </Text>
+                    <HStack gap={2}>
+                      <Button
+                        size="2xs"
+                        colorScheme="violet"
+                        fontFamily="heading"
+                        onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="2xs"
+                        variant="ghost"
+                        fontFamily="heading"
+                        onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}
+                      >
+                        Dismiss
+                      </Button>
+                    </HStack>
+                  </Box>
+                )}
+
+                {/* Manual analyze section */}
+                {!isParentMode && (
+                  <Box mt={3} pt={3} borderTop="1px solid" borderColor="gray.100">
+                    <HStack mb={2} gap={1}>
+                      {(["fk", "ai"] as const).map((m) => (
+                        <Button
+                          key={m}
+                          size="2xs"
+                          variant={analysisMethod === m ? "solid" : "outline"}
+                          colorScheme={analysisMethod === m ? "violet" : "gray"}
+                          fontFamily="heading"
+                          onClick={() => { setAnalysisMethod(m); setFkResult(null); }}
+                        >
+                          {m === "fk" ? "Flesch-Kincaid" : "AI"}
+                        </Button>
+                      ))}
+                    </HStack>
+
+                    {/* Loading */}
+                    {(isAnalyzing || (analyzeTriggered && messages30d === undefined)) && (
+                      <HStack gap={2}>
+                        <Spinner size="xs" color="violet.500" />
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="body">Analyzing…</Text>
+                      </HStack>
+                    )}
+
+                    {/* FK result */}
+                    {!isAnalyzing && fkResult && fkResult !== "no-data" && (
+                      <VStack align="start" gap={1} mt={1}>
+                        <Text fontSize="sm" fontFamily="heading" fontWeight="600" color="navy.500">
+                          Grade {fkResult.gradeLevel}
+                        </Text>
+                        <Text fontSize="2xs" color="charcoal.400" fontFamily="body">
+                          {fkResult.wordCount.toLocaleString()} words · last 30 days
+                        </Text>
+                        <HStack gap={2}>
+                          <Button
+                            size="2xs"
+                            colorScheme="violet"
+                            fontFamily="heading"
+                            onClick={async () => {
+                              await handleReadingLevelChange(fkResult.level);
+                              setFkResult(null);
+                            }}
+                          >
+                            Apply
+                          </Button>
+                          <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
+                            Dismiss
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    )}
+
+                    {/* Not enough data */}
+                    {!isAnalyzing && fkResult === "no-data" && (
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                          Not enough data (need 10+ words in the last 30 days)
+                        </Text>
+                        <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
+                          Dismiss
+                        </Button>
+                      </VStack>
+                    )}
+
+                    {/* Analyze button */}
+                    {!isAnalyzing && !analyzeTriggered && fkResult === null && (
+                      <VStack align="start" gap={1}>
+                        <Button size="xs" variant="outline" fontFamily="heading" onClick={handleAnalyze}>
+                          Analyze Writing
+                        </Button>
+                        {analysisMethod === "ai" && (
+                          <Text fontSize="2xs" color="charcoal.400" fontFamily="body">
+                            Result appears above as a suggestion
+                          </Text>
+                        )}
+                      </VStack>
+                    )}
+                  </Box>
+                )}
               </Box>
 
               {/* Audio Controls */}
