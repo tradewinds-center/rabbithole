@@ -1021,7 +1021,8 @@ function ChatColumn({
 
               const isActiveStream = streamingMsgId && message.id === streamingMsgId;
               const displayContent = isActiveStream ? (streamingContent || message.content) : message.content;
-              if (!displayContent) return null;
+              // Still render when generating an image even if there's no text content yet
+              if (!displayContent && !(isActiveStream && generatingImage)) return null;
               return (
                 <MessageBubble
                   key={message.id}

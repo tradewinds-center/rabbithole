@@ -31,7 +31,7 @@ The product name is **Rabbithole** — use it in all user-facing copy. The repo 
 - [x] **Domain Terminology Rename** - "project" (curriculum) → "unit", "conversation/chat" → "project" (student work)
 - [x] **Upload Image** - Scholars can upload images into chat (Convex file storage + Claude vision)
 - [x] **Code Artifacts** - Support code blocks as interactive artifacts (create_code tool + live iframe preview)
-- [x] **Generate Images** - AI image generation via Gemini 3 Pro (generate_image tool, inline in chat). **TODO:** "Generating image..." loading indicator may not be working — needs verification and debugging.
+- [x] **Generate Images** - AI image generation via Gemini 3 Pro (generate_image tool, inline in chat).
 - [x] **Volume Control** - Monitor microphone input levels during voice dictation. Show a big "TOO LOUD!" warning overlay when decibels exceed modest speaking volume. Uses Web Audio API AnalyserNode alongside existing MediaRecorder.
   - **Test:** Hold Tab to record voice. Speak normally — no warning. Yell or hold mic close — red warning overlay appears. Warning disappears when volume drops.
 - [x] **Time Limit Mode** - Parent sets a session time limit with a hardcoded parent password. Inserts a whisper to Claude to wrap things up with 1 minute to spare. Input is disabled when time expires.
