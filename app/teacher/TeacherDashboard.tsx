@@ -2462,17 +2462,17 @@ function buildEntries(
     })),
     ...personas.filter((p) => match(p.title)).map((p) => ({
       kind: "curriculum" as const, key: `persona-${p._id}`,
-      href: `/teacher?tab=curriculum&sub=personas`,
+      href: `/teacher/persona/${p._id}`,
       label: p.title, emoji: p.emoji ?? "😊", category: "Persona",
     })),
     ...perspectives.filter((p) => match(p.title)).map((p) => ({
       kind: "curriculum" as const, key: `perspective-${p._id}`,
-      href: `/teacher?tab=curriculum&sub=perspectives`,
+      href: `/teacher/perspective/${p._id}`,
       label: p.title, emoji: p.icon ?? "👁", category: "Perspective",
     })),
     ...processes.filter((p) => match(p.title)).map((p) => ({
       kind: "curriculum" as const, key: `process-${p._id}`,
-      href: `/teacher?tab=curriculum&sub=processes`,
+      href: `/teacher/process/${p._id}`,
       label: p.title, emoji: p.emoji ?? "🔄", category: "Process",
     })),
   ];
