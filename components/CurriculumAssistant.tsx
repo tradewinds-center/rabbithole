@@ -509,9 +509,9 @@ function SessionRow({
         size="xs"
         variant="ghost"
         color={session.pinned ? "violet.500" : "charcoal.300"}
-        opacity={session.pinned ? 1 : 0.35}
-        _groupHover={{ opacity: 1 }}
-        _hover={{ color: "violet.500", bg: "transparent", opacity: 1 }}
+        opacity={session.pinned ? 1 : 0}
+        css={session.pinned ? undefined : { "[role=group]:hover &": { opacity: 0.8 } }}
+        _hover={{ color: "violet.500", bg: "transparent", opacity: "1 !important" }}
         onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
       >
         <FiBookmark size={12} />
@@ -525,9 +525,9 @@ function SessionRow({
             size="xs"
             variant="ghost"
             color="charcoal.300"
-            opacity={0.45}
-            _groupHover={{ opacity: 1 }}
-            _hover={{ color: "charcoal.500", bg: "transparent", opacity: 1 }}
+            opacity={0}
+            css={{ "[role=group]:hover &": { opacity: 0.8 } }}
+            _hover={{ color: "charcoal.500", bg: "transparent", opacity: "1 !important" }}
             onClick={(e) => e.stopPropagation()}
           >
             <FiMoreVertical size={12} />
