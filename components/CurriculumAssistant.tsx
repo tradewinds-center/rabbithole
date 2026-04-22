@@ -127,12 +127,20 @@ export default function CurriculumAssistant() {
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isStreaming || !user || !sessionId) return;
+    if (!text || isStreaming || !user) return;
 
     setInput("");
 
+    // Auto-create a session if none is active
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      const newId = await createSession({});
+      router.push(`/teacher?tab=assistant&session=${String(newId)}`, { scroll: false });
+      activeSessionId = newId as Id<"chatSessions">;
+    }
+
     try {
-      const result = await sendSessionMessage({ sessionId, message: text });
+      const result = await sendSessionMessage({ sessionId: activeSessionId, message: text });
 
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(".cloud", ".site");
       await stream.send(
@@ -141,14 +149,14 @@ export default function CurriculumAssistant() {
           teacherId: String(user._id),
           streamId: result.streamId,
           assistantMsgId: result.assistantMsgId,
-          sessionId: String(sessionId),
+          sessionId: String(activeSessionId),
         },
         result.assistantMsgId,
       );
     } catch (error) {
       console.error("Error sending message:", error);
     }
-  }, [input, isStreaming, user, sessionId, sendSessionMessage, stream]);
+  }, [input, isStreaming, user, sessionId, createSession, router, sendSessionMessage, stream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -266,155 +274,157 @@ export default function CurriculumAssistant() {
 
       {/* ── Main panel ── */}
       <Flex flex={1} direction="column" overflow="hidden" bg="white">
+        {/* Header — only when a session is active */}
+        {sessionId && (
+          <Flex px={6} py={3} borderBottom="1px solid" borderColor="gray.200" align="center" gap={3} bg="white">
+            <Text fontFamily="heading" fontWeight="600" fontSize="md" color="navy.500" flex={1} overflow="hidden" style={{ whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+              {activeSession?.title ?? "Chat"}
+            </Text>
+            {scholarName && (
+              <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="2xs" px={2} py={0.5} borderRadius="md">
+                {scholarName}
+              </Badge>
+            )}
+          </Flex>
+        )}
+
+        {/* Messages or empty state */}
         {!sessionId ? (
           <Flex flex={1} align="center" justify="center" direction="column" gap={3} color="charcoal.300">
-            <Text fontFamily="heading" fontSize="md">Select a chat or start a new one</Text>
+            <Text fontFamily="heading" fontSize="md">Ask me anything — or select a past chat</Text>
+            <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
+              I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
+            </Text>
           </Flex>
         ) : (
-          <>
-            {/* Header */}
-            <Flex px={6} py={3} borderBottom="1px solid" borderColor="gray.200" align="center" gap={3} bg="white">
-              <Text fontFamily="heading" fontWeight="600" fontSize="md" color="navy.500" flex={1} overflow="hidden" style={{ whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                {activeSession?.title ?? "Chat"}
-              </Text>
-
-              {scholarName && (
-                <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="2xs" px={2} py={0.5} borderRadius="md">
-                  {scholarName}
-                </Badge>
+          <Box flex={1} overflowY="auto" px={6} py={4}>
+            <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
+              {messages.length === 0 && !streamingContent && (
+                <VStack py={12} gap={3} color="charcoal.300">
+                  {scholarName ? (
+                    <>
+                      <Text fontFamily="heading" fontSize="md" color="violet.700">
+                        No messages yet in this thread.
+                      </Text>
+                      <Text fontFamily="body" fontSize="sm" color="charcoal.400" textAlign="center" maxW="md">
+                        Ask about {scholarName}&rsquo;s dossier, directives, recent projects, or what to plan next.
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text fontFamily="heading" fontSize="md">Ask me about your scholars or curriculum</Text>
+                      <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
+                        I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
+                      </Text>
+                    </>
+                  )}
+                </VStack>
               )}
-            </Flex>
 
-            {/* Messages */}
-            <Box flex={1} overflowY="auto" px={6} py={4}>
-              <VStack gap={4} maxW="3xl" mx="auto" align="stretch">
-                {messages.length === 0 && !streamingContent && (
-                  <VStack py={12} gap={3} color="charcoal.300">
-                    {scholarName ? (
-                      <>
-                        <Text fontFamily="heading" fontSize="md" color="violet.700">
-                          No messages yet in this thread.
-                        </Text>
-                        <Text fontFamily="body" fontSize="sm" color="charcoal.400" textAlign="center" maxW="md">
-                          Ask about {scholarName}&rsquo;s dossier, directives, recent projects, or what to plan next.
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text fontFamily="heading" fontSize="md">Ask me about your scholars or curriculum</Text>
-                        <Text fontFamily="body" fontSize="sm" color="charcoal.300" textAlign="center" maxW="md">
-                          I can look up student profiles, mastery data, learning signals, and help you design or adapt units.
-                        </Text>
-                      </>
-                    )}
-                  </VStack>
-                )}
+              {messages
+                .filter((m) => !(streamingMsgId && String(m._id) === streamingMsgId && !m.content))
+                .map((m) => {
+                  const isActiveStream = streamingMsgId && String(m._id) === streamingMsgId;
+                  const content = isActiveStream ? (streamingContent || m.content) : m.content;
 
-                {messages
-                  .filter((m) => !(streamingMsgId && String(m._id) === streamingMsgId && !m.content))
-                  .map((m) => {
-                    const isActiveStream = streamingMsgId && String(m._id) === streamingMsgId;
-                    const content = isActiveStream ? (streamingContent || m.content) : m.content;
-
-                    if (m.role === "user") {
-                      return (
-                        <Box key={String(m._id)} alignSelf="flex-end">
-                          <Box bg="navy.500" color="white" px={4} py={3} borderRadius="xl" borderBottomRightRadius="sm" maxW="100%" shadow="sm">
-                            <Text fontFamily="body" fontSize="sm" whiteSpace="pre-wrap">{content}</Text>
-                          </Box>
-                        </Box>
-                      );
-                    }
-
+                  if (m.role === "user") {
                     return (
-                      <Box key={String(m._id)} alignSelf="flex-start">
-                        <Box
-                          bg="gray.100"
-                          color="charcoal.500"
-                          px={4}
-                          py={3}
-                          borderRadius="xl"
-                          borderBottomLeftRadius="sm"
-                          maxW="100%"
-                          shadow="sm"
-                          css={{
-                            "& p": { marginBottom: "0.5em" },
-                            "& p:last-child": { marginBottom: 0 },
-                            "& ul, & ol": { paddingLeft: "1.5em", marginBottom: "0.5em" },
-                            "& li": { marginBottom: "0.25em" },
-                            "& code": { background: "var(--chakra-colors-gray-200)", padding: "0.1em 0.3em", borderRadius: "4px", fontSize: "0.9em" },
-                            "& pre": { background: "var(--chakra-colors-gray-200)", padding: "0.75em", borderRadius: "8px", overflowX: "auto", marginBottom: "0.5em" },
-                            "& pre code": { background: "none", padding: 0 },
-                            "& h1, & h2, & h3, & h4": { fontFamily: "var(--chakra-fonts-heading)", fontWeight: 600, marginTop: "0.5em", marginBottom: "0.25em" },
-                            "& strong": { fontWeight: 600 },
-                            "& table": { borderCollapse: "collapse", width: "100%", marginBottom: "0.5em", fontSize: "0.85em" },
-                            "& th, & td": { border: "1px solid var(--chakra-colors-gray-300)", padding: "0.35em 0.65em", textAlign: "left" },
-                            "& th": { background: "var(--chakra-colors-gray-200)", fontWeight: 600 },
-                            "& tr:nth-child(even)": { background: "var(--chakra-colors-gray-50)" },
-                          }}
-                        >
-                          <Text fontFamily="body" fontSize="sm" as="div">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                              {content}
-                            </ReactMarkdown>
-                          </Text>
+                      <Box key={String(m._id)} alignSelf="flex-end">
+                        <Box bg="navy.500" color="white" px={4} py={3} borderRadius="xl" borderBottomRightRadius="sm" maxW="100%" shadow="sm">
+                          <Text fontFamily="body" fontSize="sm" whiteSpace="pre-wrap">{content}</Text>
                         </Box>
                       </Box>
                     );
-                  })}
+                  }
 
-                {isStreaming && toolActivity && <ToolActivityIndicator toolActivity={toolActivity} />}
-                {isStreaming && !streamingContent && !toolActivity && (
-                  <Box alignSelf="flex-start" bg="gray.100" px={4} py={3} borderRadius="xl" borderBottomLeftRadius="sm">
-                    <Spinner size="sm" color="violet.500" />
-                  </Box>
-                )}
-                <div ref={messagesEndRef} />
-              </VStack>
-            </Box>
+                  return (
+                    <Box key={String(m._id)} alignSelf="flex-start">
+                      <Box
+                        bg="gray.100"
+                        color="charcoal.500"
+                        px={4}
+                        py={3}
+                        borderRadius="xl"
+                        borderBottomLeftRadius="sm"
+                        maxW="100%"
+                        shadow="sm"
+                        css={{
+                          "& p": { marginBottom: "0.5em" },
+                          "& p:last-child": { marginBottom: 0 },
+                          "& ul, & ol": { paddingLeft: "1.5em", marginBottom: "0.5em" },
+                          "& li": { marginBottom: "0.25em" },
+                          "& code": { background: "var(--chakra-colors-gray-200)", padding: "0.1em 0.3em", borderRadius: "4px", fontSize: "0.9em" },
+                          "& pre": { background: "var(--chakra-colors-gray-200)", padding: "0.75em", borderRadius: "8px", overflowX: "auto", marginBottom: "0.5em" },
+                          "& pre code": { background: "none", padding: 0 },
+                          "& h1, & h2, & h3, & h4": { fontFamily: "var(--chakra-fonts-heading)", fontWeight: 600, marginTop: "0.5em", marginBottom: "0.25em" },
+                          "& strong": { fontWeight: 600 },
+                          "& table": { borderCollapse: "collapse", width: "100%", marginBottom: "0.5em", fontSize: "0.85em" },
+                          "& th, & td": { border: "1px solid var(--chakra-colors-gray-300)", padding: "0.35em 0.65em", textAlign: "left" },
+                          "& th": { background: "var(--chakra-colors-gray-200)", fontWeight: 600 },
+                          "& tr:nth-child(even)": { background: "var(--chakra-colors-gray-50)" },
+                        }}
+                      >
+                        <Text fontFamily="body" fontSize="sm" as="div">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {content}
+                          </ReactMarkdown>
+                        </Text>
+                      </Box>
+                    </Box>
+                  );
+                })}
 
-            {/* Input */}
-            <Box px={4} py={3} borderTop="1px solid" borderColor="gray.200" bg="gray.50">
-              <Flex maxW="3xl" mx="auto" gap={2} align="flex-end">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={scholarName ? `Ask about ${scholarName} — directives, seeds, next steps…` : "Ask about scholars, mastery data, or curriculum design..."}
-                  resize="none"
-                  rows={1}
-                  overflow="hidden"
-                  bg="white"
-                  border="1px solid"
-                  borderColor="gray.300"
-                  borderRadius="xl"
-                  _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
-                  _focusVisible={{ boxShadow: "none", outline: "none" }}
-                  _placeholder={{ color: "charcoal.300" }}
-                  fontFamily="body"
-                  fontSize="sm"
-                  py={2.5}
-                  px={4}
-                  disabled={isStreaming}
-                />
-                <IconButton
-                  aria-label="Send message"
-                  size="md"
-                  bg="violet.500"
-                  color="white"
-                  _hover={{ bg: "violet.600" }}
-                  _disabled={{ opacity: 0.4, cursor: "not-allowed" }}
-                  borderRadius="xl"
-                  onClick={() => handleSend()}
-                  disabled={!input.trim() || isStreaming}
-                >
-                  <FiSend />
-                </IconButton>
-              </Flex>
-            </Box>
-          </>
+              {isStreaming && toolActivity && <ToolActivityIndicator toolActivity={toolActivity} />}
+              {isStreaming && !streamingContent && !toolActivity && (
+                <Box alignSelf="flex-start" bg="gray.100" px={4} py={3} borderRadius="xl" borderBottomLeftRadius="sm">
+                  <Spinner size="sm" color="violet.500" />
+                </Box>
+              )}
+              <div ref={messagesEndRef} />
+            </VStack>
+          </Box>
         )}
+
+        {/* Input — always visible */}
+        <Box px={4} py={3} borderTop="1px solid" borderColor="gray.200" bg="gray.50">
+          <Flex maxW="3xl" mx="auto" gap={2} align="flex-end">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={scholarName ? `Ask about ${scholarName} — directives, seeds, next steps…` : "Ask about scholars, mastery data, or curriculum design..."}
+              resize="none"
+              rows={1}
+              overflow="hidden"
+              bg="white"
+              border="1px solid"
+              borderColor="gray.300"
+              borderRadius="xl"
+              _focus={{ borderColor: "violet.400", boxShadow: "none", outline: "none" }}
+              _focusVisible={{ boxShadow: "none", outline: "none" }}
+              _placeholder={{ color: "charcoal.300" }}
+              fontFamily="body"
+              fontSize="sm"
+              py={2.5}
+              px={4}
+              disabled={isStreaming}
+            />
+            <IconButton
+              aria-label="Send message"
+              size="md"
+              bg="violet.500"
+              color="white"
+              _hover={{ bg: "violet.600" }}
+              _disabled={{ opacity: 0.4, cursor: "not-allowed" }}
+              borderRadius="xl"
+              onClick={() => handleSend()}
+              disabled={!input.trim() || isStreaming}
+            >
+              <FiSend />
+            </IconButton>
+          </Flex>
+        </Box>
       </Flex>
     </Flex>
   );
@@ -499,9 +509,9 @@ function SessionRow({
         size="xs"
         variant="ghost"
         color={session.pinned ? "violet.500" : "charcoal.300"}
-        opacity={session.pinned ? 1 : 0}
+        opacity={session.pinned ? 1 : 0.35}
         _groupHover={{ opacity: 1 }}
-        _hover={{ color: "violet.500", bg: "transparent" }}
+        _hover={{ color: "violet.500", bg: "transparent", opacity: 1 }}
         onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
       >
         <FiBookmark size={12} />
@@ -515,9 +525,9 @@ function SessionRow({
             size="xs"
             variant="ghost"
             color="charcoal.300"
-            opacity={0}
+            opacity={0.45}
             _groupHover={{ opacity: 1 }}
-            _hover={{ color: "charcoal.500", bg: "transparent" }}
+            _hover={{ color: "charcoal.500", bg: "transparent", opacity: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
             <FiMoreVertical size={12} />
