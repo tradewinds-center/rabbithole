@@ -35,6 +35,7 @@ export default defineSchema({
     ttsEnabled: v.optional(v.boolean()), // Text-to-speech (undefined = enabled)
     sttEnabled: v.optional(v.boolean()), // Speech-to-text / voice dictation (undefined = enabled)
     mustResetPassword: v.optional(v.boolean()), // Force password reset on next login
+    preferredFont: v.optional(v.string()), // "andika" | "opendyslexic" | undefined (system default)
   })
     .index("by_email", ["email"])
     .index("by_username", ["username"])

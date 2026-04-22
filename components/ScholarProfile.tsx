@@ -45,6 +45,7 @@ import {
   FiFlag,
   FiMoreHorizontal,
 } from "react-icons/fi";
+import Link from "next/link";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
 import { MasteryTab } from "@/components/MasteryTab";
@@ -1183,22 +1184,30 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 </Text>
                 <VStack gap={1} align="stretch">
                   {chatSessions.map((s) => (
-                    <Button
+                    <Link
                       key={String(s._id)}
-                      variant="ghost"
-                      size="sm"
-                      justifyContent="flex-start"
-                      fontFamily="heading"
-                      fontSize="xs"
-                      color="violet.600"
-                      _hover={{ bg: "violet.50" }}
-                      onClick={() => router.push(`/teacher?tab=assistant&session=${String(s._id)}`)}
+                      href={`/teacher?tab=assistant&session=${String(s._id)}`}
+                      style={{ textDecoration: "none", display: "block" }}
                     >
-                      <FiMessageSquare style={{ marginRight: "6px", flexShrink: 0 }} />
-                      <Text as="span" overflow="hidden" style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {s.title}
-                      </Text>
-                    </Button>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        w="full"
+                        justifyContent="flex-start"
+                        fontFamily="heading"
+                        fontSize="xs"
+                        color="violet.600"
+                        _hover={{ bg: "violet.50" }}
+                      >
+                        <span>
+                          <FiMessageSquare style={{ marginRight: "6px", flexShrink: 0 }} />
+                          <Text as="span" overflow="hidden" style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {s.title}
+                          </Text>
+                        </span>
+                      </Button>
+                    </Link>
                   ))}
                 </VStack>
               </Box>

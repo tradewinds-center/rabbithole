@@ -51,7 +51,6 @@ export const registerWithCode = mutation({
 
     await ctx.db.insert("users", {
       username,
-      name: username,
       role: matched.role,
     });
   },
@@ -471,6 +470,18 @@ export const updateProfile = authedMutation({
     if (Object.keys(patch).length > 0) {
       await ctx.db.patch(ctx.user._id, patch);
     }
+  },
+});
+
+/**
+ * Update the current user's preferred font.
+ */
+export const updatePreferredFont = authedMutation({
+  args: { preferredFont: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(ctx.user._id, {
+      preferredFont: args.preferredFont ?? undefined,
+    });
   },
 });
 

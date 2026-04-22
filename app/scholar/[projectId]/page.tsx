@@ -259,8 +259,18 @@ function ScholarProjectInner() {
   // Show spinner while "new" project is being created
   const showProject = !isNewProject && projectId;
 
+  const fontCssValue = !isRemoteMode && user?.preferredFont === "andika"
+    ? "'Andika', sans-serif"
+    : !isRemoteMode && user?.preferredFont === "opendyslexic"
+    ? "'OpenDyslexic', sans-serif"
+    : undefined;
+
   return (
-    <Flex h="100dvh" bg="gray.50">
+    <Flex
+      h="100dvh"
+      bg="gray.50"
+      style={fontCssValue ? { "--chakra-fonts-body": fontCssValue, "--chakra-fonts-heading": fontCssValue } as React.CSSProperties : undefined}
+    >
       {/* Sidebar Drawer */}
       <Drawer.Root
         open={isSidebarOpen}

@@ -38,6 +38,7 @@ import type * as projectHelpers from "../projectHelpers.js";
 import type * as projectTitles from "../projectTitles.js";
 import type * as projects from "../projects.js";
 import type * as prompts from "../prompts.js";
+import type * as readingLevelAnalysis from "../readingLevelAnalysis.js";
 import type * as reports from "../reports.js";
 import type * as scholarDocumentActions from "../scholarDocumentActions.js";
 import type * as scholarDocumentProposalActions from "../scholarDocumentProposalActions.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   projectTitles: typeof projectTitles;
   projects: typeof projects;
   prompts: typeof prompts;
+  readingLevelAnalysis: typeof readingLevelAnalysis;
   reports: typeof reports;
   scholarDocumentActions: typeof scholarDocumentActions;
   scholarDocumentProposalActions: typeof scholarDocumentProposalActions;

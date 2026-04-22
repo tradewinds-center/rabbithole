@@ -174,8 +174,19 @@ function ScholarHome() {
   // Focus lock: which unitId is locked (if any)
   const lockedUnitId = focusLock?.unitId ?? null;
 
+  const fontCssValue = !isRemoteMode && user?.preferredFont === "andika"
+    ? "'Andika', sans-serif"
+    : !isRemoteMode && user?.preferredFont === "opendyslexic"
+    ? "'OpenDyslexic', sans-serif"
+    : undefined;
+
   return (
-    <Flex h="100dvh" bg="gray.50" flexDir="column">
+    <Flex
+      h="100dvh"
+      bg="gray.50"
+      flexDir="column"
+      style={fontCssValue ? { "--chakra-fonts-body": fontCssValue, "--chakra-fonts-heading": fontCssValue } as React.CSSProperties : undefined}
+    >
       <TopBar
         isRemoteMode={isRemoteMode}
         scholarName={isRemoteMode ? remoteUser?.name ?? null : null}

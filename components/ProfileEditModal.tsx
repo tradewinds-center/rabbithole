@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { ROLES } from "@/convex/lib/roles";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -22,6 +23,12 @@ import { FiCamera, FiKey } from "react-icons/fi";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
+const FONT_OPTIONS = [
+  { value: "", label: "System Default" },
+  { value: "andika", label: "Andika" },
+  { value: "opendyslexic", label: "OpenDyslexic" },
+];
+
 interface ProfileEditModalProps {
   open: boolean;
   onClose: () => void;
@@ -32,15 +39,19 @@ interface ProfileEditModalProps {
     username?: string;
     image?: string;
     dateOfBirth?: string;
+    preferredFont?: string;
+    role?: string;
   };
 }
 
 export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditModalProps) {
   const updateProfile = useMutation(api.users.updateProfile);
+  const updatePreferredFont = useMutation(api.users.updatePreferredFont);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [preferredFont, setPreferredFont] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>();
   const [pendingStorageId, setPendingStorageId] = useState<Id<"_storage"> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,12 +61,15 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
   const fileRef = useRef<HTMLInputElement>(null);
   const initialized = useRef(false);
 
+  const isScholar = user.role === ROLES.SCHOLAR;
+
   // Populate form from user data when modal opens
   useEffect(() => {
     if (open && !initialized.current) {
       initialized.current = true;
       setName(isSetup ? "" : (user.name ?? ""));
       setDateOfBirth(user.dateOfBirth ?? "");
+      setPreferredFont(user.preferredFont ?? "");
       setAvatarPreview(user.image ?? undefined);
     }
     if (!open) {
@@ -104,6 +118,9 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
       if (isSetup) args.profileSetupComplete = true;
 
       await updateProfile(args);
+      if (isScholar) {
+        await updatePreferredFont({ preferredFont: preferredFont || null });
+      }
       setPendingStorageId(null);
       if (isSetup) {
         onClose();
@@ -119,7 +136,7 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
     } finally {
       setIsSaving(false);
     }
-  }, [updateProfile, name, dateOfBirth, pendingStorageId, isSetup, onClose]);
+  }, [updateProfile, updatePreferredFont, name, dateOfBirth, preferredFont, pendingStorageId, isScholar, isSetup, onClose]);
 
   const handleSkipOrCancel = useCallback(async () => {
     if (isSetup) {
@@ -247,6 +264,39 @@ export function ProfileEditModal({ open, onClose, isSetup, user }: ProfileEditMo
                     </Text>
                   </VStack>
                 </Flex>
+
+                {isScholar && (
+                  <Flex gap={3} w="full" align="start">
+                    <Text fontSize="sm" fontFamily="heading" color="charcoal.400" fontWeight="500" w="120px" flexShrink={0} mt={2.5}>
+                      Font
+                    </Text>
+                    <VStack gap={1} align="stretch" flex={1}>
+                      <select
+                        value={preferredFont}
+                        onChange={(e) => setPreferredFont(e.target.value)}
+                        style={{
+                          background: "var(--chakra-colors-gray-50)",
+                          border: "1px solid var(--chakra-colors-gray-300)",
+                          borderRadius: "var(--chakra-radii-lg)",
+                          fontFamily: "var(--chakra-fonts-body)",
+                          height: "40px",
+                          paddingLeft: "12px",
+                          paddingRight: "12px",
+                          fontSize: "14px",
+                          width: "100%",
+                          appearance: "auto",
+                        }}
+                      >
+                        {FONT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
+                        Applies to your chat view.
+                      </Text>
+                    </VStack>
+                  </Flex>
+                )}
 
               </VStack>
             </Dialog.Body>

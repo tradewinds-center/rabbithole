@@ -170,6 +170,7 @@ export function SetPasswordDialog({
                     autoComplete="new-password"
                     autoFocus={!requireCurrentPassword}
                   />
+                  <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>At least 4 characters</Text>
                 </Box>
 
                 <Box w="full">
