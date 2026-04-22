@@ -50,6 +50,7 @@ import {
   FiUserPlus,
   FiChevronLeft,
   FiChevronRight,
+  FiSearch,
 } from "react-icons/fi";
 import dynamic from "next/dynamic";
 
@@ -296,8 +297,32 @@ export default function TeacherDashboardInner() {
           </Tabs.List>
         </Tabs.Root>
 
+        {/* Search button */}
+        <Tooltip.Root openDelay={400} closeDelay={0}>
+          <Tooltip.Trigger asChild>
+            <IconButton
+              aria-label="Search"
+              size="sm"
+              variant="ghost"
+              color="charcoal.400"
+              _hover={{ color: "navy.500", bg: "gray.100" }}
+              ml="auto"
+              onClick={() => setCmdOpen(true)}
+            >
+              <FiSearch size={16} />
+            </IconButton>
+          </Tooltip.Trigger>
+          <Portal>
+            <Tooltip.Positioner>
+              <Tooltip.Content fontFamily="heading" fontSize="xs">
+                {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl+K"} to search
+              </Tooltip.Content>
+            </Tooltip.Positioner>
+          </Portal>
+        </Tooltip.Root>
+
         {/* Account menu */}
-        <Box ml="auto">
+        <Box>
           <AccountMenu onSignOut={signOut} />
         </Box>
       </AppHeader>
