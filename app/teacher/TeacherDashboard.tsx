@@ -28,6 +28,7 @@ import {
   AbsoluteCenter,
   Popover,
   Checkbox,
+  Menu,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -48,6 +49,9 @@ import {
   FiCompass,
   FiExternalLink,
   FiUserPlus,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronDown,
 } from "react-icons/fi";
 import dynamic from "next/dynamic";
 
@@ -200,10 +204,6 @@ export default function TeacherDashboardInner() {
     pushUrl(params);
   }, [pushUrl]);
 
-  const [isAddingScholar, setIsAddingScholar] = useState(false);
-  const [newScholarName, setNewScholarName] = useState("");
-  const createScholar = useMutation(api.users.createScholar);
-
   // Focus mode data & curriculum counts
   const units = useQuery(api.units.list) ?? [];
   const personas = useQuery(api.personas.list) ?? [];
@@ -293,192 +293,28 @@ export default function TeacherDashboardInner() {
 
       {/* Content */}
       <Flex flex={1} overflow="hidden">
-        {/* Scholars dossier tab — list + detail layout */}
+        {/* Scholars tab — home grid or full-width detail */}
         {activeTab === "scholars" && (
-          <>
-            <Box
-              w="280px"
-              minW="280px"
-              bg="white"
-              borderRight="1px solid"
-              borderColor="gray.200"
-              overflow="auto"
-            >
-              <VStack gap={0} align="stretch">
-                {/* Add Scholar */}
-                <HStack px={4} py={2} borderBottom="1px solid" borderColor="gray.100">
-                  {isAddingScholar ? (
-                    <HStack flex={1} gap={1}>
-                      <Input
-                        size="sm"
-                        placeholder="Scholar name"
-                        value={newScholarName}
-                        onChange={(e) => setNewScholarName(e.target.value)}
-                        fontFamily="heading"
-                        fontSize="sm"
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === "Enter" && newScholarName.trim()) {
-                            const result = await createScholar({ name: newScholarName.trim() });
-                            setNewScholarName("");
-                            setIsAddingScholar(false);
-                            setSelectedScholarId(result.userId);
-                          }
-                          if (e.key === "Escape") {
-                            setNewScholarName("");
-                            setIsAddingScholar(false);
-                          }
-                        }}
-                      />
-                      <IconButton
-                        aria-label="Create scholar"
-                        size="xs"
-                        variant="ghost"
-                        color="violet.500"
-                        _hover={{ bg: "violet.50" }}
-                        disabled={!newScholarName.trim()}
-                        onClick={async () => {
-                          if (!newScholarName.trim()) return;
-                          const result = await createScholar({ name: newScholarName.trim() });
-                          setNewScholarName("");
-                          setIsAddingScholar(false);
-                          setSelectedScholarId(result.userId);
-                        }}
-                      >
-                        <FiCheck />
-                      </IconButton>
-                      <IconButton
-                        aria-label="Cancel"
-                        size="xs"
-                        variant="ghost"
-                        color="charcoal.400"
-                        _hover={{ bg: "gray.100" }}
-                        onClick={() => {
-                          setNewScholarName("");
-                          setIsAddingScholar(false);
-                        }}
-                      >
-                        <FiX />
-                      </IconButton>
-                    </HStack>
-                  ) : (
-                    <HStack flex={1} gap={0}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        color="violet.500"
-                        fontFamily="heading"
-                        fontSize="xs"
-                        _hover={{ bg: "violet.50" }}
-                        onClick={() => setIsAddingScholar(true)}
-                        flex={1}
-                        justifyContent="flex-start"
-                      >
-                        <FiPlus style={{ marginRight: "6px" }} />
-                        New Scholar
-                      </Button>
-                      <Tooltip.Root openDelay={300} closeDelay={0}>
-                        <Tooltip.Trigger asChild>
-                          <IconButton
-                            aria-label="Copy Test Link"
-                            size="xs"
-                            variant="ghost"
-                            color="charcoal.400"
-                            _hover={{ color: "violet.500", bg: "violet.50" }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/sign-in`);
-                            }}
-                          >
-                            <FiCopy />
-                          </IconButton>
-                        </Tooltip.Trigger>
-                        <Portal>
-                          <Tooltip.Positioner>
-                            <Tooltip.Content>Copy Test Link</Tooltip.Content>
-                          </Tooltip.Positioner>
-                        </Portal>
-                      </Tooltip.Root>
-                    </HStack>
-                  )}
-                </HStack>
-
-                {scholars.map((scholar) => {
-                  const isSelected = selectedScholarId === scholar.id;
-                  return (
-                    <Link
-                      key={scholar.id}
-                      href={`/teacher?tab=scholars&scholar=${scholar.id}`}
-                      style={{ textDecoration: "none", color: "inherit", display: "contents" }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setSelectedScholarId(scholar.id);
-                      }}
-                    >
-                      <HStack
-                        px={4}
-                        py={3}
-                        gap={3}
-                        cursor="pointer"
-                        bg={isSelected ? "violet.50" : "transparent"}
-                        borderLeft="3px solid"
-                        borderColor={isSelected ? "violet.500" : "transparent"}
-                        _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
-                        transition="all 0.1s"
-                      >
-                        <Avatar
-                          size="sm"
-                          name={scholar.name}
-                          src={scholar.image || undefined}
-                        />
-                        <VStack gap={0} align="start" flex={1}>
-                          <Text
-                            fontWeight={isSelected ? "600" : "500"}
-                            fontFamily="heading"
-                            color={isSelected ? "violet.700" : "navy.500"}
-                            fontSize="sm"
-                          >
-                            {scholar.name}
-                          </Text>
-                          {scholar.lastMessageAt && (
-                            <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
-                              {timeAgo(scholar.lastMessageAt)}
-                            </Text>
-                          )}
-                        </VStack>
-                      </HStack>
-                    </Link>
-                  );
-                })}
-                {scholars.length === 0 && (
-                  <VStack py={12} gap={4}>
-                    <FiUsers size={32} color="#c1c1c1" />
-                    <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
-                      No scholars enrolled yet
-                    </Text>
-                  </VStack>
-                )}
-              </VStack>
-            </Box>
-            <Box flex={1} overflow="auto">
-              {selectedScholarId ? (
+          !selectedScholarId ? (
+            <ScholarHome scholars={scholars} onSelect={setSelectedScholarId} />
+          ) : (
+            <Flex flex={1} direction="column" overflow="hidden">
+              <ScholarDetailNav
+                scholars={scholars}
+                currentId={selectedScholarId}
+                onSelect={setSelectedScholarId}
+                onBack={() => setSelectedScholarId(null)}
+              />
+              <Box flex={1} overflow="auto">
                 <ScholarProfile
                   scholarId={selectedScholarId}
                   activeTab={scholarSubTab}
                   onTabChange={setScholarSubTab}
                   onDelete={() => setSelectedScholarId(null)}
                 />
-              ) : (
-                <Flex align="center" justify="center" h="full" color="charcoal.300">
-                  <VStack gap={3}>
-                    <FiUser size={48} />
-                    <Text fontFamily="heading" fontSize="md">
-                      Select a scholar to view their profile
-                    </Text>
-                  </VStack>
-                </Flex>
-              )}
-            </Box>
-          </>
+              </Box>
+            </Flex>
+          )
         )}
 
         {/* Activity View tab — unit-organized conductor */}
@@ -2278,6 +2114,301 @@ function RacetrackPanel({
         })}
       </Timeline.Root>
     </Box>
+  );
+}
+
+// ── Scholar Home Screen ───────────────────────────────────────────────
+
+function ScholarHome({ scholars, onSelect }: { scholars: Scholar[]; onSelect: (id: string) => void }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const createScholar = useMutation(api.users.createScholar);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    const result = await createScholar({ name: newName.trim() });
+    setNewName("");
+    setIsAdding(false);
+    onSelect(result.userId);
+  };
+
+  return (
+    <Box flex={1} overflowY="auto" p={8}>
+      <Flex mb={8} align="center">
+        <Text fontFamily="heading" fontWeight="700" fontSize="2xl" color="navy.500">Scholars</Text>
+        <Box flex={1} />
+        {isAdding ? (
+          <HStack gap={2}>
+            <Input
+              size="sm"
+              placeholder="Scholar name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") await handleCreate();
+                if (e.key === "Escape") { setNewName(""); setIsAdding(false); }
+              }}
+              fontFamily="heading"
+              fontSize="sm"
+              autoFocus
+              w="180px"
+            />
+            <IconButton
+              aria-label="Create scholar"
+              size="sm"
+              variant="ghost"
+              color="violet.500"
+              _hover={{ bg: "violet.50" }}
+              disabled={!newName.trim()}
+              onClick={handleCreate}
+            >
+              <FiCheck />
+            </IconButton>
+            <IconButton
+              aria-label="Cancel"
+              size="sm"
+              variant="ghost"
+              color="charcoal.400"
+              _hover={{ bg: "gray.100" }}
+              onClick={() => { setNewName(""); setIsAdding(false); }}
+            >
+              <FiX />
+            </IconButton>
+          </HStack>
+        ) : (
+          <HStack gap={2}>
+            <Button
+              size="sm"
+              variant="ghost"
+              color="violet.500"
+              fontFamily="heading"
+              fontSize="sm"
+              _hover={{ bg: "violet.50" }}
+              onClick={() => setIsAdding(true)}
+            >
+              <FiPlus style={{ marginRight: "6px" }} />
+              New Scholar
+            </Button>
+            <Tooltip.Root openDelay={300} closeDelay={0}>
+              <Tooltip.Trigger asChild>
+                <IconButton
+                  aria-label="Copy sign-in link"
+                  size="sm"
+                  variant="ghost"
+                  color="charcoal.400"
+                  _hover={{ color: "violet.500", bg: "violet.50" }}
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/sign-in`)}
+                >
+                  <FiCopy />
+                </IconButton>
+              </Tooltip.Trigger>
+              <Portal>
+                <Tooltip.Positioner>
+                  <Tooltip.Content>Copy sign-in link</Tooltip.Content>
+                </Tooltip.Positioner>
+              </Portal>
+            </Tooltip.Root>
+          </HStack>
+        )}
+      </Flex>
+
+      {scholars.length === 0 ? (
+        <Flex align="center" justify="center" py={24}>
+          <VStack gap={4}>
+            <FiUsers size={48} color="#c1c1c1" />
+            <Text fontFamily="heading" color="charcoal.400" fontSize="md">
+              No scholars enrolled yet
+            </Text>
+            <Button
+              size="sm"
+              bg="violet.500"
+              color="white"
+              fontFamily="heading"
+              _hover={{ bg: "violet.600" }}
+              onClick={() => setIsAdding(true)}
+            >
+              <FiPlus style={{ marginRight: "6px" }} />
+              Add First Scholar
+            </Button>
+          </VStack>
+        </Flex>
+      ) : (
+        <Flex wrap="wrap" gap={4}>
+          {scholars.map((s) => (
+            <ScholarHomeCard key={s.id} scholar={s} onSelect={onSelect} />
+          ))}
+        </Flex>
+      )}
+    </Box>
+  );
+}
+
+function ScholarHomeCard({ scholar: s, onSelect }: { scholar: Scholar; onSelect: (id: string) => void }) {
+  return (
+    <Box
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="xl"
+      p={5}
+      w="200px"
+      cursor="pointer"
+      _hover={{ borderColor: "violet.300", shadow: "md", transform: "translateY(-1px)" }}
+      transition="all 0.15s"
+      onClick={() => onSelect(s.id)}
+    >
+      <VStack gap={3} align="center">
+        <Box position="relative">
+          <Avatar size="lg" name={s.name} src={s.image || undefined} />
+          <Box position="absolute" bottom="2px" right="2px">
+            <StatusOrb pulseScore={s.pulseScore} lastMessageAt={s.lastMessageAt} size="sm" />
+          </Box>
+        </Box>
+        <VStack gap={0.5} align="center" w="full">
+          <Text fontFamily="heading" fontWeight="600" color="navy.500" fontSize="sm" textAlign="center">
+            {s.name}
+          </Text>
+          {s.lastMessageAt && (
+            <Text fontFamily="heading" fontSize="xs" color="charcoal.400">
+              {timeAgo(s.lastMessageAt)}
+            </Text>
+          )}
+        </VStack>
+        {s.lastProjectTitle && (
+          <Text
+            fontFamily="heading"
+            fontSize="xs"
+            color="charcoal.400"
+            textAlign="center"
+            overflow="hidden"
+            whiteSpace="nowrap"
+            textOverflow="ellipsis"
+            w="full"
+          >
+            {s.lastProjectTitle}
+          </Text>
+        )}
+        {s.lastMessage && (
+          <Text
+            fontFamily="body"
+            fontSize="xs"
+            color="charcoal.300"
+            textAlign="center"
+            overflow="hidden"
+            css={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+          >
+            {s.lastMessage}
+          </Text>
+        )}
+      </VStack>
+    </Box>
+  );
+}
+
+// ── Scholar Detail Nav ────────────────────────────────────────────────
+
+function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
+  scholars: Scholar[];
+  currentId: string;
+  onSelect: (id: string) => void;
+  onBack: () => void;
+}) {
+  const currentIdx = scholars.findIndex((s) => s.id === currentId);
+  const current = scholars[currentIdx];
+  const prev = currentIdx > 0 ? scholars[currentIdx - 1] : null;
+  const next = currentIdx < scholars.length - 1 ? scholars[currentIdx + 1] : null;
+
+  return (
+    <Flex
+      px={6}
+      py={2}
+      borderBottom="1px solid"
+      borderColor="gray.200"
+      bg="white"
+      align="center"
+      gap={1}
+      flexShrink={0}
+    >
+      <Button
+        variant="ghost"
+        size="sm"
+        fontFamily="heading"
+        fontSize="xs"
+        color="charcoal.400"
+        _hover={{ color: "navy.500", bg: "gray.100" }}
+        onClick={onBack}
+        px={2}
+      >
+        <FiChevronLeft style={{ marginRight: "2px" }} size={14} />
+        Scholars
+      </Button>
+
+      <Text color="charcoal.300" fontSize="sm" px={1}>›</Text>
+
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            fontFamily="heading"
+            fontSize="sm"
+            fontWeight="600"
+            color="navy.500"
+            _hover={{ bg: "gray.100" }}
+            px={2}
+          >
+            {current?.name ?? "Scholar"}
+            <FiChevronDown style={{ marginLeft: "4px" }} size={13} />
+          </Button>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content minW="200px" shadow="md" borderRadius="lg" border="1px solid" borderColor="gray.200">
+              {scholars.map((s) => (
+                <Menu.Item
+                  key={s.id}
+                  value={s.id}
+                  fontFamily="heading"
+                  fontSize="sm"
+                  css={{
+                    fontWeight: s.id === currentId ? "600" : "400",
+                    color: s.id === currentId ? "var(--chakra-colors-violet-600)" : "var(--chakra-colors-charcoal-500)",
+                  }}
+                  onClick={() => onSelect(s.id)}
+                >
+                  {s.name}
+                </Menu.Item>
+              ))}
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+
+      <Box flex={1} />
+
+      <IconButton
+        aria-label="Previous scholar"
+        size="sm"
+        variant="ghost"
+        color="charcoal.400"
+        _hover={{ color: "navy.500", bg: "gray.100" }}
+        disabled={!prev}
+        onClick={() => prev && onSelect(prev.id)}
+      >
+        <FiChevronLeft size={16} />
+      </IconButton>
+      <IconButton
+        aria-label="Next scholar"
+        size="sm"
+        variant="ghost"
+        color="charcoal.400"
+        _hover={{ color: "navy.500", bg: "gray.100" }}
+        disabled={!next}
+        onClick={() => next && onSelect(next.id)}
+      >
+        <FiChevronRight size={16} />
+      </IconButton>
+    </Flex>
   );
 }
 
