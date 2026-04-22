@@ -185,8 +185,9 @@ export default function TeacherDashboardInner() {
     const params = new URLSearchParams();
     params.set("tab", "scholars");
     if (id) params.set("scholar", id);
+    if (scholarSubTab !== "overview") params.set("stab", scholarSubTab);
     pushUrl(params);
-  }, [pushUrl]);
+  }, [pushUrl, scholarSubTab]);
 
   const setScholarSubTab = useCallback((stab: ScholarTabKey) => {
     const params = new URLSearchParams();

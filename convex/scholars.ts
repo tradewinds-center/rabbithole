@@ -150,6 +150,17 @@ export const dismissReadingLevelSuggestion = teacherMutation({
 });
 
 /**
+ * Public wrapper so the manual AI analysis action can set a reading level suggestion.
+ * The observer uses the internal version; this is called from readingLevelAnalysis action.
+ */
+export const setReadingLevelSuggestionFromAnalysis = teacherMutation({
+  args: { scholarId: v.id("users"), suggestion: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.scholarId, { readingLevelSuggestion: args.suggestion });
+  },
+});
+
+/**
  * Toggle TTS or STT for a scholar (teachers only).
  */
 export const updateAudioSettings = teacherMutation({

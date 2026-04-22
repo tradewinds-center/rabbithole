@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -23,6 +23,7 @@ import {
   Portal,
   Switch,
   Separator,
+  Menu,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -42,6 +43,7 @@ import {
   FiVolume2,
   FiKey,
   FiFlag,
+  FiMoreHorizontal,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -52,6 +54,7 @@ import { DocumentsTab } from "@/components/DocumentsTab";
 import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
+import { fleschKincaid, type FKResult } from "@/lib/readability";
 
 export type ScholarTabKey = "overview" | "progress" | "guidance" | "records" | "profile" | "ai-chat";
 type TabKey = ScholarTabKey;
@@ -130,6 +133,9 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const updateDossier = useMutation(api.dossier.updateByTeacher);
   const updateReadingLevel = useMutation(api.scholars.updateReadingLevel);
   const updateAudioSettings = useMutation(api.scholars.updateAudioSettings);
+  const acceptReadingLevelSuggestion = useMutation(api.scholars.acceptReadingLevelSuggestion);
+  const dismissReadingLevelSuggestion = useMutation(api.scholars.dismissReadingLevelSuggestion);
+  const runAIAnalysis = useAction(api.readingLevelAnalysis.analyzeReadingLevelAI);
   const addObservation = useMutation(api.observations.add);
   const removeObservation = useMutation(api.observations.remove);
   const { scholar, stats } = profile ?? {
@@ -145,6 +151,15 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [progressSection, setProgressSection] = useState<ProgressSection>("mastery");
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
+  const [analyzeTriggered, setAnalyzeTriggered] = useState(false);
+  const [fkResult, setFkResult] = useState<FKResult | null | "no-data">(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const messages30d = useQuery(
+    api.messages.getScholarUserMessages30d,
+    analyzeTriggered && !isParentMode
+      ? { scholarId: scholarId as Id<"users"> }
+      : "skip"
+  );
   const [newObservation, setNewObservation] = useState({ type: "praise" as "praise" | "concern" | "suggestion" | "intervention", note: "" });
   const [isAddingObservation, setIsAddingObservation] = useState(false);
   const [newReport, setNewReport] = useState({ title: "", content: "" });
@@ -165,6 +180,33 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
       console.error("Error updating reading level:", error);
     } finally {
       setIsSavingReadingLevel(false);
+    }
+  };
+
+  useEffect(() => {
+    if (analyzeTriggered && messages30d !== undefined) {
+      setFkResult(fleschKincaid(messages30d) ?? "no-data");
+      setAnalyzeTriggered(false);
+    }
+  }, [messages30d, analyzeTriggered]);
+
+  useEffect(() => {
+    setFkResult(null);
+    setAnalyzeTriggered(false);
+    setAiLoading(false);
+  }, [scholarId]);
+
+  const handleFKAnalyze = () => {
+    setFkResult(null);
+    setAnalyzeTriggered(true);
+  };
+
+  const handleAIRerun = async () => {
+    setAiLoading(true);
+    try {
+      await runAIAnalysis({ scholarId: scholarId as Id<"users"> });
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -833,30 +875,148 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                   </Text>
                   {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
                 </HStack>
-                <select
-                  value={scholar?.readingLevel || ""}
-                  onChange={(e) => handleReadingLevelChange(e.target.value)}
-                  disabled={isSavingReadingLevel || isParentMode}
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #e2e8f0",
-                    fontSize: "14px",
-                    fontFamily: "inherit",
-                    backgroundColor: isSavingReadingLevel || isParentMode ? "#f7f7f7" : "white",
-                    cursor: isParentMode ? "not-allowed" : undefined,
-                  }}
-                >
-                  {READING_LEVELS.map((level) => (
-                    <option key={level.value} value={level.value}>
-                      {level.label}
-                    </option>
-                  ))}
-                </select>
-                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={2}>
+                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mb={3}>
                   Adjusts vocabulary and complexity in conversations
                 </Text>
+
+                {/* Reading level table: Method | Grade | ⋯ */}
+                <Box display="grid" gridTemplateColumns="1fr 1fr 24px" gap={2} alignItems="center">
+                  {/* Header row */}
+                  <Text fontSize="2xs" color="charcoal.300" fontFamily="heading" fontWeight="600" textTransform="uppercase" letterSpacing="wider" pb={1} borderBottom="1px solid" borderColor="gray.100">Method</Text>
+                  <Text fontSize="2xs" color="charcoal.300" fontFamily="heading" fontWeight="600" textTransform="uppercase" letterSpacing="wider" pb={1} borderBottom="1px solid" borderColor="gray.100">Grade</Text>
+                  <Box pb={1} borderBottom="1px solid" borderColor="gray.100" />
+
+                  {/* Output level row */}
+                  <Text fontSize="xs" fontFamily="heading" color="charcoal.500" py={1.5}>Output level</Text>
+                  <Box py={1.5}>
+                    <select
+                      value={scholar?.readingLevel || ""}
+                      onChange={(e) => handleReadingLevelChange(e.target.value)}
+                      disabled={isSavingReadingLevel || isParentMode}
+                      style={{
+                        width: "100%",
+                        padding: "2px 4px",
+                        borderRadius: "4px",
+                        border: "1px solid #e2e8f0",
+                        fontSize: "12px",
+                        fontFamily: "inherit",
+                        backgroundColor: isSavingReadingLevel || isParentMode ? "#f7f7f7" : "white",
+                        cursor: isParentMode ? "not-allowed" : undefined,
+                      }}
+                    >
+                      {READING_LEVELS.map((level) => (
+                        <option key={level.value} value={level.value}>
+                          {level.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Box>
+                  <Box py={1.5} /> {/* no menu for the output row — edited directly */}
+
+                  {/* Observer AI row */}
+                  {!isParentMode && (
+                    <>
+                      <Text fontSize="xs" fontFamily="heading" color="charcoal.500" py={1.5} borderTop="1px solid" borderColor="gray.50">Observer AI</Text>
+                      <Box py={1.5} borderTop="1px solid" borderColor="gray.50">
+                        {aiLoading ? (
+                          <Spinner size="xs" color="violet.500" />
+                        ) : (
+                          <Text
+                            fontSize="xs"
+                            fontFamily="heading"
+                            fontWeight={scholar?.readingLevelSuggestion ? "600" : "400"}
+                            color={scholar?.readingLevelSuggestion ? "navy.500" : "charcoal.300"}
+                          >
+                            {scholar?.readingLevelSuggestion
+                              ? scholar.readingLevelSuggestion === "K" ? "K"
+                                : scholar.readingLevelSuggestion === "college" ? "College"
+                                : `Grade ${scholar.readingLevelSuggestion}`
+                              : "—"}
+                          </Text>
+                        )}
+                      </Box>
+                      <Box py={1.5} borderTop="1px solid" borderColor="gray.50">
+                        {!aiLoading && (
+                          <Menu.Root positioning={{ placement: "bottom-end" }}>
+                            <Menu.Trigger asChild>
+                              <IconButton aria-label="AI actions" variant="ghost" size="2xs" color="charcoal.300" _hover={{ color: "charcoal.500" }}>
+                                <FiMoreHorizontal />
+                              </IconButton>
+                            </Menu.Trigger>
+                            <Menu.Positioner>
+                              <Menu.Content minW="170px">
+                                {scholar?.readingLevelSuggestion && (
+                                  <>
+                                    <Menu.Item value="accept" cursor="pointer"
+                                      onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                                      Set output reading level
+                                    </Menu.Item>
+                                    <Menu.Item value="dismiss" cursor="pointer"
+                                      onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                                      Dismiss
+                                    </Menu.Item>
+                                  </>
+                                )}
+                                <Menu.Item value="rerun" cursor="pointer" onClick={handleAIRerun}>
+                                  {scholar?.readingLevelSuggestion ? "Re-analyze" : "Analyze"}
+                                </Menu.Item>
+                              </Menu.Content>
+                            </Menu.Positioner>
+                          </Menu.Root>
+                        )}
+                      </Box>
+
+                      {/* Flesch-Kincaid row */}
+                      <Text fontSize="xs" fontFamily="heading" color="charcoal.500" py={1.5} borderTop="1px solid" borderColor="gray.50">Flesch-Kincaid</Text>
+                      <Box py={1.5} borderTop="1px solid" borderColor="gray.50">
+                        {analyzeTriggered && messages30d === undefined ? (
+                          <Spinner size="xs" color="violet.500" />
+                        ) : (
+                          <Text
+                            fontSize="xs"
+                            fontFamily="heading"
+                            fontWeight={fkResult && fkResult !== "no-data" ? "600" : "400"}
+                            color={fkResult && fkResult !== "no-data" ? "navy.500" : "charcoal.300"}
+                            title={fkResult && fkResult !== "no-data" ? `${fkResult.wordCount.toLocaleString()} words · last 30 days` : undefined}
+                          >
+                            {fkResult && fkResult !== "no-data"
+                              ? `Grade ${fkResult.gradeLevel}`
+                              : fkResult === "no-data" ? "n/a" : "—"}
+                          </Text>
+                        )}
+                      </Box>
+                      <Box py={1.5} borderTop="1px solid" borderColor="gray.50">
+                        {!(analyzeTriggered && messages30d === undefined) && (
+                          <Menu.Root positioning={{ placement: "bottom-end" }}>
+                            <Menu.Trigger asChild>
+                              <IconButton aria-label="FK actions" variant="ghost" size="2xs" color="charcoal.300" _hover={{ color: "charcoal.500" }}>
+                                <FiMoreHorizontal />
+                              </IconButton>
+                            </Menu.Trigger>
+                            <Menu.Positioner>
+                              <Menu.Content minW="170px">
+                                {fkResult && fkResult !== "no-data" && (
+                                  <Menu.Item value="apply" cursor="pointer"
+                                    onClick={async () => { await handleReadingLevelChange(fkResult.level); setFkResult(null); }}>
+                                    Set output reading level
+                                  </Menu.Item>
+                                )}
+                                <Menu.Item value="analyze" cursor="pointer" onClick={handleFKAnalyze}>
+                                  {fkResult === "no-data" ? "Retry" : fkResult ? "Re-analyze" : "Analyze"}
+                                </Menu.Item>
+                                {fkResult && (
+                                  <Menu.Item value="clear" cursor="pointer" onClick={() => setFkResult(null)}>
+                                    Clear
+                                  </Menu.Item>
+                                )}
+                              </Menu.Content>
+                            </Menu.Positioner>
+                          </Menu.Root>
+                        )}
+                      </Box>
+                    </>
+                  )}
+                </Box>
               </Box>
 
               {/* Audio Controls */}
