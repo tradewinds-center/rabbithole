@@ -2444,7 +2444,7 @@ function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
       placement="top"
     >
       <Portal>
-        <Dialog.Backdrop />
+        <Dialog.Backdrop m="-2em" />
         <Dialog.Positioner pt="15vh" pb="0" alignItems="flex-start">
           <Dialog.Content maxW="480px" borderRadius="xl" shadow="2xl" overflow="hidden" p={0} mt={0}>
             {/* Search input */}
