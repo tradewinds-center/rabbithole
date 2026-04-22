@@ -1425,6 +1425,17 @@ function ChatColumn({
                       <FiUpload />
                       Upload File
                     </Menu.Item>
+                    {!isRemoteMode && onToggleTimeLimitModal && (
+                      <Menu.Item
+                        value="time-limit"
+                        cursor="pointer"
+                        onClick={onToggleTimeLimitModal}
+                        color={timeLimit?.isActive ? "orange.600" : "inherit"}
+                      >
+                        <FiClock style={{ marginRight: "6px" }} />
+                        {timeLimit?.isActive ? `Timer: ${timeLimit.display}` : "Time Limit"}
+                      </Menu.Item>
+                    )}
                   </Menu.Content>
                 </Menu.Positioner>
               </Menu.Root>
