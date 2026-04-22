@@ -871,7 +871,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 <HStack mb={3}>
                   <FiBookOpen color="#AD60BF" />
                   <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                    Reading Level
+                    Output Reading Level
                   </Text>
                   {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
                 </HStack>
