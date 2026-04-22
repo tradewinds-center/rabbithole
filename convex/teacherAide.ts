@@ -5,7 +5,7 @@ import { internalMutation } from "./_generated/server";
  * Teacher Aide helpers — internal mutations invoked by the curriculum-designer
  * AI tools (defined in http.ts). These exist so teachers can do through the
  * AI chat what Andy previously did via CLI-only scripts
- * (see adminSeedNoahMorphology.ts for the original pattern).
+ * (see the now-deleted adminSeed* one-off scripts for the original pattern).
  *
  * As of Phase 1.5, teacher-authored pedagogical instructions live in the
  * dedicated `teacherDirectives` table (see `convex/teacherDirectives.ts`).

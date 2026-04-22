@@ -40,7 +40,7 @@ export const list = authedQuery({
           .withIndex("by_unit", (q) => q.eq("unitId", u._id))
           .collect();
         // If this unit is scholar-scoped, annotate with the scholar's name so
-        // the teacher UI can visually mark "this is Noah's Word Detective".
+        // the teacher UI can visually mark which scholar it belongs to.
         const scopedScholar = u.scholarId ? await ctx.db.get(u.scholarId) : null;
         return {
           ...u,
