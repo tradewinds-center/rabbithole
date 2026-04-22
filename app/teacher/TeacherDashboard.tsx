@@ -44,10 +44,13 @@ import {
   FiUnlock,
   FiPlus,
   FiCopy,
-  FiCpu,
+  FiMessageSquare,
   FiCompass,
   FiExternalLink,
   FiUserPlus,
+  FiChevronLeft,
+  FiChevronRight,
+  FiSearch,
 } from "react-icons/fi";
 import dynamic from "next/dynamic";
 
@@ -74,10 +77,10 @@ import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 type Tab = "scholars" | "live" | "curriculum" | "assistant";
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ style?: React.CSSProperties; size?: number | string }> }[] = [
+  { key: "assistant", label: "Chat", icon: FiMessageSquare },
   { key: "live", label: "Activities", icon: Lectern },
   { key: "scholars", label: "Scholars", icon: FiUsers },
   { key: "curriculum", label: "Curriculum", icon: FiBook },
-  { key: "assistant", label: "Assistant", icon: FiCpu },
 ];
 
 type CurriculumSubTab = "units" | "personas" | "perspectives" | "processes";
@@ -146,17 +149,17 @@ export default function TeacherDashboardInner() {
     ? ["curriculum", "assistant"]
     : ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
-  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "standards", "strengths", "documents", "notes", "dossier", "reading"];
+  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["overview", "progress", "guidance", "records", "profile", "ai-chat"];
   const rawTab = searchParams.get("tab");
   const rawSub = searchParams.get("sub");
   const rawScholar = searchParams.get("scholar");
   const rawStab = searchParams.get("stab");
   const rawUnit = searchParams.get("unit");
-  const defaultTab: Tab = isCurriculumDesigner ? "curriculum" : "live";
+  const defaultTab: Tab = isCurriculumDesigner ? "curriculum" : "assistant";
   const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : defaultTab;
   const curriculumSubTab: CurriculumSubTab = VALID_SUB_TABS.includes(rawSub as CurriculumSubTab) ? (rawSub as CurriculumSubTab) : "units";
   const selectedScholarId: string | null = activeTab === "scholars" && rawScholar ? rawScholar : null;
-  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "activity";
+  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "overview";
   const selectedUnitId: string | null = activeTab === "live" ? rawUnit : null;
 
   const pushUrl = useCallback((params: URLSearchParams) => {
@@ -166,7 +169,7 @@ export default function TeacherDashboardInner() {
 
   const setActiveTab = useCallback((tab: Tab) => {
     const params = new URLSearchParams();
-    if (tab !== "live") params.set("tab", tab);
+    if (tab !== "assistant") params.set("tab", tab);
     if (tab === "curriculum") params.set("sub", "units");
     pushUrl(params);
   }, [pushUrl]);
@@ -189,7 +192,7 @@ export default function TeacherDashboardInner() {
     const params = new URLSearchParams();
     params.set("tab", "scholars");
     if (selectedScholarId) params.set("scholar", selectedScholarId);
-    if (stab !== "dossier") params.set("stab", stab);
+    if (stab !== "overview") params.set("stab", stab);
     pushUrl(params);
   }, [pushUrl, selectedScholarId]);
 
@@ -200,9 +203,18 @@ export default function TeacherDashboardInner() {
     pushUrl(params);
   }, [pushUrl]);
 
-  const [isAddingScholar, setIsAddingScholar] = useState(false);
-  const [newScholarName, setNewScholarName] = useState("");
-  const createScholar = useMutation(api.users.createScholar);
+  // Cmd-K command palette
+  const [cmdOpen, setCmdOpen] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Focus mode data & curriculum counts
   const units = useQuery(api.units.list) ?? [];
@@ -285,200 +297,60 @@ export default function TeacherDashboardInner() {
           </Tabs.List>
         </Tabs.Root>
 
+        {/* Search button */}
+        <Tooltip.Root openDelay={400} closeDelay={0}>
+          <Tooltip.Trigger asChild>
+            <IconButton
+              aria-label="Search"
+              size="sm"
+              variant="ghost"
+              color="charcoal.400"
+              _hover={{ color: "navy.500", bg: "gray.100" }}
+              ml="auto"
+              onClick={() => setCmdOpen(true)}
+            >
+              <FiSearch size={16} />
+            </IconButton>
+          </Tooltip.Trigger>
+          <Portal>
+            <Tooltip.Positioner>
+              <Tooltip.Content fontFamily="heading" fontSize="xs">
+                {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl+K"} to search
+              </Tooltip.Content>
+            </Tooltip.Positioner>
+          </Portal>
+        </Tooltip.Root>
+
         {/* Account menu */}
-        <Box ml="auto">
+        <Box>
           <AccountMenu onSignOut={signOut} />
         </Box>
       </AppHeader>
 
       {/* Content */}
       <Flex flex={1} overflow="hidden">
-        {/* Scholars dossier tab — list + detail layout */}
+        {/* Scholars tab — home grid or full-width detail */}
         {activeTab === "scholars" && (
-          <>
-            <Box
-              w="280px"
-              minW="280px"
-              bg="white"
-              borderRight="1px solid"
-              borderColor="gray.200"
-              overflow="auto"
-            >
-              <VStack gap={0} align="stretch">
-                {/* Add Scholar */}
-                <HStack px={4} py={2} borderBottom="1px solid" borderColor="gray.100">
-                  {isAddingScholar ? (
-                    <HStack flex={1} gap={1}>
-                      <Input
-                        size="sm"
-                        placeholder="Scholar name"
-                        value={newScholarName}
-                        onChange={(e) => setNewScholarName(e.target.value)}
-                        fontFamily="heading"
-                        fontSize="sm"
-                        autoFocus
-                        onKeyDown={async (e) => {
-                          if (e.key === "Enter" && newScholarName.trim()) {
-                            const result = await createScholar({ name: newScholarName.trim() });
-                            setNewScholarName("");
-                            setIsAddingScholar(false);
-                            setSelectedScholarId(result.userId);
-                          }
-                          if (e.key === "Escape") {
-                            setNewScholarName("");
-                            setIsAddingScholar(false);
-                          }
-                        }}
-                      />
-                      <IconButton
-                        aria-label="Create scholar"
-                        size="xs"
-                        variant="ghost"
-                        color="violet.500"
-                        _hover={{ bg: "violet.50" }}
-                        disabled={!newScholarName.trim()}
-                        onClick={async () => {
-                          if (!newScholarName.trim()) return;
-                          const result = await createScholar({ name: newScholarName.trim() });
-                          setNewScholarName("");
-                          setIsAddingScholar(false);
-                          setSelectedScholarId(result.userId);
-                        }}
-                      >
-                        <FiCheck />
-                      </IconButton>
-                      <IconButton
-                        aria-label="Cancel"
-                        size="xs"
-                        variant="ghost"
-                        color="charcoal.400"
-                        _hover={{ bg: "gray.100" }}
-                        onClick={() => {
-                          setNewScholarName("");
-                          setIsAddingScholar(false);
-                        }}
-                      >
-                        <FiX />
-                      </IconButton>
-                    </HStack>
-                  ) : (
-                    <HStack flex={1} gap={0}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        color="violet.500"
-                        fontFamily="heading"
-                        fontSize="xs"
-                        _hover={{ bg: "violet.50" }}
-                        onClick={() => setIsAddingScholar(true)}
-                        flex={1}
-                        justifyContent="flex-start"
-                      >
-                        <FiPlus style={{ marginRight: "6px" }} />
-                        New Scholar
-                      </Button>
-                      <Tooltip.Root openDelay={300} closeDelay={0}>
-                        <Tooltip.Trigger asChild>
-                          <IconButton
-                            aria-label="Copy Test Link"
-                            size="xs"
-                            variant="ghost"
-                            color="charcoal.400"
-                            _hover={{ color: "violet.500", bg: "violet.50" }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/sign-in`);
-                            }}
-                          >
-                            <FiCopy />
-                          </IconButton>
-                        </Tooltip.Trigger>
-                        <Portal>
-                          <Tooltip.Positioner>
-                            <Tooltip.Content>Copy Test Link</Tooltip.Content>
-                          </Tooltip.Positioner>
-                        </Portal>
-                      </Tooltip.Root>
-                    </HStack>
-                  )}
-                </HStack>
-
-                {scholars.map((scholar) => {
-                  const isSelected = selectedScholarId === scholar.id;
-                  return (
-                    <Link
-                      key={scholar.id}
-                      href={`/teacher?tab=scholars&scholar=${scholar.id}`}
-                      style={{ textDecoration: "none", color: "inherit", display: "contents" }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setSelectedScholarId(scholar.id);
-                      }}
-                    >
-                      <HStack
-                        px={4}
-                        py={3}
-                        gap={3}
-                        cursor="pointer"
-                        bg={isSelected ? "violet.50" : "transparent"}
-                        borderLeft="3px solid"
-                        borderColor={isSelected ? "violet.500" : "transparent"}
-                        _hover={{ bg: isSelected ? "violet.50" : "gray.50" }}
-                        transition="all 0.1s"
-                      >
-                        <Avatar
-                          size="sm"
-                          name={scholar.name}
-                          src={scholar.image || undefined}
-                        />
-                        <VStack gap={0} align="start" flex={1}>
-                          <Text
-                            fontWeight={isSelected ? "600" : "500"}
-                            fontFamily="heading"
-                            color={isSelected ? "violet.700" : "navy.500"}
-                            fontSize="sm"
-                          >
-                            {scholar.name}
-                          </Text>
-                          {scholar.lastMessageAt && (
-                            <Text fontSize="xs" color="charcoal.300" fontFamily="heading">
-                              {timeAgo(scholar.lastMessageAt)}
-                            </Text>
-                          )}
-                        </VStack>
-                      </HStack>
-                    </Link>
-                  );
-                })}
-                {scholars.length === 0 && (
-                  <VStack py={12} gap={4}>
-                    <FiUsers size={32} color="#c1c1c1" />
-                    <Text color="charcoal.400" fontFamily="heading" fontSize="sm">
-                      No scholars enrolled yet
-                    </Text>
-                  </VStack>
-                )}
-              </VStack>
-            </Box>
-            <Box flex={1} overflow="auto">
-              {selectedScholarId ? (
+          !selectedScholarId ? (
+            <ScholarHome scholars={scholars} onSelect={setSelectedScholarId} />
+          ) : (
+            <Flex flex={1} direction="column" overflow="hidden">
+              <ScholarDetailNav
+                scholars={scholars}
+                currentId={selectedScholarId}
+                onSelect={setSelectedScholarId}
+                onBack={() => setSelectedScholarId(null)}
+              />
+              <Box flex={1} overflow="auto">
                 <ScholarProfile
                   scholarId={selectedScholarId}
                   activeTab={scholarSubTab}
                   onTabChange={setScholarSubTab}
                   onDelete={() => setSelectedScholarId(null)}
                 />
-              ) : (
-                <Flex align="center" justify="center" h="full" color="charcoal.300">
-                  <VStack gap={3}>
-                    <FiUser size={48} />
-                    <Text fontFamily="heading" fontSize="md">
-                      Select a scholar to view their profile
-                    </Text>
-                  </VStack>
-                </Flex>
-              )}
-            </Box>
-          </>
+              </Box>
+            </Flex>
+          )
         )}
 
         {/* Activity View tab — unit-organized conductor */}
@@ -553,6 +425,20 @@ export default function TeacherDashboardInner() {
           <CurriculumAssistant />
         )}
       </Flex>
+
+      <CommandPalette
+        scholars={scholars}
+        units={units}
+        personas={personas}
+        perspectives={perspectives}
+        processes={processes}
+        isOpen={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onNavigate={(href) => {
+          router.push(href, { scroll: false });
+          setCmdOpen(false);
+        }}
+      />
     </Flex>
   );
 }
@@ -2278,6 +2164,431 @@ function RacetrackPanel({
         })}
       </Timeline.Root>
     </Box>
+  );
+}
+
+// ── Scholar Home Screen ───────────────────────────────────────────────
+
+function ScholarHome({ scholars, onSelect }: { scholars: Scholar[]; onSelect: (id: string) => void }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const createScholar = useMutation(api.users.createScholar);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    const result = await createScholar({ name: newName.trim() });
+    setNewName("");
+    setIsAdding(false);
+    onSelect(result.userId);
+  };
+
+  return (
+    <Box flex={1} overflowY="auto" p={8}>
+      <Flex mb={8} align="center">
+        <Text fontFamily="heading" fontWeight="700" fontSize="2xl" color="navy.500">Scholars</Text>
+        <Box flex={1} />
+        {isAdding ? (
+          <HStack gap={2}>
+            <Input
+              size="sm"
+              placeholder="Scholar name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") await handleCreate();
+                if (e.key === "Escape") { setNewName(""); setIsAdding(false); }
+              }}
+              fontFamily="heading"
+              fontSize="sm"
+              autoFocus
+              w="180px"
+            />
+            <IconButton
+              aria-label="Create scholar"
+              size="sm"
+              variant="ghost"
+              color="violet.500"
+              _hover={{ bg: "violet.50" }}
+              disabled={!newName.trim()}
+              onClick={handleCreate}
+            >
+              <FiCheck />
+            </IconButton>
+            <IconButton
+              aria-label="Cancel"
+              size="sm"
+              variant="ghost"
+              color="charcoal.400"
+              _hover={{ bg: "gray.100" }}
+              onClick={() => { setNewName(""); setIsAdding(false); }}
+            >
+              <FiX />
+            </IconButton>
+          </HStack>
+        ) : (
+          <HStack gap={2}>
+            <Button
+              size="sm"
+              variant="ghost"
+              color="violet.500"
+              fontFamily="heading"
+              fontSize="sm"
+              _hover={{ bg: "violet.50" }}
+              onClick={() => setIsAdding(true)}
+            >
+              <FiPlus style={{ marginRight: "6px" }} />
+              New Scholar
+            </Button>
+            <Tooltip.Root openDelay={300} closeDelay={0}>
+              <Tooltip.Trigger asChild>
+                <IconButton
+                  aria-label="Copy sign-in link"
+                  size="sm"
+                  variant="ghost"
+                  color="charcoal.400"
+                  _hover={{ color: "violet.500", bg: "violet.50" }}
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/sign-in`)}
+                >
+                  <FiCopy />
+                </IconButton>
+              </Tooltip.Trigger>
+              <Portal>
+                <Tooltip.Positioner>
+                  <Tooltip.Content>Copy sign-in link</Tooltip.Content>
+                </Tooltip.Positioner>
+              </Portal>
+            </Tooltip.Root>
+          </HStack>
+        )}
+      </Flex>
+
+      {scholars.length === 0 ? (
+        <Flex align="center" justify="center" py={24}>
+          <VStack gap={4}>
+            <FiUsers size={48} color="#c1c1c1" />
+            <Text fontFamily="heading" color="charcoal.400" fontSize="md">
+              No scholars enrolled yet
+            </Text>
+            <Button
+              size="sm"
+              bg="violet.500"
+              color="white"
+              fontFamily="heading"
+              _hover={{ bg: "violet.600" }}
+              onClick={() => setIsAdding(true)}
+            >
+              <FiPlus style={{ marginRight: "6px" }} />
+              Add First Scholar
+            </Button>
+          </VStack>
+        </Flex>
+      ) : (
+        <Flex wrap="wrap" gap={4}>
+          {scholars.map((s) => (
+            <ScholarHomeCard key={s.id} scholar={s} onSelect={onSelect} />
+          ))}
+        </Flex>
+      )}
+    </Box>
+  );
+}
+
+function ScholarHomeCard({ scholar: s, onSelect }: { scholar: Scholar; onSelect: (id: string) => void }) {
+  return (
+    <Box
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="xl"
+      p={5}
+      w="200px"
+      cursor="pointer"
+      _hover={{ borderColor: "violet.300", shadow: "md", transform: "translateY(-1px)" }}
+      transition="all 0.15s"
+      onClick={() => onSelect(s.id)}
+    >
+      <VStack gap={3} align="center">
+        <Box position="relative">
+          <Avatar size="lg" name={s.name} src={s.image || undefined} />
+          <Box position="absolute" bottom="2px" right="2px">
+            <StatusOrb pulseScore={s.pulseScore} lastMessageAt={s.lastMessageAt} size="sm" />
+          </Box>
+        </Box>
+        <VStack gap={0.5} align="center" w="full">
+          <Text fontFamily="heading" fontWeight="600" color="navy.500" fontSize="sm" textAlign="center">
+            {s.name}
+          </Text>
+          {s.lastMessageAt && (
+            <Text fontFamily="heading" fontSize="xs" color="charcoal.400">
+              {timeAgo(s.lastMessageAt)}
+            </Text>
+          )}
+        </VStack>
+        {s.lastProjectTitle && (
+          <Text
+            fontFamily="heading"
+            fontSize="xs"
+            color="charcoal.400"
+            textAlign="center"
+            overflow="hidden"
+            whiteSpace="nowrap"
+            textOverflow="ellipsis"
+            w="full"
+          >
+            {s.lastProjectTitle}
+          </Text>
+        )}
+        {s.lastMessage && (
+          <Text
+            fontFamily="body"
+            fontSize="xs"
+            color="charcoal.300"
+            textAlign="center"
+            overflow="hidden"
+            css={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}
+          >
+            {s.lastMessage}
+          </Text>
+        )}
+      </VStack>
+    </Box>
+  );
+}
+
+// ── Scholar Detail Nav ────────────────────────────────────────────────
+
+function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
+  scholars: Scholar[];
+  currentId: string;
+  onSelect: (id: string) => void;
+  onBack: () => void;
+}) {
+  const currentIdx = scholars.findIndex((s) => s.id === currentId);
+  const current = scholars[currentIdx];
+  const prev = currentIdx > 0 ? scholars[currentIdx - 1] : null;
+  const next = currentIdx < scholars.length - 1 ? scholars[currentIdx + 1] : null;
+
+  return (
+    <Flex
+      px={6}
+      py={2}
+      borderBottom="1px solid"
+      borderColor="gray.200"
+      bg="white"
+      align="center"
+      gap={2}
+      flexShrink={0}
+    >
+      {/* Breadcrumb */}
+      <Button
+        variant="ghost"
+        size="sm"
+        fontFamily="heading"
+        fontSize="sm"
+        color="charcoal.400"
+        _hover={{ color: "navy.500", bg: "transparent" }}
+        onClick={onBack}
+        px={1}
+      >
+        Scholars
+      </Button>
+
+      <Text color="charcoal.300" fontSize="sm">›</Text>
+
+      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" px={1}>
+        {current?.name ?? "Scholar"}
+      </Text>
+
+      <Box flex={1} />
+
+      {/* Counter + prev/next */}
+      <HStack gap={1} align="center">
+        <IconButton
+          aria-label="Previous scholar"
+          size="xs"
+          variant="ghost"
+          color="charcoal.400"
+          _hover={{ color: "navy.500", bg: "gray.100" }}
+          disabled={!prev}
+          onClick={() => prev && onSelect(prev.id)}
+        >
+          <FiChevronLeft size={14} />
+        </IconButton>
+        <Text fontFamily="heading" fontSize="xs" color="charcoal.400" px={1} userSelect="none">
+          {currentIdx + 1} of {scholars.length}
+        </Text>
+        <IconButton
+          aria-label="Next scholar"
+          size="xs"
+          variant="ghost"
+          color="charcoal.400"
+          _hover={{ color: "navy.500", bg: "gray.100" }}
+          disabled={!next}
+          onClick={() => next && onSelect(next.id)}
+        >
+          <FiChevronRight size={14} />
+        </IconButton>
+      </HStack>
+    </Flex>
+  );
+}
+
+// ── Command Palette (⌘K) ─────────────────────────────────────────────
+
+type CmdEntry = { key: string; href: string; label: string; sublabel?: string } & (
+  | { kind: "scholar"; scholar: Scholar }
+  | { kind: "curriculum"; emoji: string; category: string }
+);
+
+function buildEntries(
+  scholars: Scholar[],
+  units: UnitInfo[],
+  personas: { _id: string; title: string; emoji?: string | null }[],
+  perspectives: { _id: string; title: string; icon?: string | null }[],
+  processes: { _id: string; title: string; emoji?: string | null }[],
+  q: string,
+): CmdEntry[] {
+  const match = (s: string) => !q || s.toLowerCase().includes(q.toLowerCase());
+  return [
+    ...scholars.filter((s) => match(s.name ?? "")).map((s) => ({
+      kind: "scholar" as const, key: s.id,
+      href: `/teacher?tab=scholars&scholar=${s.id}`,
+      label: s.name ?? "Scholar", sublabel: s.lastProjectTitle ?? undefined, scholar: s,
+    })),
+    ...units.filter((u) => match(u.title)).map((u) => ({
+      kind: "curriculum" as const, key: `unit-${u._id}`,
+      href: `/teacher/unit/${u._id}`,
+      label: u.title, emoji: u.emoji ?? "📚", category: "Unit",
+    })),
+    ...personas.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `persona-${p._id}`,
+      href: `/teacher/persona/${p._id}`,
+      label: p.title, emoji: p.emoji ?? "😊", category: "Persona",
+    })),
+    ...perspectives.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `perspective-${p._id}`,
+      href: `/teacher/perspective/${p._id}`,
+      label: p.title, emoji: p.icon ?? "👁", category: "Perspective",
+    })),
+    ...processes.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `process-${p._id}`,
+      href: `/teacher/process/${p._id}`,
+      label: p.title, emoji: p.emoji ?? "🔄", category: "Process",
+    })),
+  ];
+}
+
+function CommandPalette({ scholars, units, personas, perspectives, processes, isOpen, onClose, onNavigate }: {
+  scholars: Scholar[];
+  units: UnitInfo[];
+  personas: { _id: string; title: string; emoji?: string | null }[];
+  perspectives: { _id: string; title: string; icon?: string | null }[];
+  processes: { _id: string; title: string; emoji?: string | null }[];
+  isOpen: boolean;
+  onClose: () => void;
+  onNavigate: (href: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const results = buildEntries(scholars, units, personas, perspectives, processes, query);
+
+  useEffect(() => {
+    if (isOpen) { setQuery(""); setActiveIdx(0); setTimeout(() => inputRef.current?.focus(), 40); }
+  }, [isOpen]);
+
+  useEffect(() => { setActiveIdx(0); }, [query]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && results[activeIdx]) { onNavigate(results[activeIdx].href); }
+    else if (e.key === "Escape") { onClose(); }
+  };
+
+  return (
+    <Dialog.Root open={isOpen} onOpenChange={(e) => { if (!e.open) onClose(); }} placement="top">
+      <Portal>
+        <Dialog.Backdrop mt="-2em" h="calc(100vh + 4em)" />
+        <Dialog.Positioner pt="15vh" pb="0" alignItems="flex-start">
+          <Dialog.Content maxW="480px" borderRadius="xl" shadow="2xl" overflow="hidden" p={0} mt={0}>
+            {/* Search input */}
+            <Box px={4} py={3} borderBottom="1px solid" borderColor="gray.200">
+              <Input
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Jump to scholar or curriculum…"
+                border="none"
+                fontFamily="heading"
+                fontSize="md"
+                _focus={{ boxShadow: "none" }}
+                _focusVisible={{ boxShadow: "none" }}
+              />
+            </Box>
+
+            {/* Results */}
+            <Box maxH="360px" overflowY="auto">
+              {results.length === 0 ? (
+                <Box px={4} py={8} textAlign="center">
+                  <Text fontFamily="heading" fontSize="sm" color="charcoal.300">No results</Text>
+                </Box>
+              ) : (
+                results.map((item, i) => (
+                  <HStack
+                    key={item.key}
+                    px={4}
+                    py={2.5}
+                    gap={3}
+                    cursor="pointer"
+                    bg={i === activeIdx ? "violet.50" : "white"}
+                    _hover={{ bg: "violet.50" }}
+                    onClick={() => onNavigate(item.href)}
+                    onMouseEnter={() => setActiveIdx(i)}
+                  >
+                    {item.kind === "scholar" ? (
+                      <Avatar size="sm" name={item.scholar.name} src={item.scholar.image || undefined} />
+                    ) : (
+                      <Flex w="32px" h="32px" align="center" justify="center" flexShrink={0} fontSize="lg">
+                        {item.emoji}
+                      </Flex>
+                    )}
+                    <VStack gap={0} align="start" flex={1} minW={0}>
+                      <Text fontFamily="heading" fontSize="sm" fontWeight={i === activeIdx ? "600" : "400"} color="navy.500">
+                        {item.label}
+                      </Text>
+                      {item.sublabel && (
+                        <Text fontFamily="heading" fontSize="xs" color="charcoal.400" overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
+                          {item.sublabel}
+                        </Text>
+                      )}
+                    </VStack>
+                    {item.kind === "scholar" ? (
+                      <StatusOrb pulseScore={item.scholar.pulseScore} lastMessageAt={item.scholar.lastMessageAt} size="sm" />
+                    ) : (
+                      <Badge bg="gray.100" color="charcoal.400" fontFamily="heading" fontSize="2xs" px={1.5} flexShrink={0}>
+                        {item.category}
+                      </Badge>
+                    )}
+                  </HStack>
+                ))
+              )}
+            </Box>
+
+            {/* Footer hints */}
+            <HStack px={4} py={2} borderTop="1px solid" borderColor="gray.100" bg="gray.50" gap={4}>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">↑↓ navigate</Text>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">↵ open</Text>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">esc close</Text>
+              <Box flex={1} />
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">⌘K</Text>
+            </HStack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 

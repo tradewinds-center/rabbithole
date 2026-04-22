@@ -364,6 +364,17 @@ export default defineSchema({
     content: v.string(),
   }).index("by_scholar", ["scholarId"]),
 
+  teacherDirectives: defineTable({
+    scholarId: v.id("users"),
+    label: v.string(), // e.g. "SWI / stealth-dyslexia"
+    content: v.string(), // teacher-authored instructions to the tutor
+    authorId: v.id("users"), // teacher or admin who last wrote it
+    isActive: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_scholar_active", ["scholarId", "isActive"]),
+
   reports: defineTable({
     teacherId: v.id("users"),
     scholarId: v.id("users"),
@@ -374,15 +385,36 @@ export default defineSchema({
   curriculumMessages: defineTable({
     teacherId: v.id("users"),
     unitId: v.optional(v.id("units")),
+    // When set, this message is part of a thread scoped to a specific scholar.
+    // When unset, the message belongs to the teacher's global curriculum thread
+    // (legacy behavior — kept for backward compatibility).
+    scholarId: v.optional(v.id("users")),
+    // Future-proofing for multi-thread-per-scholar. null/undefined means the
+    // scholar's primary thread.
+    threadLabel: v.optional(v.string()),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     streamId: v.optional(v.string()),
+    sessionId: v.optional(v.id("chatSessions")),
   })
     .index("by_teacher", ["teacherId"])
     .index("by_teacher_unit", ["teacherId", "unitId"])
-    .index("by_stream", ["streamId"]),
+    .index("by_scholar_and_creation", ["scholarId"])
+    .index("by_stream", ["streamId"])
+    .index("by_session", ["sessionId"]),
+
+  chatSessions: defineTable({
+    teacherId: v.id("users"),
+    title: v.string(),
+    scholarId: v.optional(v.id("users")),
+    pinned: v.boolean(),
+    lastMessageAt: v.number(),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_teacher_pinned", ["teacherId", "pinned"])
+    .index("by_scholar", ["scholarId"]),
 
   tokens: defineTable({
     token: v.string(),
@@ -409,4 +441,77 @@ export default defineSchema({
       })
     ),
   }).index("by_project", ["projectId"]),
+
+  // ─── Scholar Documents (Phase 2 — cognitive-assessment-first onboarding) ──
+  //
+  // Sensitive per-scholar source documents (cognitive assessments, IEPs,
+  // parent notes, observations). Read/write gated to teacher + admin only.
+  // Scholars must NEVER access this table — the redactedSummary is used to
+  // generate directives/seeds that eventually surface to the tutor (and thus
+  // potentially to the scholar), so the redaction pass is load-bearing.
+  scholarDocuments: defineTable({
+    scholarId: v.id("users"),
+    kind: v.union(
+      v.literal("assessment"), // cognitive / neuropsych eval
+      v.literal("iep"), // IEP or 504 plan
+      v.literal("parent_email"), // email or note from a parent
+      v.literal("observation"), // teacher/staff written observation
+      v.literal("other"),
+    ),
+    title: v.string(), // human-facing label
+    fileStorageId: v.optional(v.id("_storage")), // optional because purge policy may delete it
+    fileMimeType: v.optional(v.string()),
+    fileSizeBytes: v.optional(v.number()),
+    extractedText: v.optional(v.string()), // full OCR/PDF text, internal-only
+    redactedSummary: v.optional(v.string()), // AI-produced safe-for-internal-use summary
+    aiKeyFindings: v.optional(v.array(v.string())), // short pedagogically-actionable bullets
+    uploadedBy: v.id("users"),
+    processingStatus: v.union(
+      v.literal("pending"),
+      v.literal("extracting"),
+      v.literal("redacting"),
+      v.literal("ready"),
+      v.literal("error"),
+    ),
+    processingError: v.optional(v.string()),
+  })
+    .index("by_scholar", ["scholarId"])
+    .index("by_scholar_kind", ["scholarId", "kind"]),
+
+  // Audit trail for every access to scholarDocuments.
+  documentAccessLog: defineTable({
+    documentId: v.id("scholarDocuments"),
+    scholarId: v.id("users"), // denormalized for easy per-scholar audit
+    userId: v.id("users"), // who accessed
+    action: v.union(
+      v.literal("upload"),
+      v.literal("view_summary"), // read redactedSummary
+      v.literal("view_extracted"), // read full extractedText
+      v.literal("download_pdf"),
+      v.literal("delete"),
+      v.literal("generate_proposal"),
+      v.literal("apply_proposal"),
+    ),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_scholar", ["scholarId"])
+    .index("by_user", ["userId"]),
+
+  // Cached proposal output for a document so teachers can re-open the diff
+  // without re-running the LLM. Keyed 1:1 (or latest-per-doc) by documentId.
+  documentProposals: defineTable({
+    documentId: v.id("scholarDocuments"),
+    scholarId: v.id("users"),
+    proposal: v.any(), // structured { rationale, directives[], seeds[], unitSuggestion? }
+    generatedBy: v.id("users"), // teacher who triggered generation
+    model: v.optional(v.string()),
+    // Set when teacher approves (some-or-all of) the proposal.
+    appliedAt: v.optional(v.number()),
+    appliedBy: v.optional(v.id("users")),
+    // Set when teacher rejects the proposal outright.
+    rejectedAt: v.optional(v.number()),
+    rejectedBy: v.optional(v.id("users")),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_scholar", ["scholarId"]),
 });

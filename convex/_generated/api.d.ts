@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as adminMigrateDossierTeacherBlocks from "../adminMigrateDossierTeacherBlocks.js";
 import type * as analyses from "../analyses.js";
 import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
+import type * as chatSessionTitles from "../chatSessionTitles.js";
 import type * as crossDomainConnections from "../crossDomainConnections.js";
 import type * as curriculumAssistant from "../curriculumAssistant.js";
 import type * as dossier from "../dossier.js";
@@ -37,6 +39,10 @@ import type * as projectTitles from "../projectTitles.js";
 import type * as projects from "../projects.js";
 import type * as prompts from "../prompts.js";
 import type * as reports from "../reports.js";
+import type * as scholarDocumentActions from "../scholarDocumentActions.js";
+import type * as scholarDocumentProposalActions from "../scholarDocumentProposalActions.js";
+import type * as scholarDocumentProposals from "../scholarDocumentProposals.js";
+import type * as scholarDocuments from "../scholarDocuments.js";
 import type * as scholars from "../scholars.js";
 import type * as seedData from "../seedData.js";
 import type * as seeds from "../seeds.js";
@@ -45,6 +51,8 @@ import type * as standardsImport from "../standardsImport.js";
 import type * as standardsImportHelpers from "../standardsImportHelpers.js";
 import type * as standardsMapper from "../standardsMapper.js";
 import type * as standardsTree from "../standardsTree.js";
+import type * as teacherAide from "../teacherAide.js";
+import type * as teacherDirectives from "../teacherDirectives.js";
 import type * as teacherMasteryOverrides from "../teacherMasteryOverrides.js";
 import type * as tokens from "../tokens.js";
 import type * as units from "../units.js";
@@ -58,11 +66,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminMigrateDossierTeacherBlocks: typeof adminMigrateDossierTeacherBlocks;
   analyses: typeof analyses;
   analysisHelpers: typeof analysisHelpers;
   artifacts: typeof artifacts;
   audioActions: typeof audioActions;
   auth: typeof auth;
+  chatSessionTitles: typeof chatSessionTitles;
   crossDomainConnections: typeof crossDomainConnections;
   curriculumAssistant: typeof curriculumAssistant;
   dossier: typeof dossier;
@@ -87,6 +97,10 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   prompts: typeof prompts;
   reports: typeof reports;
+  scholarDocumentActions: typeof scholarDocumentActions;
+  scholarDocumentProposalActions: typeof scholarDocumentProposalActions;
+  scholarDocumentProposals: typeof scholarDocumentProposals;
+  scholarDocuments: typeof scholarDocuments;
   scholars: typeof scholars;
   seedData: typeof seedData;
   seeds: typeof seeds;
@@ -95,6 +109,8 @@ declare const fullApi: ApiFromModules<{
   standardsImportHelpers: typeof standardsImportHelpers;
   standardsMapper: typeof standardsMapper;
   standardsTree: typeof standardsTree;
+  teacherAide: typeof teacherAide;
+  teacherDirectives: typeof teacherDirectives;
   teacherMasteryOverrides: typeof teacherMasteryOverrides;
   tokens: typeof tokens;
   units: typeof units;

@@ -1,6 +1,6 @@
 # Rabbithole TODO
 
-From Amber & Carl meeting — April 15, 2026
+From teacher/scholar feedback meeting — April 15, 2026
 
 ---
 
@@ -13,18 +13,25 @@ From Amber & Carl meeting — April 15, 2026
 
 - [ ] _P3_ **Scholar avatars** — Kid wants an avatar. Add avatar selection or generation for scholars
 - [x] ~~**Students shouldn't be able to change own Reading Level**~~ — `ea4f8e2` Locked to teacher-only; parent view shows read-only with disabled controls
+- [ ] **Profile setup: name required** — Make display name required (photo + grade optional). Currently skippable, which leaves name = username and triggers ugly AI greeting. Also: don't auto-copy username into name field in `registerWithCode`.
+- [ ] **Profile setup: DOB context** — Add helper text "Helps us match you to the right reading level" below the date-of-birth field.
+- [ ] **Project card title truncation** — Auto-generated titles are too long. Generate a short phrase title server-side (4–6 words) instead of truncating the first message.
+- [ ] **Sign-out flakiness** — Sidebar sign-out icon sometimes does nothing on first click; occasionally lands back on `/scholar` instead of `/sign-in`. Likely `signOut()` racing the router push. Trace and fix both entry points.
 
 ## AI Tutor Behavior (Prompt Tuning)
 
 - [x] **Keep it concise** — Prompt was updated but still producing long multi-paragraph responses. Needs stronger enforcement — possibly max_tokens cap or more aggressive prompt wording.
 - [x] **One question at a time** — Related to above. Still stacking multiple bolded questions in one response despite prompt update.
-- [ ] **Loved the feedback comments** — (positive signal, keep this) Amber loved when the AI commented on how she was doing. Make sure this stays prominent
-- [ ] **Silly mode guardrails** — Amber can be silly at times. Tune how the AI handles silly/off-task moments (gentle redirect vs. playing along briefly then refocusing)
+- [ ] **Loved the feedback comments** — (positive signal, keep this) Scholars love when the AI comments on how they're doing. Make sure this stays prominent
+- [ ] **Silly mode guardrails** — Tune how the AI handles silly/off-task moments (gentle redirect vs. playing along briefly then refocusing)
 
 ## Teacher Dashboard
 
-- [ ] **Password reset for scholars** — Amber forgets passwords. Teachers need a "reset password" button on their dashboard (no reset-password flow for kids)
+- [ ] **Password reset for scholars** — Scholars forget passwords. Teachers need a "reset password" button on their dashboard (no reset-password flow for kids)
 - [ ] **Make unit/template association clearer** — Too hard to tell when a lesson is based on a given unit template. Surface this more visibly in the project list or header
+- [ ] **Require unit title before saving** — Curriculum grid shows "New Unit" tiles that were never named. Block save/create until a title is entered.
+- [ ] **Teacher whisper "takes effect next turn" label** — `ProjectViewer.tsx` whisper field says "Guidance injected into AI system prompt" but doesn't say when. Add helper text: "Takes effect on the scholar's next message."
+- [ ] **Duplicate empty-state on teacher activity tab** — Left panel says "Click Start to begin an activity" and main panel says "Start an activity to begin." Remove one.
 
 ## Reading Level & Accessibility
 
@@ -32,6 +39,7 @@ From Amber & Carl meeting — April 15, 2026
 - [ ] **Track audio vs visual preference** — Track % of time scholar clicks the speaker button. Surface this to teachers
 - [x] ~~**Toggle: speech-to-text**~~ — `ea4f8e2` Per-scholar STT toggle on Reading & Audio tab
 - [x] ~~**Toggle: text-to-speech**~~ — `ea4f8e2` Per-scholar TTS toggle on Reading & Audio tab
+- [ ] **Password field helper text** — No hint that password must be ≥4 chars until after a failed submit. Add `helperText` below the field (Chakra `Field` pattern).
 - [ ] **Flesch-Kincaid readability scoring** — Use [flesch-kincaid](https://github.com/words/flesch-kincaid?tab=readme-ov-file) to measure/target response reading level
 - [ ] _P0_ **Font toggle: Andika / OpenDyslexic** — Accessibility font options in Account Details for scholars who need them. this should only impact their own view, not when teachers are remoting in
 

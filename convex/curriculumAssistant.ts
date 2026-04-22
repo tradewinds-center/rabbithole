@@ -9,21 +9,64 @@ import { ROLES } from "./lib/roles";
 export const getMessages = curriculumQuery({
   args: {},
   handler: async (ctx) => {
+    // Global (unscoped) thread: only rows without a scholarId.
     const messages = await ctx.db
       .query("curriculumMessages")
       .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
       .order("asc")
       .take(200);
-    return messages;
+    return messages.filter((m) => m.scholarId === undefined && m.unitId === undefined);
+  },
+});
+
+/**
+ * Messages for a scholar-scoped thread. Teacher/admin/curriculum_designer only.
+ *
+ * `threadLabel` is reserved for multi-thread-per-scholar — for now, pass
+ * nothing (or an empty string) and we return messages with no threadLabel
+ * (the primary thread).
+ */
+export const listMessagesForScholar = curriculumQuery({
+  args: {
+    scholarId: v.id("users"),
+    threadLabel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_scholar_and_creation", (q) =>
+        q.eq("scholarId", args.scholarId)
+      )
+      .order("asc")
+      .take(400);
+    // Only show messages authored by the current teacher for their own thread.
+    // Admins can see everything (useful for debugging / supervision).
+    const teacherFiltered = ctx.user.role === ROLES.ADMIN
+      ? messages
+      : messages.filter((m) => m.teacherId === ctx.user._id);
+    return teacherFiltered.filter(
+      (m) => (m.threadLabel ?? undefined) === label
+    );
   },
 });
 
 export const sendMessage = curriculumMutation({
-  args: { message: v.string() },
+  args: {
+    message: v.string(),
+    // Optional scholar scoping — when set, this message joins the
+    // scholar-scoped thread (see listMessagesForScholar).
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+
     // Insert user message
     await ctx.db.insert("curriculumMessages", {
       teacherId: ctx.user._id,
+      scholarId: args.scholarId,
+      threadLabel: label,
       role: "user",
       content: args.message,
     });
@@ -32,6 +75,8 @@ export const sendMessage = curriculumMutation({
     const streamId = crypto.randomUUID();
     const assistantMsgId = await ctx.db.insert("curriculumMessages", {
       teacherId: ctx.user._id,
+      scholarId: args.scholarId,
+      threadLabel: label,
       role: "assistant",
       content: "",
       streamId,
@@ -42,13 +87,36 @@ export const sendMessage = curriculumMutation({
 });
 
 export const clearHistory = curriculumMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    // When set, clears only the scholar-scoped thread; otherwise clears the
+    // global (unscoped) thread for this teacher.
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const label = args.threadLabel?.trim() || undefined;
+
+    if (args.scholarId) {
+      const messages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_scholar_and_creation", (q) =>
+          q.eq("scholarId", args.scholarId)
+        )
+        .collect();
+      for (const msg of messages) {
+        if (msg.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN) continue;
+        if ((msg.threadLabel ?? undefined) !== label) continue;
+        await ctx.db.delete(msg._id);
+      }
+      return;
+    }
+
     const messages = await ctx.db
       .query("curriculumMessages")
       .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
       .collect();
     for (const msg of messages) {
+      if (msg.scholarId !== undefined || msg.unitId !== undefined) continue;
       await ctx.db.delete(msg._id);
     }
   },
@@ -167,14 +235,115 @@ export const getUnitDesignerContext = internalQuery({
 // ── Internal (called by HTTP action) ────────────────────────────────
 
 export const getContext = internalQuery({
-  args: { teacherId: v.id("users") },
+  args: {
+    teacherId: v.id("users"),
+    scholarId: v.optional(v.id("users")),
+    threadLabel: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const teacher = await ctx.db.get(args.teacherId);
-    const messages = await ctx.db
-      .query("curriculumMessages")
-      .withIndex("by_teacher", (q) => q.eq("teacherId", args.teacherId))
-      .order("asc")
-      .take(200);
+    const label = args.threadLabel?.trim() || undefined;
+
+    // Pick the right thread. If scholarId is set, we want messages with
+    // (scholarId, threadLabel). Otherwise the global (unscoped) thread.
+    let messages;
+    if (args.scholarId) {
+      const scholarMessages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_scholar_and_creation", (q) =>
+          q.eq("scholarId", args.scholarId)
+        )
+        .order("asc")
+        .take(400);
+      messages = scholarMessages.filter(
+        (m) =>
+          m.teacherId === args.teacherId &&
+          (m.threadLabel ?? undefined) === label
+      );
+    } else {
+      const teacherMessages = await ctx.db
+        .query("curriculumMessages")
+        .withIndex("by_teacher", (q) => q.eq("teacherId", args.teacherId))
+        .order("asc")
+        .take(400);
+      messages = teacherMessages.filter(
+        (m) => m.scholarId === undefined && m.unitId === undefined
+      );
+    }
+
+    // Scholar context (pre-loaded so the system prompt can include it).
+    let scholarContext:
+      | null
+      | {
+          scholarId: Id<"users">;
+          scholarName: string;
+          readingLevel: string | null;
+          dossier: string;
+          directives: { label: string; content: string }[];
+          seeds: {
+            topic: string;
+            domain: string | null;
+            rationale: string;
+            approachHint: string | null;
+          }[];
+          recentObservations: { note: string; type: string; createdAt: number }[];
+        } = null;
+
+    if (args.scholarId) {
+      const scholar = await ctx.db.get(args.scholarId);
+      if (scholar) {
+        const dossier = await ctx.db
+          .query("scholarDossiers")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId!))
+          .first();
+
+        const directives = await ctx.db
+          .query("teacherDirectives")
+          .withIndex("by_scholar_active", (q) =>
+            q.eq("scholarId", args.scholarId!).eq("isActive", true)
+          )
+          .collect();
+        directives.sort((a, b) => a._creationTime - b._creationTime);
+
+        const allSeeds = await ctx.db
+          .query("seeds")
+          .withIndex("by_scholar_status", (q) =>
+            q.eq("scholarId", args.scholarId!)
+          )
+          .collect();
+        const seeds = allSeeds
+          .filter((s) => s.status === "active" || s.status === "pending")
+          .map((s) => ({
+            topic: s.topic,
+            domain: s.domain ?? null,
+            rationale: s.rationale,
+            approachHint: s.approachHint ?? null,
+          }));
+
+        const observations = await ctx.db
+          .query("observations")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId!))
+          .order("desc")
+          .take(20);
+
+        scholarContext = {
+          scholarId: args.scholarId,
+          scholarName: scholar.name ?? "this scholar",
+          readingLevel: scholar.readingLevel ?? null,
+          dossier: dossier?.content ?? "No dossier data available yet.",
+          directives: directives.map((d) => ({
+            label: d.label,
+            content: d.content,
+          })),
+          seeds,
+          recentObservations: observations.map((o) => ({
+            note: o.note,
+            type: o.type,
+            createdAt: o._creationTime,
+          })),
+        };
+      }
+    }
 
     return {
       teacherName: teacher?.name ?? "Teacher",
@@ -182,6 +351,7 @@ export const getContext = internalQuery({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),
+      scholarContext,
     };
   },
 });
@@ -214,6 +384,263 @@ export const finalizeStream = internalMutation({
         streamId: undefined,
       });
     }
+  },
+});
+
+// ── Chat sessions ────────────────────────────────────────────────────
+
+export const createSession = curriculumMutation({
+  args: {
+    scholarId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const sessionId = await ctx.db.insert("chatSessions", {
+      teacherId: ctx.user._id,
+      title: "New chat",
+      scholarId: args.scholarId,
+      pinned: false,
+      lastMessageAt: Date.now(),
+    });
+    return sessionId;
+  },
+});
+
+export const listSessions = curriculumQuery({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
+      .order("desc")
+      .collect();
+    // Pinned first, then by lastMessageAt desc
+    const pinned = sessions.filter((s) => s.pinned).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    const recent = sessions.filter((s) => !s.pinned).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    return [...pinned, ...recent];
+  },
+});
+
+export const listSessionsForScholar = curriculumQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
+      .collect();
+    // Only sessions owned by this teacher (or admin sees all)
+    const filtered = ctx.user.role === ROLES.ADMIN
+      ? sessions
+      : sessions.filter((s) => s.teacherId === ctx.user._id);
+    return filtered.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+  },
+});
+
+export const renameSession = curriculumMutation({
+  args: { sessionId: v.id("chatSessions"), title: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.sessionId, { title: args.title.trim() || "Untitled" });
+  },
+});
+
+export const togglePin = curriculumMutation({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.sessionId, { pinned: !session.pinned });
+  },
+});
+
+export const deleteSession = curriculumMutation({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    // Cascade: delete all messages in this session
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+    await ctx.db.delete(args.sessionId);
+  },
+});
+
+export const getSessionMessages = curriculumQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      return [];
+    }
+    return await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(400);
+  },
+});
+
+export const sendSessionMessage = curriculumMutation({
+  args: {
+    sessionId: v.id("chatSessions"),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Session not found");
+    }
+
+    await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      sessionId: args.sessionId,
+      scholarId: session.scholarId,
+      role: "user",
+      content: args.message,
+    });
+
+    const streamId = crypto.randomUUID();
+    const assistantMsgId = await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      sessionId: args.sessionId,
+      scholarId: session.scholarId,
+      role: "assistant",
+      content: "",
+      streamId,
+    });
+
+    await ctx.db.patch(args.sessionId, { lastMessageAt: Date.now() });
+    return { streamId, assistantMsgId: String(assistantMsgId) };
+  },
+});
+
+// Internal mutation called by tag_session AI tool and auto-name action
+export const tagSession = internalMutation({
+  args: { sessionId: v.id("chatSessions"), scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.scholarId) return; // idempotent — don't overwrite
+    await ctx.db.patch(args.sessionId, { scholarId: args.scholarId });
+    // Backfill messages so they show up in scholar queries
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.patch(msg._id, { scholarId: args.scholarId });
+    }
+  },
+});
+
+export const setSessionTitle = internalMutation({
+  args: { sessionId: v.id("chatSessions"), title: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.title !== "New chat") return; // don't overwrite manual renames
+    await ctx.db.patch(args.sessionId, { title: args.title });
+  },
+});
+
+export const getSessionFirstExchange = internalQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(4);
+    const userMsg = messages.find((m) => m.role === "user");
+    const assistantMsg = messages.find((m) => m.role === "assistant" && m.content.trim());
+    return {
+      firstUserMessage: userMsg?.content ?? null,
+      firstAssistantMessage: assistantMsg?.content ?? null,
+    };
+  },
+});
+
+export const getContextForSession = internalQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    const teacher = await ctx.db.get(session.teacherId);
+
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(400);
+
+    // Re-use scholar context loading from the existing getContext helper
+    let scholarContext: null | {
+      scholarId: Id<"users">;
+      scholarName: string;
+      readingLevel: string | null;
+      dossier: string;
+      directives: { label: string; content: string }[];
+      seeds: { topic: string; domain: string | null; rationale: string; approachHint: string | null }[];
+      recentObservations: { note: string; type: string; createdAt: number }[];
+    } = null;
+
+    if (session.scholarId) {
+      const scholar = await ctx.db.get(session.scholarId);
+      if (scholar) {
+        const dossier = await ctx.db
+          .query("scholarDossiers")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", session.scholarId!))
+          .first();
+        const directives = await ctx.db
+          .query("teacherDirectives")
+          .withIndex("by_scholar_active", (q) =>
+            q.eq("scholarId", session.scholarId!).eq("isActive", true)
+          )
+          .collect();
+        directives.sort((a, b) => a._creationTime - b._creationTime);
+        const allSeeds = await ctx.db
+          .query("seeds")
+          .withIndex("by_scholar_status", (q) => q.eq("scholarId", session.scholarId!))
+          .collect();
+        const seeds = allSeeds
+          .filter((s) => s.status === "active" || s.status === "pending")
+          .map((s) => ({ topic: s.topic, domain: s.domain ?? null, rationale: s.rationale, approachHint: s.approachHint ?? null }));
+        const observations = await ctx.db
+          .query("observations")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", session.scholarId!))
+          .order("desc")
+          .take(20);
+        scholarContext = {
+          scholarId: session.scholarId,
+          scholarName: scholar.name ?? "this scholar",
+          readingLevel: scholar.readingLevel ?? null,
+          dossier: dossier?.content ?? "No dossier data available yet.",
+          directives: directives.map((d) => ({ label: d.label, content: d.content })),
+          seeds,
+          recentObservations: observations.map((o) => ({ note: o.note, type: o.type, createdAt: o._creationTime })),
+        };
+      }
+    }
+
+    return {
+      teacherId: session.teacherId,
+      teacherName: teacher?.name ?? "Teacher",
+      sessionId: args.sessionId,
+      scholarId: session.scholarId ?? null,
+      messages: messages
+        .filter((m) => m.content.trim() !== "")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      scholarContext,
+    };
   },
 });
 
@@ -357,6 +784,7 @@ export const listUnitsInternal = internalQuery({
         description: u.description ?? null,
         targetBloomLevel: u.targetBloomLevel ?? null,
         isActive: u.isActive,
+        scholarId: u.scholarId ?? null,
         personaTitle: persona?.title ?? null,
         perspectiveTitle: perspective?.title ?? null,
         processTitle: process?.title ?? null,

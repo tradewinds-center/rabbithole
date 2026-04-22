@@ -5,7 +5,7 @@ import { Box, Text } from "@chakra-ui/react";
 interface AvatarProps {
   name?: string;
   src?: string;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   /** Stable key for color hashing (e.g. username). Falls back to name. */
   colorKey?: string;
 }
@@ -15,6 +15,7 @@ const sizeMap = {
   sm: { container: 8, text: "sm" },
   md: { container: 12, text: "lg" },
   lg: { container: 16, text: "xl" },
+  xl: { container: 28, text: "4xl" },
 };
 
 export function Avatar({ name, src, size = "md", colorKey }: AvatarProps) {
