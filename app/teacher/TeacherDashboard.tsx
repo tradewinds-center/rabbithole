@@ -166,7 +166,7 @@ export default function TeacherDashboardInner() {
 
   const setActiveTab = useCallback((tab: Tab) => {
     const params = new URLSearchParams();
-    if (tab !== "live") params.set("tab", tab);
+    if (tab !== "assistant") params.set("tab", tab);
     if (tab === "curriculum") params.set("sub", "units");
     pushUrl(params);
   }, [pushUrl]);
