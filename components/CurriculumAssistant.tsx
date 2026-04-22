@@ -74,7 +74,6 @@ export default function CurriculumAssistant() {
     api.curriculumAssistant.getSessionMessages,
     sessionId ? { sessionId } : "skip"
   ) ?? [];
-  const scholars = useQuery(api.users.listScholars) ?? [];
 
   const createSession = useMutation(api.curriculumAssistant.createSession);
   const sendSessionMessage = useMutation(api.curriculumAssistant.sendSessionMessage);
@@ -85,9 +84,6 @@ export default function CurriculumAssistant() {
   const [input, setInput] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-  // New chat popover state
-  const [showNewChatPopover, setShowNewChatPopover] = useState(false);
-  const [newChatScholarId, setNewChatScholarId] = useState<string>("");
 
   const stream = useAgentStream();
   const { isStreaming, streamingContent, streamingMsgId, toolActivity } = stream;
@@ -95,11 +91,13 @@ export default function CurriculumAssistant() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Active session derived from messages/sessions list
+  // Active session derived from sessions list
   const activeSession = sessions.find((s) => String(s._id) === rawSession) ?? null;
-  const scholarName = activeSession?.scholarId
-    ? scholars.find((s) => String(s._id) === String(activeSession.scholarId))?.name ?? null
-    : null;
+  const scopedScholar = useQuery(
+    api.scholars.getProfile,
+    activeSession?.scholarId ? { scholarId: activeSession.scholarId } : "skip"
+  );
+  const scholarName = scopedScholar?.scholar?.name ?? null;
 
   const pinnedSessions = sessions.filter((s) => s.pinned);
   const recentSessions = sessions.filter((s) => !s.pinned);
@@ -122,15 +120,10 @@ export default function CurriculumAssistant() {
     }
   }, [renamingId]);
 
-  const handleNewChat = useCallback(async (scholarIdOverride?: string) => {
-    setShowNewChatPopover(false);
-    setNewChatScholarId("");
-    const sid = scholarIdOverride || newChatScholarId || undefined;
-    const newSessionId = await createSession({
-      scholarId: sid ? (sid as Id<"users">) : undefined,
-    });
+  const handleNewChat = useCallback(async () => {
+    const newSessionId = await createSession({});
     router.push(`/teacher?tab=assistant&session=${String(newSessionId)}`, { scroll: false });
-  }, [createSession, router, newChatScholarId]);
+  }, [createSession, router]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -192,7 +185,7 @@ export default function CurriculumAssistant() {
         overflow="hidden"
       >
         {/* New Chat button */}
-        <Box p={3} position="relative">
+        <Box p={3}>
           <Button
             size="sm"
             w="full"
@@ -202,74 +195,11 @@ export default function CurriculumAssistant() {
             fontSize="xs"
             _hover={{ bg: "violet.600" }}
             borderRadius="lg"
-            onClick={() => setShowNewChatPopover((v) => !v)}
+            onClick={handleNewChat}
           >
             <FiPlus style={{ marginRight: "6px" }} />
             New Chat
           </Button>
-
-          {/* Scholar picker popover */}
-          {showNewChatPopover && (
-            <Box
-              position="absolute"
-              top="100%"
-              left={3}
-              right={3}
-              zIndex={10}
-              bg="white"
-              border="1px solid"
-              borderColor="gray.200"
-              borderRadius="lg"
-              shadow="md"
-              p={3}
-            >
-              <Text fontFamily="heading" fontSize="xs" color="charcoal.400" mb={2}>
-                Scope to scholar (optional)
-              </Text>
-              <select
-                value={newChatScholarId}
-                onChange={(e) => setNewChatScholarId(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "6px 8px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--chakra-colors-gray-300)",
-                  fontFamily: "var(--chakra-fonts-body)",
-                  fontSize: "13px",
-                  marginBottom: "10px",
-                  background: "white",
-                }}
-              >
-                <option value="">No scope (global)</option>
-                {scholars.map((s) => (
-                  <option key={String(s._id)} value={String(s._id)}>
-                    {s.name ?? s.username}
-                  </option>
-                ))}
-              </select>
-              <Flex gap={2}>
-                <Button
-                  size="xs"
-                  flex={1}
-                  bg="violet.500"
-                  color="white"
-                  _hover={{ bg: "violet.600" }}
-                  fontFamily="heading"
-                  onClick={() => handleNewChat()}
-                >
-                  Start
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  fontFamily="heading"
-                  onClick={() => { setShowNewChatPopover(false); setNewChatScholarId(""); }}
-                >
-                  Cancel
-                </Button>
-              </Flex>
-            </Box>
-          )}
         </Box>
 
         {/* Session list */}
