@@ -119,7 +119,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const isAdmin = currentUser?.role === "admin";
   const deleteUser = useMutation(api.users.deleteUser);
   const createChatSession = useMutation(api.curriculumAssistant.createSession);
-  const chatSessions = useQuery(api.curriculumAssistant.listSessionsForScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
+  const chatSessions = useQuery(api.curriculumAssistant.listSessionsForScholar, isParentMode ? "skip" : { scholarId: scholarId as Id<"users"> }) ?? [];
   const resetPassword = useMutation(api.users.resetScholarPassword);
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
