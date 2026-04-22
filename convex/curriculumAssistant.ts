@@ -374,6 +374,7 @@ export const finalizeStream = internalMutation({
     tokensUsed: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
     if (!args.content.trim()) {
       await ctx.db.delete(args.messageId);
     } else {
@@ -383,6 +384,10 @@ export const finalizeStream = internalMutation({
         tokensUsed: args.tokensUsed,
         streamId: undefined,
       });
+    }
+    // Clear the in-progress indicator on the chat session
+    if (message?.sessionId) {
+      await ctx.db.patch(message.sessionId, { activeStreamId: undefined });
     }
   },
 });
@@ -520,7 +525,7 @@ export const sendSessionMessage = curriculumMutation({
       streamId,
     });
 
-    await ctx.db.patch(args.sessionId, { lastMessageAt: Date.now() });
+    await ctx.db.patch(args.sessionId, { lastMessageAt: Date.now(), activeStreamId: streamId });
     return { streamId, assistantMsgId: String(assistantMsgId) };
   },
 });

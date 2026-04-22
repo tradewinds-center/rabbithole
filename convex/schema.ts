@@ -411,6 +411,7 @@ export default defineSchema({
     scholarId: v.optional(v.id("users")),
     pinned: v.boolean(),
     lastMessageAt: v.number(),
+    activeStreamId: v.optional(v.string()),
   })
     .index("by_teacher", ["teacherId"])
     .index("by_teacher_pinned", ["teacherId", "pinned"])

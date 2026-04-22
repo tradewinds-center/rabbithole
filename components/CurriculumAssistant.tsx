@@ -30,7 +30,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAgentStream } from "@/hooks/useAgentStream";
+import { StreamRegistryProvider, useStreamRegistry } from "@/hooks/useStreamRegistry";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
 
 const markdownComponents = {
@@ -62,7 +62,25 @@ function formatRelativeTime(ms: number): string {
   return `${days}d ago`;
 }
 
-export default function CurriculumAssistant() {
+function StreamingDot() {
+  return (
+    <>
+      <style>{`@keyframes rbhChatPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}`}</style>
+      <Box
+        w="7px"
+        h="7px"
+        borderRadius="full"
+        bg="violet.500"
+        flexShrink={0}
+        style={{ animation: "rbhChatPulse 1.4s ease-in-out infinite" }}
+      />
+    </>
+  );
+}
+
+// ── Inner component (uses registry from context) ──────────────────────────────
+
+function CurriculumAssistantInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawSession = searchParams.get("session");
@@ -85,13 +103,16 @@ export default function CurriculumAssistant() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  const stream = useAgentStream();
-  const { isStreaming, streamingContent, streamingMsgId, toolActivity } = stream;
+  const { startStream, getStreamState, streamingSessionIds } = useStreamRegistry();
+
+  // Per-session stream state for the currently-viewed session
+  const currentStreamState = getStreamState(sessionId ? String(sessionId) : "");
+  const { isStreaming, streamingContent, streamingMsgId, toolActivity } = currentStreamState;
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Active session derived from sessions list
   const activeSession = sessions.find((s) => String(s._id) === rawSession) ?? null;
   const scopedScholar = useQuery(
     api.scholars.getProfile,
@@ -101,6 +122,15 @@ export default function CurriculumAssistant() {
 
   const pinnedSessions = sessions.filter((s) => s.pinned);
   const recentSessions = sessions.filter((s) => !s.pinned);
+
+  // A session shows the in-progress dot if it's streaming in this tab (client registry)
+  // OR if the DB shows an active streamId (covers other tabs / page reload edge cases)
+  const isSessionStreaming = useCallback(
+    (sid: string, dbActiveStreamId?: string) => {
+      return streamingSessionIds.includes(sid) || !!dbActiveStreamId;
+    },
+    [streamingSessionIds]
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -120,6 +150,13 @@ export default function CurriculumAssistant() {
     }
   }, [renamingId]);
 
+  // Auto-focus textarea when switching to a session
+  useEffect(() => {
+    if (sessionId) {
+      textareaRef.current?.focus();
+    }
+  }, [sessionId]);
+
   const handleNewChat = useCallback(async () => {
     const newSessionId = await createSession({});
     router.push(`/teacher?tab=assistant&session=${String(newSessionId)}`, { scroll: false });
@@ -127,11 +164,11 @@ export default function CurriculumAssistant() {
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
+    // Only block if THIS session is currently streaming — other sessions can stream in parallel
     if (!text || isStreaming || !user) return;
 
     setInput("");
 
-    // Auto-create a session if none is active
     let activeSessionId = sessionId;
     if (!activeSessionId) {
       const newId = await createSession({});
@@ -143,7 +180,8 @@ export default function CurriculumAssistant() {
       const result = await sendSessionMessage({ sessionId: activeSessionId, message: text });
 
       const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(".cloud", ".site");
-      await stream.send(
+      await startStream(
+        String(activeSessionId),
         `${convexUrl}/curriculum-stream`,
         {
           teacherId: String(user._id),
@@ -156,7 +194,7 @@ export default function CurriculumAssistant() {
     } catch (error) {
       console.error("Error sending message:", error);
     }
-  }, [input, isStreaming, user, sessionId, createSession, router, sendSessionMessage, stream]);
+  }, [input, isStreaming, user, sessionId, createSession, router, sendSessionMessage, startStream]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -192,7 +230,6 @@ export default function CurriculumAssistant() {
         bg="gray.50"
         overflow="hidden"
       >
-        {/* New Chat button */}
         <Box p={3}>
           <Button
             size="sm"
@@ -210,7 +247,6 @@ export default function CurriculumAssistant() {
           </Button>
         </Box>
 
-        {/* Session list */}
         <Box flex={1} overflowY="auto" px={2} pb={2}>
           {sessions.length === 0 && (
             <Text fontFamily="body" fontSize="xs" color="charcoal.300" px={2} py={4} textAlign="center">
@@ -228,6 +264,7 @@ export default function CurriculumAssistant() {
                   key={String(s._id)}
                   session={s}
                   isActive={String(s._id) === rawSession}
+                  isStreaming={isSessionStreaming(String(s._id), s.activeStreamId)}
                   isRenaming={renamingId === String(s._id)}
                   renameValue={renameValue}
                   renameInputRef={renameInputRef}
@@ -255,6 +292,7 @@ export default function CurriculumAssistant() {
                   key={String(s._id)}
                   session={s}
                   isActive={String(s._id) === rawSession}
+                  isStreaming={isSessionStreaming(String(s._id), s.activeStreamId)}
                   isRenaming={renamingId === String(s._id)}
                   renameValue={renameValue}
                   renameInputRef={renameInputRef}
@@ -274,12 +312,17 @@ export default function CurriculumAssistant() {
 
       {/* ── Main panel ── */}
       <Flex flex={1} direction="column" overflow="hidden" bg="white">
-        {/* Header — only when a session is active */}
         {sessionId && (
           <Flex px={6} py={3} borderBottom="1px solid" borderColor="gray.200" align="center" gap={3} bg="white">
             <Text fontFamily="heading" fontWeight="600" fontSize="md" color="navy.500" flex={1} overflow="hidden" style={{ whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
               {activeSession?.title ?? "Chat"}
             </Text>
+            {isStreaming && (
+              <Badge bg="violet.50" color="violet.600" fontFamily="heading" fontSize="2xs" px={2} py={0.5} borderRadius="md" display="flex" alignItems="center" gap={1}>
+                <StreamingDot />
+                Thinking…
+              </Badge>
+            )}
             {scholarName && (
               <Badge bg="violet.100" color="violet.700" fontFamily="heading" fontSize="2xs" px={2} py={0.5} borderRadius="md">
                 {scholarName}
@@ -288,7 +331,6 @@ export default function CurriculumAssistant() {
           </Flex>
         )}
 
-        {/* Messages or empty state */}
         {!sessionId ? (
           <Flex flex={1} align="center" justify="center" direction="column" gap={3} color="charcoal.300">
             <Text fontFamily="heading" fontSize="md">Ask me anything — or select a past chat</Text>
@@ -385,7 +427,7 @@ export default function CurriculumAssistant() {
           </Box>
         )}
 
-        {/* Input — always visible */}
+        {/* Input — disabled only when this session is streaming (not globally) */}
         <Box px={4} py={3} borderTop="1px solid" borderColor="gray.200" bg="gray.50">
           <Flex maxW="3xl" mx="auto" gap={2} align="flex-end">
             <Textarea
@@ -430,11 +472,22 @@ export default function CurriculumAssistant() {
   );
 }
 
-// ── Session row ──────────────────────────────────────────────────────
+// ── Root export (provides registry context) ───────────────────────────────────
+
+export default function CurriculumAssistant() {
+  return (
+    <StreamRegistryProvider>
+      <CurriculumAssistantInner />
+    </StreamRegistryProvider>
+  );
+}
+
+// ── Session row ───────────────────────────────────────────────────────────────
 
 interface SessionRowProps {
   session: { _id: Id<"chatSessions">; title: string; pinned: boolean; lastMessageAt: number };
   isActive: boolean;
+  isStreaming: boolean;
   isRenaming: boolean;
   renameValue: string;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
@@ -448,7 +501,7 @@ interface SessionRowProps {
 }
 
 function SessionRow({
-  session, isActive, isRenaming, renameValue, renameInputRef,
+  session, isActive, isStreaming, isRenaming, renameValue, renameInputRef,
   onSelect, onStartRename, onRenameChange, onRenameCommit, onRenameKeyDown,
   onTogglePin, onDelete,
 }: SessionRowProps) {
@@ -487,18 +540,26 @@ function SessionRow({
           />
         ) : (
           <>
-            <Text
-              fontFamily="heading"
-              fontSize="xs"
-              color={isActive ? "violet.700" : "charcoal.500"}
-              lineClamp={1}
-              title={session.title}
-            >
-              {session.title}
-            </Text>
-            <Text fontFamily="body" fontSize="2xs" color="charcoal.300">
-              {formatRelativeTime(session.lastMessageAt)}
-            </Text>
+            <Flex align="flex-start" gap={1.5} minW={0}>
+              {/* Fixed-width gutter — title and timestamp both sit in the column to the right */}
+              <Box w="9px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" pt="2px">
+                {isStreaming && <StreamingDot />}
+              </Box>
+              <Box flex={1} minW={0}>
+                <Text
+                  fontFamily="heading"
+                  fontSize="xs"
+                  color={isActive ? "violet.700" : "charcoal.500"}
+                  lineClamp={1}
+                  title={session.title}
+                >
+                  {session.title}
+                </Text>
+                <Text fontFamily="body" fontSize="2xs" color="charcoal.300">
+                  {formatRelativeTime(session.lastMessageAt)}
+                </Text>
+              </Box>
+            </Flex>
           </>
         )}
       </Box>
