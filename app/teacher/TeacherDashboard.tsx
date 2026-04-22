@@ -403,10 +403,14 @@ export default function TeacherDashboardInner() {
 
       <CommandPalette
         scholars={scholars}
+        units={units}
+        personas={personas}
+        perspectives={perspectives}
+        processes={processes}
         isOpen={cmdOpen}
         onClose={() => setCmdOpen(false)}
-        onSelect={(id) => {
-          router.push(`/teacher?tab=scholars&scholar=${id}`, { scroll: false });
+        onNavigate={(href) => {
+          router.push(href, { scroll: false });
           setCmdOpen(false);
         }}
       />
@@ -2406,43 +2410,80 @@ function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
 
 // ── Command Palette (⌘K) ─────────────────────────────────────────────
 
-function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
+type CmdEntry = { key: string; href: string; label: string; sublabel?: string } & (
+  | { kind: "scholar"; scholar: Scholar }
+  | { kind: "curriculum"; emoji: string; category: string }
+);
+
+function buildEntries(
+  scholars: Scholar[],
+  units: UnitInfo[],
+  personas: { _id: string; title: string; emoji?: string | null }[],
+  perspectives: { _id: string; title: string; icon?: string | null }[],
+  processes: { _id: string; title: string; emoji?: string | null }[],
+  q: string,
+): CmdEntry[] {
+  const match = (s: string) => !q || s.toLowerCase().includes(q.toLowerCase());
+  return [
+    ...scholars.filter((s) => match(s.name ?? "")).map((s) => ({
+      kind: "scholar" as const, key: s.id,
+      href: `/teacher?tab=scholars&scholar=${s.id}`,
+      label: s.name ?? "Scholar", sublabel: s.lastProjectTitle ?? undefined, scholar: s,
+    })),
+    ...units.filter((u) => match(u.title)).map((u) => ({
+      kind: "curriculum" as const, key: `unit-${u._id}`,
+      href: `/teacher?tab=curriculum&sub=units`,
+      label: u.title, emoji: u.emoji ?? "📚", category: "Unit",
+    })),
+    ...personas.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `persona-${p._id}`,
+      href: `/teacher?tab=curriculum&sub=personas`,
+      label: p.title, emoji: p.emoji ?? "😊", category: "Persona",
+    })),
+    ...perspectives.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `perspective-${p._id}`,
+      href: `/teacher?tab=curriculum&sub=perspectives`,
+      label: p.title, emoji: p.icon ?? "👁", category: "Perspective",
+    })),
+    ...processes.filter((p) => match(p.title)).map((p) => ({
+      kind: "curriculum" as const, key: `process-${p._id}`,
+      href: `/teacher?tab=curriculum&sub=processes`,
+      label: p.title, emoji: p.emoji ?? "🔄", category: "Process",
+    })),
+  ];
+}
+
+function CommandPalette({ scholars, units, personas, perspectives, processes, isOpen, onClose, onNavigate }: {
   scholars: Scholar[];
+  units: UnitInfo[];
+  personas: { _id: string; title: string; emoji?: string | null }[];
+  perspectives: { _id: string; title: string; icon?: string | null }[];
+  processes: { _id: string; title: string; emoji?: string | null }[];
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (id: string) => void;
+  onNavigate: (href: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = scholars.filter(
-    (s) => !query || s.name?.toLowerCase().includes(query.toLowerCase())
-  );
+  const results = buildEntries(scholars, units, personas, perspectives, processes, query);
 
   useEffect(() => {
-    if (isOpen) {
-      setQuery("");
-      setActiveIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 40);
-    }
+    if (isOpen) { setQuery(""); setActiveIdx(0); setTimeout(() => inputRef.current?.focus(), 40); }
   }, [isOpen]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, filtered.length - 1)); }
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-    else if (e.key === "Enter" && filtered[activeIdx]) { onSelect(filtered[activeIdx].id); }
+    else if (e.key === "Enter" && results[activeIdx]) { onNavigate(results[activeIdx].href); }
     else if (e.key === "Escape") { onClose(); }
   };
 
   return (
-    <Dialog.Root
-      open={isOpen}
-      onOpenChange={(e) => { if (!e.open) onClose(); }}
-      placement="top"
-    >
+    <Dialog.Root open={isOpen} onOpenChange={(e) => { if (!e.open) onClose(); }} placement="top">
       <Portal>
         <Dialog.Backdrop mt="-2em" h="calc(100vh + 4em)" />
         <Dialog.Positioner pt="15vh" pb="0" alignItems="flex-start">
@@ -2454,7 +2495,7 @@ function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Jump to scholar…"
+                placeholder="Jump to scholar or curriculum…"
                 border="none"
                 fontFamily="heading"
                 fontSize="md"
@@ -2464,41 +2505,48 @@ function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
             </Box>
 
             {/* Results */}
-            <Box maxH="320px" overflowY="auto">
-              {filtered.length === 0 ? (
+            <Box maxH="360px" overflowY="auto">
+              {results.length === 0 ? (
                 <Box px={4} py={8} textAlign="center">
-                  <Text fontFamily="heading" fontSize="sm" color="charcoal.300">No scholars found</Text>
+                  <Text fontFamily="heading" fontSize="sm" color="charcoal.300">No results</Text>
                 </Box>
               ) : (
-                filtered.map((s, i) => (
+                results.map((item, i) => (
                   <HStack
-                    key={s.id}
+                    key={item.key}
                     px={4}
                     py={2.5}
                     gap={3}
                     cursor="pointer"
                     bg={i === activeIdx ? "violet.50" : "white"}
                     _hover={{ bg: "violet.50" }}
-                    onClick={() => onSelect(s.id)}
+                    onClick={() => onNavigate(item.href)}
                     onMouseEnter={() => setActiveIdx(i)}
                   >
-                    <Avatar size="sm" name={s.name} src={s.image || undefined} />
+                    {item.kind === "scholar" ? (
+                      <Avatar size="sm" name={item.scholar.name} src={item.scholar.image || undefined} />
+                    ) : (
+                      <Flex w="32px" h="32px" align="center" justify="center" flexShrink={0} fontSize="lg">
+                        {item.emoji}
+                      </Flex>
+                    )}
                     <VStack gap={0} align="start" flex={1} minW={0}>
-                      <Text
-                        fontFamily="heading"
-                        fontSize="sm"
-                        fontWeight={i === activeIdx ? "600" : "400"}
-                        color="navy.500"
-                      >
-                        {s.name}
+                      <Text fontFamily="heading" fontSize="sm" fontWeight={i === activeIdx ? "600" : "400"} color="navy.500">
+                        {item.label}
                       </Text>
-                      {s.lastProjectTitle && (
+                      {item.sublabel && (
                         <Text fontFamily="heading" fontSize="xs" color="charcoal.400" overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
-                          {s.lastProjectTitle}
+                          {item.sublabel}
                         </Text>
                       )}
                     </VStack>
-                    <StatusOrb pulseScore={s.pulseScore} lastMessageAt={s.lastMessageAt} size="sm" />
+                    {item.kind === "scholar" ? (
+                      <StatusOrb pulseScore={item.scholar.pulseScore} lastMessageAt={item.scholar.lastMessageAt} size="sm" />
+                    ) : (
+                      <Badge bg="gray.100" color="charcoal.400" fontFamily="heading" fontSize="2xs" px={1.5} flexShrink={0}>
+                        {item.category}
+                      </Badge>
+                    )}
                   </HStack>
                 ))
               )}
