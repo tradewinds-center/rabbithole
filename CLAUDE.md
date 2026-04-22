@@ -15,7 +15,7 @@ The product name is **Rabbithole** — use it in all user-facing copy. The repo 
 - [x] **Scholar Home View** - Each scholar gets a home view with a list of their projects to click into. Left panel sidebar still exists for quick switching, but the home view is the primary navigation.
 - [ ] **Google Classroom Integration** - Sync rosters, assignments, grades
 - [x] **Categorize by Assignment** - Link projects to specific units
-- [ ] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
+- [x] **Kupuna/Parent Mode** - Read-only view for grandparents and parents to see scholar progress
 - [x] **Reading Level** - Teacher-settable reading level per scholar
 - [x] **Reading Level Auto-Increase** - Observer infers reading level from scholar messages, suggests to teacher
 - [ ] **Best Quote of the Day -> FB** - Surface and post exceptional scholar insights to Facebook
@@ -32,14 +32,12 @@ The product name is **Rabbithole** — use it in all user-facing copy. The repo 
 - [x] **Upload Image** - Scholars can upload images into chat (Convex file storage + Claude vision)
 - [x] **Code Artifacts** - Support code blocks as interactive artifacts (create_code tool + live iframe preview)
 - [x] **Generate Images** - AI image generation via Gemini 3 Pro (generate_image tool, inline in chat). **TODO:** "Generating image..." loading indicator may not be working — needs verification and debugging.
-- [ ] **Volume Control** - Monitor microphone input levels during voice dictation. Show a big "TOO LOUD!" warning overlay when decibels exceed modest speaking volume. Uses Web Audio API AnalyserNode alongside existing MediaRecorder.
+- [x] **Volume Control** - Monitor microphone input levels during voice dictation. Show a big "TOO LOUD!" warning overlay when decibels exceed modest speaking volume. Uses Web Audio API AnalyserNode alongside existing MediaRecorder.
   - **Test:** Hold Tab to record voice. Speak normally — no warning. Yell or hold mic close — red warning overlay appears. Warning disappears when volume drops.
-- [ ] **Self-Serve Guest Mode** - Visitors can enter their own name at `/guest` (no token needed) and get a unique bookmarkable link they can save and return to. Creates a scholar account automatically.
-  - **Test:** Visit `/guest` with no token param. Enter a name, click "Start Learning". Should create account and redirect to `/scholar`. Copy the link shown and visit it in incognito — should auto-sign-in as that guest.
 - [ ] **Time Limit Mode** - Parent sets a session time limit with a hardcoded parent password. Inserts a whisper to Claude to wrap things up with 1 minute to spare. Input is disabled when time expires.
   - **Test:** Click clock icon near input area. Enter parent password (set via PARENT_PASSWORD env var in Convex) and time limit (e.g., 2 minutes). Timer countdown appears. At 1 min remaining, check that a whisper is queued. When timer hits 0, input should be disabled with "Time's up!" message.
 - [x] **Password Reset & Change** - Teachers can reset a scholar's password (generates 4-digit temp PIN). Scholars forced to set new password on next login. Scholars can also voluntarily change password from Account Details modal.
-- [ ] **Teacher Chat: In-Progress State + Parallel Sessions** - Show when a teacher AI chat is actively streaming (in-progress indicator in the session list). Allow multiple teacher chats to run in parallel rather than serializing them.
+- [x] **Teacher Chat: In-Progress State + Parallel Sessions** - Show when a teacher AI chat is actively streaming (in-progress indicator in the session list). Allow multiple teacher chats to run in parallel rather than serializing them.
 - [ ] **[P3] Next.js 15 Upgrade** - Upgrade from Next 14 to 15 to get ESLint 9 support and eliminate deprecated subdependencies (eslint 8, @humanwhocodes/*, glob@7, inflight, rimraf). Major version bump — involves React 19, new caching defaults, flat ESLint config migration.
 
 ---
