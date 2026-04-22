@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Box,
   Flex,
@@ -22,6 +23,24 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAgentStream } from "@/hooks/useAgentStream";
 import { ToolActivityIndicator } from "./ToolActivityIndicator";
+
+const markdownComponents = {
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    const isInternal = href?.startsWith("/");
+    if (isInternal) {
+      return (
+        <Link href={href!} style={{ color: "var(--chakra-colors-violet-600)", fontWeight: 600, textDecoration: "underline" }}>
+          {children}
+        </Link>
+      );
+    }
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--chakra-colors-violet-600)", textDecoration: "underline" }}>
+        {children}
+      </a>
+    );
+  },
+};
 
 export default function CurriculumAssistant() {
   const router = useRouter();
@@ -313,7 +332,7 @@ export default function CurriculumAssistant() {
                     }}
                   >
                     <Text fontFamily="body" fontSize="sm" as="div">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                         {content}
                       </ReactMarkdown>
                     </Text>

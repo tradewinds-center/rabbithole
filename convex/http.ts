@@ -786,7 +786,12 @@ When designing units, include: title, description, system prompt (instructions f
 
 Tradewinds philosophy: Socratic inquiry, multiple perspectives (makawalu), depth over breadth, follow the child's curiosity.
 
-Be concise and practical. Speak as a colleague.`;
+Be concise and practical. Speak as a colleague.
+
+## Scholar links
+You can link directly to a scholar's profile using standard markdown link syntax:
+[Scholar Name](/teacher?tab=scholars&scholar=SCHOLAR_ID)
+Use the list_scholars or find_scholar tool to get the correct ID before linking. Always use the scholar's real display name as the link text.`;
 
 http.route({
   path: "/curriculum-stream",
