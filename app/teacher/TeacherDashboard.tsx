@@ -2326,24 +2326,24 @@ function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
       borderColor="gray.200"
       bg="white"
       align="center"
-      gap={1}
+      gap={2}
       flexShrink={0}
     >
+      {/* Breadcrumb */}
       <Button
         variant="ghost"
         size="sm"
         fontFamily="heading"
-        fontSize="xs"
+        fontSize="sm"
         color="charcoal.400"
-        _hover={{ color: "navy.500", bg: "gray.100" }}
+        _hover={{ color: "navy.500", bg: "transparent" }}
         onClick={onBack}
-        px={2}
+        px={1}
       >
-        <FiChevronLeft style={{ marginRight: "2px" }} size={14} />
         Scholars
       </Button>
 
-      <Text color="charcoal.300" fontSize="sm" px={1}>›</Text>
+      <Text color="charcoal.300" fontSize="sm">›</Text>
 
       <Menu.Root>
         <Menu.Trigger asChild>
@@ -2386,28 +2386,34 @@ function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
 
       <Box flex={1} />
 
-      <IconButton
-        aria-label="Previous scholar"
-        size="sm"
-        variant="ghost"
-        color="charcoal.400"
-        _hover={{ color: "navy.500", bg: "gray.100" }}
-        disabled={!prev}
-        onClick={() => prev && onSelect(prev.id)}
-      >
-        <FiChevronLeft size={16} />
-      </IconButton>
-      <IconButton
-        aria-label="Next scholar"
-        size="sm"
-        variant="ghost"
-        color="charcoal.400"
-        _hover={{ color: "navy.500", bg: "gray.100" }}
-        disabled={!next}
-        onClick={() => next && onSelect(next.id)}
-      >
-        <FiChevronRight size={16} />
-      </IconButton>
+      {/* Counter + prev/next */}
+      <HStack gap={1} align="center">
+        <IconButton
+          aria-label="Previous scholar"
+          size="xs"
+          variant="ghost"
+          color="charcoal.400"
+          _hover={{ color: "navy.500", bg: "gray.100" }}
+          disabled={!prev}
+          onClick={() => prev && onSelect(prev.id)}
+        >
+          <FiChevronLeft size={14} />
+        </IconButton>
+        <Text fontFamily="heading" fontSize="xs" color="charcoal.400" px={1} userSelect="none">
+          {currentIdx + 1} of {scholars.length}
+        </Text>
+        <IconButton
+          aria-label="Next scholar"
+          size="xs"
+          variant="ghost"
+          color="charcoal.400"
+          _hover={{ color: "navy.500", bg: "gray.100" }}
+          disabled={!next}
+          onClick={() => next && onSelect(next.id)}
+        >
+          <FiChevronRight size={14} />
+        </IconButton>
+      </HStack>
     </Flex>
   );
 }
