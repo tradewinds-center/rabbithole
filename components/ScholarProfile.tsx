@@ -997,7 +997,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                               <Menu.Content minW="170px">
                                 {fkResult && fkResult !== "no-data" && (
                                   <Menu.Item value="apply" cursor="pointer"
-                                    onClick={async () => { await handleReadingLevelChange(fkResult.level); setFkResult(null); }}>
+                                    onClick={() => handleReadingLevelChange(fkResult.level)}>
                                     Set output reading level
                                   </Menu.Item>
                                 )}
