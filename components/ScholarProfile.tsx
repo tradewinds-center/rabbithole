@@ -149,14 +149,12 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [progressSection, setProgressSection] = useState<ProgressSection>("mastery");
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
-  type AnalysisMethod = "fk" | "ai";
-  const [analysisMethod, setAnalysisMethod] = useState<AnalysisMethod>("fk");
   const [analyzeTriggered, setAnalyzeTriggered] = useState(false);
   const [fkResult, setFkResult] = useState<FKResult | null | "no-data">(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const messages30d = useQuery(
     api.messages.getScholarUserMessages30d,
-    analyzeTriggered && analysisMethod === "fk" && !isParentMode
+    analyzeTriggered && !isParentMode
       ? { scholarId: scholarId as Id<"users"> }
       : "skip"
   );
@@ -184,32 +182,29 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   };
 
   useEffect(() => {
-    if (analysisMethod === "fk" && analyzeTriggered && messages30d !== undefined) {
-      const r = fleschKincaid(messages30d);
-      setFkResult(r ?? "no-data");
+    if (analyzeTriggered && messages30d !== undefined) {
+      setFkResult(fleschKincaid(messages30d) ?? "no-data");
       setAnalyzeTriggered(false);
-      setIsAnalyzing(false);
     }
-  }, [messages30d, analyzeTriggered, analysisMethod]);
+  }, [messages30d, analyzeTriggered]);
 
   useEffect(() => {
     setFkResult(null);
     setAnalyzeTriggered(false);
-    setIsAnalyzing(false);
+    setAiLoading(false);
   }, [scholarId]);
 
-  const handleAnalyze = async () => {
+  const handleFKAnalyze = () => {
     setFkResult(null);
-    setIsAnalyzing(true);
-    if (analysisMethod === "fk") {
-      setAnalyzeTriggered(true);
-    } else {
-      try {
-        await runAIAnalysis({ scholarId: scholarId as Id<"users"> });
-        // result written to readingLevelSuggestion, which surfaces via profile query
-      } finally {
-        setIsAnalyzing(false);
-      }
+    setAnalyzeTriggered(true);
+  };
+
+  const handleAIRerun = async () => {
+    setAiLoading(true);
+    try {
+      await runAIAnalysis({ scholarId: scholarId as Id<"users"> });
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -903,119 +898,103 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                   Adjusts vocabulary and complexity in conversations
                 </Text>
 
-                {/* AI suggestion badge (set by observer or manual AI analysis) */}
-                {scholar?.readingLevelSuggestion && !isParentMode && (
-                  <Box mt={3} p={2} bg="violet.50" borderRadius="md">
-                    <Text fontSize="xs" color="violet.700" fontFamily="body" mb={2}>
-                      AI suggested:{" "}
-                      <strong>
-                        {scholar.readingLevelSuggestion === "K"
-                          ? "Kindergarten"
-                          : scholar.readingLevelSuggestion === "college"
-                          ? "College"
-                          : `Grade ${scholar.readingLevelSuggestion}`}
-                      </strong>
-                    </Text>
-                    <HStack gap={2}>
-                      <Button
-                        size="2xs"
-                        colorScheme="violet"
-                        fontFamily="heading"
-                        onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        size="2xs"
-                        variant="ghost"
-                        fontFamily="heading"
-                        onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}
-                      >
-                        Dismiss
-                      </Button>
-                    </HStack>
-                  </Box>
-                )}
-
-                {/* Manual analyze section */}
+                {/* Analysis table */}
                 {!isParentMode && (
                   <Box mt={3} pt={3} borderTop="1px solid" borderColor="gray.100">
-                    <HStack mb={2} gap={1}>
-                      {(["fk", "ai"] as const).map((m) => (
-                        <Button
-                          key={m}
-                          size="2xs"
-                          variant={analysisMethod === m ? "solid" : "outline"}
-                          colorScheme={analysisMethod === m ? "violet" : "gray"}
-                          fontFamily="heading"
-                          onClick={() => { setAnalysisMethod(m); setFkResult(null); }}
-                        >
-                          {m === "fk" ? "Flesch-Kincaid" : "AI"}
-                        </Button>
+                    {/* Column headers */}
+                    <Box
+                      display="grid"
+                      gridTemplateColumns="110px 80px 1fr"
+                      gap={2}
+                      pb={1}
+                      mb={1}
+                      borderBottom="1px solid"
+                      borderColor="gray.100"
+                    >
+                      {["Method", "Grade", ""].map((h) => (
+                        <Text key={h} fontSize="2xs" color="charcoal.300" fontFamily="heading" fontWeight="600" textTransform="uppercase" letterSpacing="wider">
+                          {h}
+                        </Text>
                       ))}
-                    </HStack>
+                    </Box>
 
-                    {/* Loading */}
-                    {(isAnalyzing || (analyzeTriggered && messages30d === undefined)) && (
-                      <HStack gap={2}>
-                        <Spinner size="xs" color="violet.500" />
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="body">Analyzing…</Text>
-                      </HStack>
-                    )}
-
-                    {/* FK result */}
-                    {!isAnalyzing && fkResult && fkResult !== "no-data" && (
-                      <VStack align="start" gap={1} mt={1}>
-                        <Text fontSize="sm" fontFamily="heading" fontWeight="600" color="navy.500">
-                          Grade {fkResult.gradeLevel}
-                        </Text>
-                        <Text fontSize="2xs" color="charcoal.400" fontFamily="body">
-                          {fkResult.wordCount.toLocaleString()} words · last 30 days
-                        </Text>
-                        <HStack gap={2}>
-                          <Button
-                            size="2xs"
-                            colorScheme="violet"
-                            fontFamily="heading"
-                            onClick={async () => {
-                              await handleReadingLevelChange(fkResult.level);
-                              setFkResult(null);
-                            }}
-                          >
-                            Apply
+                    {/* Observer AI row */}
+                    <Box display="grid" gridTemplateColumns="110px 80px 1fr" gap={2} alignItems="center" py={1.5}>
+                      <Text fontSize="xs" fontFamily="heading" color="charcoal.500">Observer AI</Text>
+                      <Text
+                        fontSize="xs"
+                        fontFamily="heading"
+                        fontWeight={scholar?.readingLevelSuggestion ? "600" : "400"}
+                        color={scholar?.readingLevelSuggestion ? "navy.500" : "charcoal.300"}
+                      >
+                        {scholar?.readingLevelSuggestion
+                          ? scholar.readingLevelSuggestion === "K"
+                            ? "K"
+                            : scholar.readingLevelSuggestion === "college"
+                            ? "College"
+                            : `Grade ${scholar.readingLevelSuggestion}`
+                          : "—"}
+                      </Text>
+                      <HStack gap={1} flexWrap="wrap">
+                        {aiLoading ? (
+                          <Spinner size="xs" color="violet.500" />
+                        ) : scholar?.readingLevelSuggestion ? (
+                          <>
+                            <Button size="2xs" colorScheme="violet" fontFamily="heading"
+                              onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                              Accept
+                            </Button>
+                            <Button size="2xs" variant="ghost" fontFamily="heading"
+                              onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                              Dismiss
+                            </Button>
+                          </>
+                        ) : (
+                          <Button size="2xs" variant="ghost" fontFamily="heading" color="charcoal.400"
+                            onClick={handleAIRerun}>
+                            Analyze
                           </Button>
-                          <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
-                            Dismiss
-                          </Button>
-                        </HStack>
-                      </VStack>
-                    )}
-
-                    {/* Not enough data */}
-                    {!isAnalyzing && fkResult === "no-data" && (
-                      <VStack align="start" gap={1}>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="body">
-                          Not enough data (need 10+ words in the last 30 days)
-                        </Text>
-                        <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
-                          Dismiss
-                        </Button>
-                      </VStack>
-                    )}
-
-                    {/* Analyze button */}
-                    {!isAnalyzing && !analyzeTriggered && fkResult === null && (
-                      <VStack align="start" gap={1}>
-                        <Button size="xs" variant="outline" fontFamily="heading" onClick={handleAnalyze}>
-                          Analyze Writing
-                        </Button>
-                        {analysisMethod === "ai" && (
-                          <Text fontSize="2xs" color="charcoal.400" fontFamily="body">
-                            Result appears above as a suggestion
-                          </Text>
                         )}
-                      </VStack>
-                    )}
+                      </HStack>
+                    </Box>
+
+                    {/* Flesch-Kincaid row */}
+                    <Box display="grid" gridTemplateColumns="110px 80px 1fr" gap={2} alignItems="center" py={1.5} borderTop="1px solid" borderColor="gray.50">
+                      <Text fontSize="xs" fontFamily="heading" color="charcoal.500">Flesch-Kincaid</Text>
+                      <Text
+                        fontSize="xs"
+                        fontFamily="heading"
+                        fontWeight={fkResult && fkResult !== "no-data" ? "600" : "400"}
+                        color={fkResult && fkResult !== "no-data" ? "navy.500" : fkResult === "no-data" ? "charcoal.300" : "charcoal.300"}
+                        title={fkResult && fkResult !== "no-data" ? `${fkResult.wordCount.toLocaleString()} words` : undefined}
+                      >
+                        {fkResult && fkResult !== "no-data"
+                          ? `Grade ${fkResult.gradeLevel}`
+                          : fkResult === "no-data"
+                          ? "n/a"
+                          : "—"}
+                      </Text>
+                      <HStack gap={1} flexWrap="wrap">
+                        {analyzeTriggered && messages30d === undefined ? (
+                          <Spinner size="xs" color="violet.500" />
+                        ) : fkResult && fkResult !== "no-data" ? (
+                          <>
+                            <Button size="2xs" colorScheme="violet" fontFamily="heading"
+                              onClick={async () => { await handleReadingLevelChange(fkResult.level); setFkResult(null); }}>
+                              Apply
+                            </Button>
+                            <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
+                              Clear
+                            </Button>
+                          </>
+                        ) : (
+                          <Button size="2xs" variant="ghost" fontFamily="heading" color="charcoal.400"
+                            onClick={handleFKAnalyze}>
+                            {fkResult === "no-data" ? "Retry" : "Analyze"}
+                          </Button>
+                        )}
+                      </HStack>
+                    </Box>
                   </Box>
                 )}
               </Box>
