@@ -23,6 +23,7 @@ import {
   Portal,
   Switch,
   Separator,
+  Menu,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -42,6 +43,7 @@ import {
   FiVolume2,
   FiKey,
   FiFlag,
+  FiMoreHorizontal,
 } from "react-icons/fi";
 import { ParentAccessDialog } from "@/components/ParentAccessDialog";
 import { Notebook, Plant, ShootingStar } from "@phosphor-icons/react";
@@ -902,16 +904,8 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 {!isParentMode && (
                   <Box mt={3} pt={3} borderTop="1px solid" borderColor="gray.100">
                     {/* Column headers */}
-                    <Box
-                      display="grid"
-                      gridTemplateColumns="110px 80px 1fr"
-                      gap={2}
-                      pb={1}
-                      mb={1}
-                      borderBottom="1px solid"
-                      borderColor="gray.100"
-                    >
-                      {["Method", "Grade", ""].map((h) => (
+                    <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} pb={1} mb={1} borderBottom="1px solid" borderColor="gray.100">
+                      {["Method", "Grade"].map((h) => (
                         <Text key={h} fontSize="2xs" color="charcoal.300" fontFamily="heading" fontWeight="600" textTransform="uppercase" letterSpacing="wider">
                           {h}
                         </Text>
@@ -919,79 +913,101 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                     </Box>
 
                     {/* Observer AI row */}
-                    <Box display="grid" gridTemplateColumns="110px 80px 1fr" gap={2} alignItems="center" py={1.5}>
+                    <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} alignItems="center" py={1.5}>
                       <Text fontSize="xs" fontFamily="heading" color="charcoal.500">Observer AI</Text>
-                      <Text
-                        fontSize="xs"
-                        fontFamily="heading"
-                        fontWeight={scholar?.readingLevelSuggestion ? "600" : "400"}
-                        color={scholar?.readingLevelSuggestion ? "navy.500" : "charcoal.300"}
-                      >
-                        {scholar?.readingLevelSuggestion
-                          ? scholar.readingLevelSuggestion === "K"
-                            ? "K"
-                            : scholar.readingLevelSuggestion === "college"
-                            ? "College"
-                            : `Grade ${scholar.readingLevelSuggestion}`
-                          : "—"}
-                      </Text>
-                      <HStack gap={1} flexWrap="wrap">
+                      <HStack gap={1}>
                         {aiLoading ? (
                           <Spinner size="xs" color="violet.500" />
-                        ) : scholar?.readingLevelSuggestion ? (
-                          <>
-                            <Button size="2xs" colorScheme="violet" fontFamily="heading"
-                              onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
-                              Accept
-                            </Button>
-                            <Button size="2xs" variant="ghost" fontFamily="heading"
-                              onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
-                              Dismiss
-                            </Button>
-                          </>
                         ) : (
-                          <Button size="2xs" variant="ghost" fontFamily="heading" color="charcoal.400"
-                            onClick={handleAIRerun}>
-                            Analyze
-                          </Button>
+                          <>
+                            <Text
+                              fontSize="xs"
+                              fontFamily="heading"
+                              fontWeight={scholar?.readingLevelSuggestion ? "600" : "400"}
+                              color={scholar?.readingLevelSuggestion ? "navy.500" : "charcoal.300"}
+                            >
+                              {scholar?.readingLevelSuggestion
+                                ? scholar.readingLevelSuggestion === "K" ? "K"
+                                  : scholar.readingLevelSuggestion === "college" ? "College"
+                                  : `Grade ${scholar.readingLevelSuggestion}`
+                                : "—"}
+                            </Text>
+                            <Menu.Root positioning={{ placement: "bottom-end" }}>
+                              <Menu.Trigger asChild>
+                                <IconButton aria-label="AI actions" variant="ghost" size="2xs" color="charcoal.300" _hover={{ color: "charcoal.500" }}>
+                                  <FiMoreHorizontal />
+                                </IconButton>
+                              </Menu.Trigger>
+                              <Menu.Positioner>
+                                <Menu.Content minW="140px">
+                                  {scholar?.readingLevelSuggestion && (
+                                    <>
+                                      <Menu.Item value="accept" cursor="pointer"
+                                        onClick={() => acceptReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                                        Accept suggestion
+                                      </Menu.Item>
+                                      <Menu.Item value="dismiss" cursor="pointer"
+                                        onClick={() => dismissReadingLevelSuggestion({ scholarId: scholarId as Id<"users"> })}>
+                                        Dismiss
+                                      </Menu.Item>
+                                    </>
+                                  )}
+                                  <Menu.Item value="rerun" cursor="pointer" onClick={handleAIRerun}>
+                                    {scholar?.readingLevelSuggestion ? "Re-analyze" : "Analyze"}
+                                  </Menu.Item>
+                                </Menu.Content>
+                              </Menu.Positioner>
+                            </Menu.Root>
+                          </>
                         )}
                       </HStack>
                     </Box>
 
                     {/* Flesch-Kincaid row */}
-                    <Box display="grid" gridTemplateColumns="110px 80px 1fr" gap={2} alignItems="center" py={1.5} borderTop="1px solid" borderColor="gray.50">
+                    <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} alignItems="center" py={1.5} borderTop="1px solid" borderColor="gray.50">
                       <Text fontSize="xs" fontFamily="heading" color="charcoal.500">Flesch-Kincaid</Text>
-                      <Text
-                        fontSize="xs"
-                        fontFamily="heading"
-                        fontWeight={fkResult && fkResult !== "no-data" ? "600" : "400"}
-                        color={fkResult && fkResult !== "no-data" ? "navy.500" : fkResult === "no-data" ? "charcoal.300" : "charcoal.300"}
-                        title={fkResult && fkResult !== "no-data" ? `${fkResult.wordCount.toLocaleString()} words` : undefined}
-                      >
-                        {fkResult && fkResult !== "no-data"
-                          ? `Grade ${fkResult.gradeLevel}`
-                          : fkResult === "no-data"
-                          ? "n/a"
-                          : "—"}
-                      </Text>
-                      <HStack gap={1} flexWrap="wrap">
+                      <HStack gap={1}>
                         {analyzeTriggered && messages30d === undefined ? (
                           <Spinner size="xs" color="violet.500" />
-                        ) : fkResult && fkResult !== "no-data" ? (
-                          <>
-                            <Button size="2xs" colorScheme="violet" fontFamily="heading"
-                              onClick={async () => { await handleReadingLevelChange(fkResult.level); setFkResult(null); }}>
-                              Apply
-                            </Button>
-                            <Button size="2xs" variant="ghost" fontFamily="heading" onClick={() => setFkResult(null)}>
-                              Clear
-                            </Button>
-                          </>
                         ) : (
-                          <Button size="2xs" variant="ghost" fontFamily="heading" color="charcoal.400"
-                            onClick={handleFKAnalyze}>
-                            {fkResult === "no-data" ? "Retry" : "Analyze"}
-                          </Button>
+                          <>
+                            <Text
+                              fontSize="xs"
+                              fontFamily="heading"
+                              fontWeight={fkResult && fkResult !== "no-data" ? "600" : "400"}
+                              color={fkResult && fkResult !== "no-data" ? "navy.500" : "charcoal.300"}
+                              title={fkResult && fkResult !== "no-data" ? `${fkResult.wordCount.toLocaleString()} words · last 30 days` : undefined}
+                            >
+                              {fkResult && fkResult !== "no-data"
+                                ? `Grade ${fkResult.gradeLevel}`
+                                : fkResult === "no-data" ? "n/a" : "—"}
+                            </Text>
+                            <Menu.Root positioning={{ placement: "bottom-end" }}>
+                              <Menu.Trigger asChild>
+                                <IconButton aria-label="FK actions" variant="ghost" size="2xs" color="charcoal.300" _hover={{ color: "charcoal.500" }}>
+                                  <FiMoreHorizontal />
+                                </IconButton>
+                              </Menu.Trigger>
+                              <Menu.Positioner>
+                                <Menu.Content minW="140px">
+                                  {fkResult && fkResult !== "no-data" && (
+                                    <Menu.Item value="apply" cursor="pointer"
+                                      onClick={async () => { await handleReadingLevelChange(fkResult.level); setFkResult(null); }}>
+                                      Apply to level
+                                    </Menu.Item>
+                                  )}
+                                  <Menu.Item value="analyze" cursor="pointer" onClick={handleFKAnalyze}>
+                                    {fkResult === "no-data" ? "Retry" : fkResult ? "Re-analyze" : "Analyze"}
+                                  </Menu.Item>
+                                  {fkResult && (
+                                    <Menu.Item value="clear" cursor="pointer" onClick={() => setFkResult(null)}>
+                                      Clear
+                                    </Menu.Item>
+                                  )}
+                                </Menu.Content>
+                              </Menu.Positioner>
+                            </Menu.Root>
+                          </>
                         )}
                       </HStack>
                     </Box>
