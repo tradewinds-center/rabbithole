@@ -165,7 +165,7 @@ export default function CurriculumAssistant() {
             fontSize="md"
             color="navy.500"
           >
-            Curriculum Assistant
+            Chat
           </Text>
         )}
         <Box flex={1} />
@@ -306,6 +306,10 @@ export default function CurriculumAssistant() {
                         marginBottom: "0.25em",
                       },
                       "& strong": { fontWeight: 600 },
+                      "& table": { borderCollapse: "collapse", width: "100%", marginBottom: "0.5em", fontSize: "0.85em" },
+                      "& th, & td": { border: "1px solid var(--chakra-colors-gray-300)", padding: "0.35em 0.65em", textAlign: "left" },
+                      "& th": { background: "var(--chakra-colors-gray-200)", fontWeight: 600 },
+                      "& tr:nth-child(even)": { background: "var(--chakra-colors-gray-50)" },
                     }}
                   >
                     <Text fontFamily="body" fontSize="sm" as="div">
