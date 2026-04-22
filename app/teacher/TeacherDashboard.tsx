@@ -28,7 +28,6 @@ import {
   AbsoluteCenter,
   Popover,
   Checkbox,
-  Menu,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -51,7 +50,6 @@ import {
   FiUserPlus,
   FiChevronLeft,
   FiChevronRight,
-  FiChevronDown,
 } from "react-icons/fi";
 import dynamic from "next/dynamic";
 
@@ -2345,44 +2343,9 @@ function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
 
       <Text color="charcoal.300" fontSize="sm">›</Text>
 
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            fontFamily="heading"
-            fontSize="sm"
-            fontWeight="600"
-            color="navy.500"
-            _hover={{ bg: "gray.100" }}
-            px={2}
-          >
-            {current?.name ?? "Scholar"}
-            <FiChevronDown style={{ marginLeft: "4px" }} size={13} />
-          </Button>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content minW="200px" shadow="md" borderRadius="lg" border="1px solid" borderColor="gray.200">
-              {scholars.map((s) => (
-                <Menu.Item
-                  key={s.id}
-                  value={s.id}
-                  fontFamily="heading"
-                  fontSize="sm"
-                  css={{
-                    fontWeight: s.id === currentId ? "600" : "400",
-                    color: s.id === currentId ? "var(--chakra-colors-violet-600)" : "var(--chakra-colors-charcoal-500)",
-                  }}
-                  onClick={() => onSelect(s.id)}
-                >
-                  {s.name}
-                </Menu.Item>
-              ))}
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" px={1}>
+        {current?.name ?? "Scholar"}
+      </Text>
 
       <Box flex={1} />
 
