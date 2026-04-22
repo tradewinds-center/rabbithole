@@ -189,7 +189,7 @@ export default function TeacherDashboardInner() {
     const params = new URLSearchParams();
     params.set("tab", "scholars");
     if (selectedScholarId) params.set("scholar", selectedScholarId);
-    if (stab !== "dossier") params.set("stab", stab);
+    if (stab !== "activity") params.set("stab", stab);
     pushUrl(params);
   }, [pushUrl, selectedScholarId]);
 
