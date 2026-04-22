@@ -150,6 +150,13 @@ function CurriculumAssistantInner() {
     }
   }, [renamingId]);
 
+  // Auto-focus textarea when switching to a session
+  useEffect(() => {
+    if (sessionId) {
+      textareaRef.current?.focus();
+    }
+  }, [sessionId]);
+
   const handleNewChat = useCallback(async () => {
     const newSessionId = await createSession({});
     router.push(`/teacher?tab=assistant&session=${String(newSessionId)}`, { scroll: false });
@@ -534,7 +541,10 @@ function SessionRow({
         ) : (
           <>
             <Flex align="center" gap={1.5} minW={0}>
-              {isStreaming && <StreamingDot />}
+              {/* Fixed-width gutter keeps titles left-aligned whether or not the dot is visible */}
+              <Box w="9px" flexShrink={0} display="flex" alignItems="center" justifyContent="center">
+                {isStreaming && <StreamingDot />}
+              </Box>
               <Text
                 fontFamily="heading"
                 fontSize="xs"
