@@ -540,26 +540,26 @@ function SessionRow({
           />
         ) : (
           <>
-            <Flex align="center" gap={1.5} minW={0}>
-              {/* Fixed-width gutter keeps titles left-aligned whether or not the dot is visible */}
-              <Box w="9px" flexShrink={0} display="flex" alignItems="center" justifyContent="center">
+            <Flex align="flex-start" gap={1.5} minW={0}>
+              {/* Fixed-width gutter — title and timestamp both sit in the column to the right */}
+              <Box w="9px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" pt="2px">
                 {isStreaming && <StreamingDot />}
               </Box>
-              <Text
-                fontFamily="heading"
-                fontSize="xs"
-                color={isActive ? "violet.700" : "charcoal.500"}
-                lineClamp={1}
-                title={session.title}
-                flex={1}
-                minW={0}
-              >
-                {session.title}
-              </Text>
+              <Box flex={1} minW={0}>
+                <Text
+                  fontFamily="heading"
+                  fontSize="xs"
+                  color={isActive ? "violet.700" : "charcoal.500"}
+                  lineClamp={1}
+                  title={session.title}
+                >
+                  {session.title}
+                </Text>
+                <Text fontFamily="body" fontSize="2xs" color="charcoal.300">
+                  {formatRelativeTime(session.lastMessageAt)}
+                </Text>
+              </Box>
             </Flex>
-            <Text fontFamily="body" fontSize="2xs" color="charcoal.300">
-              {formatRelativeTime(session.lastMessageAt)}
-            </Text>
           </>
         )}
       </Box>
