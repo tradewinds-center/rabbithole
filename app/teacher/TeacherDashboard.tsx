@@ -149,7 +149,7 @@ export default function TeacherDashboardInner() {
     ? ["curriculum", "assistant"]
     : ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
-  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "directives", "standards", "strengths", "documents", "notes", "dossier", "reading", "chats"];
+  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["overview", "progress", "guidance", "records", "profile", "ai-chat"];
   const rawTab = searchParams.get("tab");
   const rawSub = searchParams.get("sub");
   const rawScholar = searchParams.get("scholar");
@@ -159,7 +159,7 @@ export default function TeacherDashboardInner() {
   const activeTab: Tab = VALID_TABS.includes(rawTab as Tab) ? (rawTab as Tab) : defaultTab;
   const curriculumSubTab: CurriculumSubTab = VALID_SUB_TABS.includes(rawSub as CurriculumSubTab) ? (rawSub as CurriculumSubTab) : "units";
   const selectedScholarId: string | null = activeTab === "scholars" && rawScholar ? rawScholar : null;
-  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "activity";
+  const scholarSubTab: ScholarTabKey = VALID_SCHOLAR_TABS.includes(rawStab as ScholarTabKey) ? (rawStab as ScholarTabKey) : "overview";
   const selectedUnitId: string | null = activeTab === "live" ? rawUnit : null;
 
   const pushUrl = useCallback((params: URLSearchParams) => {
@@ -192,7 +192,7 @@ export default function TeacherDashboardInner() {
     const params = new URLSearchParams();
     params.set("tab", "scholars");
     if (selectedScholarId) params.set("scholar", selectedScholarId);
-    if (stab !== "activity") params.set("stab", stab);
+    if (stab !== "overview") params.set("stab", stab);
     pushUrl(params);
   }, [pushUrl, selectedScholarId]);
 

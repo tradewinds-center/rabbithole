@@ -22,6 +22,7 @@ import {
   Dialog,
   Portal,
   Switch,
+  Separator,
 } from "@chakra-ui/react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -32,12 +33,12 @@ import {
   FiUser,
   FiFolder,
   FiEdit3,
-  FiCpu,
   FiClipboard,
   FiShare2,
   FiClock,
   FiMessageSquare,
-  FiActivity,
+  FiHome,
+  FiTrendingUp,
   FiVolume2,
   FiKey,
   FiFlag,
@@ -52,8 +53,9 @@ import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
-export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "directives" | "strengths" | "documents" | "notes" | "reading" | "chats";
+export type ScholarTabKey = "overview" | "progress" | "guidance" | "records" | "profile" | "ai-chat";
 type TabKey = ScholarTabKey;
+type ProgressSection = "mastery" | "standards" | "strengths" | "connections";
 
 interface ScholarProfileProps {
   scholarId: string;
@@ -82,19 +84,17 @@ const READING_LEVELS = [
   { value: "college", label: "College" },
 ];
 
-const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
-  { key: "activity", label: "Activity", icon: FiActivity },
-  { key: "mastery", label: "Mastery", icon: FiCpu },
-  { key: "seeds", label: "Seeds", icon: Plant },
-  { key: "directives", label: "Directives", icon: FiFlag },
-  { key: "standards", label: "Standards", icon: FiClipboard },
-  { key: "strengths", label: "Strengths", icon: ShootingStar },
-  { key: "documents", label: "Documents", icon: FiFolder },
-  { key: "notes", label: "Notes", icon: FiFileText },
-  { key: "dossier", label: "Dossier", icon: FiUser },
-  { key: "reading", label: "Reading & Audio", icon: FiBookOpen },
-  { key: "chats", label: "Chats", icon: FiMessageSquare },
+const ALL_TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> }[] = [
+  { key: "overview", label: "Overview", icon: FiHome },
+  { key: "progress", label: "Progress", icon: FiTrendingUp },
+  { key: "guidance", label: "Guidance", icon: Plant },
+  { key: "records", label: "Records", icon: FiFileText },
+  { key: "profile", label: "Profile", icon: FiUser },
+  { key: "ai-chat", label: "AI Chat", icon: FiMessageSquare },
 ];
+
+// Tabs visible to parents (ai-chat is teacher-only)
+const PARENT_TABS: TabKey[] = ["overview", "progress", "guidance", "records", "profile"];
 
 function timeAgo(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -120,7 +120,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const resetPassword = useMutation(api.users.resetScholarPassword);
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
-  // masteryByDomain moved to MasteryTab component
   const dossierContent = useQuery(api.dossier.getForTeacher, { scholarId: scholarId as Id<"users"> });
   const artifacts = useQuery(api.artifacts.getByScholar, { scholarId: scholarId as Id<"users"> });
   const scholarProjects = useQuery(api.projects.list, { userId: scholarId as Id<"users"> });
@@ -140,9 +139,10 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
 
   const isLoading = profile === undefined;
 
-  const [internalTab, setInternalTab] = useState<TabKey>("activity");
+  const [internalTab, setInternalTab] = useState<TabKey>("overview");
   const activeTab = controlledTab ?? internalTab;
   const setActiveTab = onTabChange ?? setInternalTab;
+  const [progressSection, setProgressSection] = useState<ProgressSection>("mastery");
   const [dossierDraft, setDossierDraft] = useState<string | null>(null);
   const [isSavingReadingLevel, setIsSavingReadingLevel] = useState(false);
   const [newObservation, setNewObservation] = useState({ type: "praise" as "praise" | "concern" | "suggestion" | "intervention", note: "" });
@@ -154,7 +154,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
-  // Update reading level
   const handleReadingLevelChange = async (newLevel: string) => {
     setIsSavingReadingLevel(true);
     try {
@@ -169,7 +168,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
     }
   };
 
-  // Add an observation
   const handleAddObservation = async () => {
     if (!newObservation.note.trim()) return;
     setIsAddingObservation(true);
@@ -187,7 +185,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
     }
   };
 
-  // Delete an observation
   const handleDeleteObservation = async (observationId: string) => {
     try {
       await removeObservation({ observationId: observationId as Id<"observations"> });
@@ -196,7 +193,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
     }
   };
 
-  // Add a report
   const handleAddReport = async () => {
     if (!newReport.title.trim() || !newReport.content.trim()) return;
     setIsAddingReport(true);
@@ -214,7 +210,6 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
     }
   };
 
-  // Delete a report
   const handleDeleteReport = async (reportId: string) => {
     try {
       await removeReport({ reportId: reportId as Id<"reports"> });
@@ -238,108 +233,12 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
     );
   }
 
+  const visibleTabs = isParentMode
+    ? ALL_TABS.filter((t) => PARENT_TABS.includes(t.key))
+    : ALL_TABS;
+
   return (
     <Box w="full" bg="gray.50" h="full" display="flex" flexDir="column">
-      {/* Compact header bar */}
-      <Flex
-        px={5}
-        py={4}
-        align="center"
-        gap={6}
-        flexWrap="wrap"
-      >
-        <HStack gap={3} minW="200px">
-          <Avatar
-            size="md"
-            name={scholar?.name || "Scholar"}
-            src={scholar?.image || undefined}
-          />
-          <VStack gap={0} align="start">
-            <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="lg">
-              {scholar?.name}
-            </Text>
-            {scholar?.username && (
-              <Text color="charcoal.300" fontSize="xs" fontFamily="heading">
-                @{scholar.username}
-              </Text>
-            )}
-          </VStack>
-        </HStack>
-
-        <HStack ml="auto" gap={1}>
-          {isParentMode ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              color="violet.500"
-              fontFamily="heading"
-              fontSize="xs"
-              _hover={{ bg: "violet.50" }}
-              onClick={() => setShowParentAccess(true)}
-            >
-              <FiShare2 style={{ marginRight: "4px" }} />
-              MCP Access
-            </Button>
-          ) : (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                color="violet.500"
-                fontFamily="heading"
-                fontSize="xs"
-                _hover={{ bg: "violet.50" }}
-                onClick={async () => {
-                  const sessionId = await createChatSession({ scholarId: scholarId as Id<"users"> });
-                  router.push(`/teacher?tab=assistant&session=${String(sessionId)}`);
-                }}
-              >
-                <FiMessageSquare style={{ marginRight: "4px" }} />
-                Chat with AI
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                color="violet.500"
-                fontFamily="heading"
-                fontSize="xs"
-                _hover={{ bg: "violet.50" }}
-                onClick={() => setShowResetPassword(true)}
-              >
-                <FiKey style={{ marginRight: "4px" }} />
-                Reset Password
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                color="violet.500"
-                fontFamily="heading"
-                fontSize="xs"
-                _hover={{ bg: "violet.50" }}
-                onClick={() => setShowParentAccess(true)}
-              >
-                <FiShare2 style={{ marginRight: "4px" }} />
-                Parent Access
-              </Button>
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  color="red.500"
-                  fontFamily="heading"
-                  fontSize="xs"
-                  _hover={{ bg: "red.50" }}
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <FiTrash2 style={{ marginRight: "4px" }} />
-                  Delete
-                </Button>
-              )}
-            </>
-          )}
-        </HStack>
-
-      </Flex>
 
       {/* Tab bar */}
       <Tabs.Root
@@ -350,7 +249,7 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         size="lg"
       >
         <Tabs.List px={5} gap={0}>
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const TabIcon = tab.icon;
             return (
               <Tabs.Trigger
@@ -372,554 +271,756 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
 
       {/* Tab content */}
       <Box flex={1} overflow="auto" p={4}>
-        {activeTab === "activity" && (
-          <VStack gap={4} align="stretch" maxW="800px">
-            {/* Projects */}
-            <Box>
-              <HStack mb={2} justify="space-between">
-                <HStack>
-                  <FiFolder color="#AD60BF" />
+
+        {/* ── Overview ── */}
+        {activeTab === "overview" && (
+          <Box display="grid" gridTemplateColumns={{ base: "1fr", lg: "280px 1fr" }} gap={4} alignItems="start">
+
+            {/* Left: Scholar identity card */}
+            <Box bg="white" borderRadius="xl" p={5} shadow="xs">
+              <VStack gap={3} align="center" mb={4}>
+                <Avatar
+                  size="xl"
+                  name={scholar?.name || "Scholar"}
+                  src={scholar?.image || undefined}
+                />
+                <VStack gap={0} align="center">
+                  <Text fontWeight="700" fontFamily="heading" color="navy.500" fontSize="xl" textAlign="center">
+                    {scholar?.name}
+                  </Text>
+                  {scholar?.username && (
+                    <Text color="charcoal.300" fontSize="xs" fontFamily="heading">
+                      @{scholar.username}
+                    </Text>
+                  )}
+                </VStack>
+              </VStack>
+
+              <VStack gap={3} align="stretch" divideY="1px">
+                {/* Stats + reading level */}
+                <VStack gap={2} align="stretch" pb={3}>
+                  {scholar?.readingLevel && (
+                    <HStack justify="space-between">
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="heading">Reading Level</Text>
+                      <Badge bg="violet.100" color="violet.700" fontSize="xs" fontFamily="heading">
+                        {scholar.readingLevel === "college" ? "College" : `Grade ${scholar.readingLevel}`}
+                      </Badge>
+                    </HStack>
+                  )}
+                  <HStack justify="space-between">
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading">Projects</Text>
+                    <Text fontSize="xs" color="charcoal.600" fontFamily="heading" fontWeight="600">{stats.projectCount}</Text>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading">Messages</Text>
+                    <Text fontSize="xs" color="charcoal.600" fontFamily="heading" fontWeight="600">{stats.messageCount}</Text>
+                  </HStack>
+                  {!isParentMode && stats.observationCount > 0 && (
+                    <HStack justify="space-between">
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="heading">Observations</Text>
+                      <Text fontSize="xs" color="charcoal.600" fontFamily="heading" fontWeight="600">{stats.observationCount}</Text>
+                    </HStack>
+                  )}
+                </VStack>
+
+                {/* Most recent observation */}
+                {!isParentMode && observations.length > 0 && (
+                  <Box pt={3}>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mb={2}>Latest Observation</Text>
+                    <Box>
+                      <Badge
+                        bg={
+                          observations[0].type === "praise" ? "green.100" :
+                          observations[0].type === "concern" ? "red.100" :
+                          observations[0].type === "suggestion" ? "blue.100" : "orange.100"
+                        }
+                        color={
+                          observations[0].type === "praise" ? "green.700" :
+                          observations[0].type === "concern" ? "red.700" :
+                          observations[0].type === "suggestion" ? "blue.700" : "orange.700"
+                        }
+                        fontSize="2xs"
+                        mb={1}
+                      >
+                        {observations[0].type}
+                      </Badge>
+                      <Text fontSize="xs" color="charcoal.500" fontFamily="body" lineHeight="1.4" lineClamp={3}>
+                        {observations[0].note}
+                      </Text>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Dossier snippet */}
+                {dossierContent && (
+                  <Box pt={3}>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="heading" mb={2}>Learner Profile</Text>
+                    <Text fontSize="xs" color="charcoal.500" fontFamily="body" lineHeight="1.5" lineClamp={5} fontStyle="italic">
+                      {dossierContent}
+                    </Text>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+
+            {/* Right: Recent activity */}
+            <VStack gap={4} align="stretch">
+              {/* Projects */}
+              <Box>
+                <HStack mb={3} justify="space-between">
+                  <HStack>
+                    <FiFolder color="#AD60BF" />
+                    <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                      Projects ({stats.projectCount})
+                    </Text>
+                  </HStack>
+                  {!isParentMode && (
+                    <a href={`/scholar?remote=${scholarId}`} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>
+                      <Text fontSize="xs" color="violet.500" fontFamily="heading" cursor="pointer" _hover={{ textDecoration: "underline" }}>
+                        Open scholar view
+                      </Text>
+                    </a>
+                  )}
+                </HStack>
+                {scholarProjects === undefined ? (
+                  <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
+                ) : scholarProjects.length === 0 ? (
+                  <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>No projects yet.</Text>
+                ) : (
+                  <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(260px, 1fr))" gap={3}>
+                    {scholarProjects.slice(0, 9).map((project) => (
+                      <a
+                        key={project._id}
+                        href={`/scholar/${String(project._id)}?remote=${scholarId}`}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ textDecoration: "none", color: "inherit", display: "contents" }}
+                      >
+                        <Box
+                          bg="white"
+                          borderRadius="lg"
+                          p={3}
+                          shadow="xs"
+                          cursor="pointer"
+                          _hover={{ shadow: "sm", borderColor: "violet.200" }}
+                          border="1px solid"
+                          borderColor="gray.100"
+                        >
+                          <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" lineClamp={1}>
+                            {project.title}
+                          </Text>
+                          {project.unitTitle && (
+                            <Text fontSize="xs" color="violet.500" fontFamily="heading" mt={0.5}>
+                              {project.unitEmoji ? `${project.unitEmoji} ` : ""}{project.unitTitle}
+                            </Text>
+                          )}
+                          <HStack mt={2} gap={3}>
+                            <HStack gap={1}>
+                              <FiMessageSquare size={11} color="#888" />
+                              <Text fontSize="xs" color="charcoal.400" fontFamily="heading">{project.messageCount}</Text>
+                            </HStack>
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">{timeAgo(project._creationTime)}</Text>
+                          </HStack>
+                          {project.analysisSummary && (
+                            <Text fontSize="xs" color="charcoal.500" fontFamily="body" mt={1.5} lineClamp={2}>
+                              {project.analysisSummary}
+                            </Text>
+                          )}
+                        </Box>
+                      </a>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+
+              {/* Recent messages */}
+              <Box>
+                <HStack mb={3}>
+                  <FiClock color="#AD60BF" />
                   <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                    Projects ({stats.projectCount})
+                    Recent Messages ({stats.messageCount})
                   </Text>
                 </HStack>
-                {!isParentMode && (
-                  <a
-                    href={`/scholar?remote=${scholarId}`}
-                    target="_blank"
-                    rel="noopener"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Text
-                      fontSize="xs"
-                      color="violet.500"
-                      fontFamily="heading"
-                      cursor="pointer"
-                      _hover={{ textDecoration: "underline" }}
-                    >
-                      Show all
-                    </Text>
-                  </a>
-                )}
-              </HStack>
-              {scholarProjects === undefined ? (
-                <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
-              ) : scholarProjects.length === 0 ? (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
-                  No projects yet.
-                </Text>
-              ) : (
-                <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(220px, 1fr))" gap={3}>
-                  {scholarProjects.slice(0, 6).map((project) => (
-                    <a
-                      key={project._id}
-                      href={`/scholar/${String(project._id)}?remote=${scholarId}`}
-                      target="_blank"
-                      rel="noopener"
-                      style={{ textDecoration: "none", color: "inherit", display: "contents" }}
-                    >
-                      <Box
-                        bg="white"
-                        borderRadius="lg"
-                        p={3}
-                        shadow="xs"
-                        cursor="pointer"
-                        _hover={{ shadow: "sm", borderColor: "violet.200" }}
-                        border="1px solid"
-                        borderColor="gray.100"
+                {recentMessages === undefined ? (
+                  <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
+                ) : recentMessages.length === 0 ? (
+                  <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>No messages yet.</Text>
+                ) : (
+                  <VStack gap={2} align="stretch">
+                    {recentMessages.filter((m) => !(m.role === "user" && m.content === "<start>")).map((msg) => (
+                      <a
+                        key={msg._id}
+                        href={`/scholar/${String(msg.projectId)}?remote=${scholarId}`}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ textDecoration: "none", color: "inherit" }}
                       >
-                      <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500" lineClamp={1}>
-                        {project.title}
-                      </Text>
-                      {project.unitTitle && (
-                        <Text fontSize="xs" color="violet.500" fontFamily="heading" mt={0.5}>
-                          {project.unitEmoji ? `${project.unitEmoji} ` : ""}{project.unitTitle}
-                        </Text>
-                      )}
-                      <HStack mt={2} gap={3}>
-                        <HStack gap={1}>
-                          <FiMessageSquare size={11} color="#888" />
-                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">{project.messageCount}</Text>
-                        </HStack>
-                        <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                          {timeAgo(project._creationTime)}
-                        </Text>
-                      </HStack>
-                      {project.analysisSummary && (
-                        <Text fontSize="xs" color="charcoal.500" fontFamily="body" mt={1.5} lineClamp={2}>
-                          {project.analysisSummary}
-                        </Text>
-                      )}
-                    </Box>
-                    </a>
-                  ))}
-                </Box>
-              )}
-            </Box>
-
-            {/* Messages */}
-            <Box>
-              <HStack mb={2}>
-                <FiClock color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Messages ({stats.messageCount})
-                </Text>
-              </HStack>
-              {recentMessages === undefined ? (
-                <Flex justify="center" py={4}><Spinner size="sm" color="violet.500" /></Flex>
-              ) : recentMessages.length === 0 ? (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
-                  No messages yet.
-                </Text>
-              ) : (
-                <VStack gap={2} align="stretch">
-                  {recentMessages.filter((m) => !(m.role === "user" && m.content === "<start>")).map((msg) => (
-                    <a
-                      key={msg._id}
-                      href={`/scholar/${String(msg.projectId)}?remote=${scholarId}`}
-                      target="_blank"
-                      rel="noopener"
-                      style={{ textDecoration: "none", color: "inherit" }}
-                    >
-                      <Box
-                        bg="white"
-                        borderRadius="md"
-                        p={3}
-                        shadow="xs"
-                        cursor="pointer"
-                        _hover={{ shadow: "sm" }}
-                      >
-                        <HStack justify="space-between" mb={1}>
-                          <HStack gap={2}>
-                            <Badge
-                              bg={msg.role === "user" ? "cyan.100" : "violet.100"}
-                              color={msg.role === "user" ? "cyan.700" : "violet.700"}
-                              fontSize="xs"
-                            >
-                              {msg.role === "user" ? "scholar" : "ai"}
-                            </Badge>
-                            <Text fontSize="xs" color="violet.500" fontFamily="heading">
-                              {msg.projectTitle}
-                            </Text>
+                        <Box bg="white" borderRadius="md" p={3} shadow="xs" cursor="pointer" _hover={{ shadow: "sm" }}>
+                          <HStack justify="space-between" mb={1}>
+                            <HStack gap={2}>
+                              <Badge
+                                bg={msg.role === "user" ? "cyan.100" : "violet.100"}
+                                color={msg.role === "user" ? "cyan.700" : "violet.700"}
+                                fontSize="xs"
+                              >
+                                {msg.role === "user" ? "scholar" : "ai"}
+                              </Badge>
+                              <Text fontSize="xs" color="violet.500" fontFamily="heading">{msg.projectTitle}</Text>
+                            </HStack>
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">{timeAgo(msg._creationTime)}</Text>
                           </HStack>
-                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                            {timeAgo(msg._creationTime)}
+                          <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineClamp={2}>
+                            {msg.content.slice(0, 200)}
                           </Text>
-                        </HStack>
-                        <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineClamp={2}>
-                          {msg.content.slice(0, 200)}
-                        </Text>
-                      </Box>
-                    </a>
-                  ))}
-                </VStack>
-              )}
-            </Box>
-          </VStack>
-        )}
-
-        {activeTab === "dossier" && (
-          <Box bg="white" borderRadius="lg" p={4} shadow="xs" maxW="700px">
-            <HStack mb={2}>
-              <FiUser color="#AD60BF" />
-              <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                Scholar Dossier
-              </Text>
-            </HStack>
-            <Textarea
-              size="sm"
-              placeholder="No dossier yet — the AI will build one during conversations."
-              value={dossierDraft ?? dossierContent ?? ""}
-              onChange={(e) => setDossierDraft(e.target.value)}
-              onBlur={async () => {
-                if (dossierDraft !== null && dossierDraft !== (dossierContent ?? "")) {
-                  await updateDossier({
-                    scholarId: scholarId as Id<"users">,
-                    content: dossierDraft,
-                  });
-                }
-                setDossierDraft(null);
-              }}
-              rows={12}
-              bg="gray.50"
-              fontFamily="body"
-              fontSize="sm"
-              lineHeight="1.5"
-            />
-            <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-              AI-maintained learning profile. You can also edit manually.
-            </Text>
+                        </Box>
+                      </a>
+                    ))}
+                  </VStack>
+                )}
+              </Box>
+            </VStack>
           </Box>
         )}
 
-        {activeTab === "mastery" && (
-          <MasteryTab scholarId={scholarId} />
+        {/* ── Progress (Mastery + Standards + Strengths + Connections) ── */}
+        {activeTab === "progress" && (
+          <Box>
+            <HStack mb={4} gap={1}>
+              {(["mastery", "standards", "strengths", "connections"] as ProgressSection[]).map((section) => (
+                <Button
+                  key={section}
+                  size="sm"
+                  variant={progressSection === section ? "solid" : "ghost"}
+                  bg={progressSection === section ? "violet.500" : undefined}
+                  color={progressSection === section ? "white" : "charcoal.400"}
+                  _hover={progressSection === section ? { bg: "violet.600" } : { bg: "violet.50", color: "violet.600" }}
+                  fontFamily="heading"
+                  fontSize="xs"
+                  px={4}
+                  onClick={() => setProgressSection(section)}
+                  textTransform="capitalize"
+                >
+                  {section}
+                </Button>
+              ))}
+            </HStack>
+            {progressSection === "mastery" && <MasteryTab scholarId={scholarId} />}
+            {progressSection === "standards" && <StandardsTab scholarId={scholarId} readingLevel={scholar?.readingLevel} />}
+            {progressSection === "strengths" && <SignalsTab scholarId={scholarId} view="strengths" />}
+            {progressSection === "connections" && <SignalsTab scholarId={scholarId} view="connections" />}
+          </Box>
         )}
 
-        {activeTab === "standards" && (
-          <StandardsTab scholarId={scholarId} readingLevel={scholar?.readingLevel} />
-        )}
-
-        {activeTab === "seeds" && (
-          <SeedsTab scholarId={scholarId} />
-        )}
-
-        {activeTab === "directives" && (
-          <DirectivesTab scholarId={scholarId} />
-        )}
-
-        {activeTab === "strengths" && (
-          <SignalsTab scholarId={scholarId} />
-        )}
-
-        {activeTab === "documents" && (
-          <DocumentsTab scholarId={scholarId} />
-        )}
-
-        {activeTab === "notes" && (
-          <VStack gap={4} align="stretch" maxW="700px">
-            {/* Observations section */}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs">
-              <HStack mb={3}>
-                <FiFileText color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Observations
-                </Text>
-              </HStack>
-
-              {/* Add new observation */}
-              {!isParentMode && (
-                <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
-                  <select
-                    value={newObservation.type}
-                    onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
-                    style={{
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                      fontSize: "12px",
-                      fontFamily: "inherit",
-                      width: "140px",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <option value="praise">Praise</option>
-                    <option value="concern">Concern</option>
-                    <option value="suggestion">Suggestion</option>
-                    <option value="intervention">Intervention</option>
-                  </select>
-                  <Textarea
-                    size="sm"
-                    placeholder="Record an observation..."
-                    value={newObservation.note}
-                    onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
-                    rows={2}
-                    bg="white"
-                    fontFamily="body"
-                    mb={2}
-                  />
-                  <Flex justify="flex-end">
-                    <Button
-                      size="sm"
-                      bg="violet.500"
-                      color="white"
-                      _hover={{ bg: "violet.600" }}
-                      fontFamily="heading"
-                      onClick={handleAddObservation}
-                      disabled={isAddingObservation || !newObservation.note.trim()}
-                    >
-                      Save
-                    </Button>
-                  </Flex>
-                </Box>
-              )}
-
-              {/* Existing observations */}
-              {observations.length > 0 ? (
-                <VStack gap={2} align="stretch">
-                  {observations.map((obs) => (
-                    <Box
-                      key={obs._id}
-                      p={3}
-                      bg="gray.50"
-                      borderRadius="md"
-                    >
-                      <HStack justify="space-between" align="start">
-                        <VStack gap={1} align="start" flex={1}>
-                          <HStack>
-                            <Badge
-                              bg={
-                                obs.type === "praise" ? "green.100" :
-                                obs.type === "concern" ? "red.100" :
-                                obs.type === "suggestion" ? "blue.100" :
-                                "orange.100"
-                              }
-                              color={
-                                obs.type === "praise" ? "green.700" :
-                                obs.type === "concern" ? "red.700" :
-                                obs.type === "suggestion" ? "blue.700" :
-                                "orange.700"
-                              }
-                              fontSize="xs"
-                            >
-                              {obs.type}
-                            </Badge>
-                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
-                              {new Date(obs._creationTime).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </Text>
-                          </HStack>
-                          <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
-                            {obs.note}
-                          </Text>
-                        </VStack>
-                        {!isParentMode && (
-                          <IconButton
-                            aria-label="Delete"
-                            size="xs"
-                            variant="ghost"
-                            color="red.400"
-                            _hover={{ bg: "red.50", color: "red.600" }}
-                            onClick={() => handleDeleteObservation(obs._id)}
-                          >
-                            <FiTrash2 />
-                          </IconButton>
-                        )}
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
-                  No observations yet.
-                </Text>
-              )}
-            </Box>
-
-            {/* Reports section */}
-            <Box>
-              {/* Add new report */}
-              {!isParentMode && (
-                <Box bg="white" borderRadius="lg" p={4} shadow="xs" mb={4}>
+        {/* ── Guidance (Seeds + Directives) ── */}
+        {activeTab === "guidance" && (
+          <VStack gap={0} align="stretch">
+            <SeedsTab scholarId={scholarId} />
+            {!isParentMode && (
+              <>
+                <Separator my={6} borderColor="gray.200" />
+                <Box>
                   <HStack mb={3}>
-                    <Notebook size={16} color="#AD60BF" />
+                    <FiFlag color="#AD60BF" />
                     <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                      New Report
+                      Directives
+                    </Text>
+                    <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                      — standing rules injected into the AI tutor's system prompt
                     </Text>
                   </HStack>
-                  <Box p={3} bg="gray.50" borderRadius="md">
-                    <Input
-                      size="sm"
-                      placeholder="Report title"
-                      value={newReport.title}
-                      onChange={(e) => setNewReport((prev) => ({ ...prev, title: e.target.value }))}
-                      bg="white"
-                      fontFamily="heading"
-                      mb={2}
-                    />
+                  <DirectivesTab scholarId={scholarId} />
+                </Box>
+              </>
+            )}
+          </VStack>
+        )}
+
+        {/* ── Records (Notes + Documents) ── */}
+        {activeTab === "records" && (
+          <Box
+            display="grid"
+            gridTemplateColumns={!isParentMode ? { base: "1fr", lg: "2fr 1fr" } : "1fr"}
+            gap={4}
+            alignItems="start"
+          >
+            {/* Left: Notes + Reports */}
+            <Box>
+              <Box bg="white" borderRadius="lg" p={4} shadow="xs">
+                <HStack mb={3}>
+                  <FiFileText color="#AD60BF" />
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                    Observations
+                  </Text>
+                </HStack>
+
+                {!isParentMode && (
+                  <Box p={3} bg="gray.50" borderRadius="md" mb={3}>
+                    <select
+                      value={newObservation.type}
+                      onChange={(e) => setNewObservation((prev) => ({ ...prev, type: e.target.value as typeof prev.type }))}
+                      style={{
+                        padding: "5px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                        fontSize: "12px",
+                        fontFamily: "inherit",
+                        width: "140px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <option value="praise">Praise</option>
+                      <option value="concern">Concern</option>
+                      <option value="suggestion">Suggestion</option>
+                      <option value="intervention">Intervention</option>
+                    </select>
                     <Textarea
                       size="sm"
-                      placeholder="Write your report..."
-                      value={newReport.content}
-                      onChange={(e) => setNewReport((prev) => ({ ...prev, content: e.target.value }))}
-                      rows={8}
+                      placeholder="Record an observation..."
+                      value={newObservation.note}
+                      onChange={(e) => setNewObservation((prev) => ({ ...prev, note: e.target.value }))}
+                      rows={2}
                       bg="white"
                       fontFamily="body"
                       mb={2}
                     />
-                    <Flex justify="space-between" align="center">
-                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
-                        Reports auto-append to the AI dossier.
-                      </Text>
+                    <Flex justify="flex-end">
                       <Button
                         size="sm"
                         bg="violet.500"
                         color="white"
                         _hover={{ bg: "violet.600" }}
                         fontFamily="heading"
-                        onClick={handleAddReport}
-                        disabled={isAddingReport || !newReport.title.trim() || !newReport.content.trim()}
+                        onClick={handleAddObservation}
+                        disabled={isAddingObservation || !newObservation.note.trim()}
                       >
                         Save
                       </Button>
                     </Flex>
                   </Box>
-                </Box>
-              )}
+                )}
 
-              {/* Existing reports */}
-              {reports.length > 0 ? (
-                <VStack gap={3} align="stretch">
-                  {reports.map((report) => (
-                    <Box
-                      key={report._id}
-                      bg="white"
-                      borderRadius="lg"
-                      p={4}
-                      shadow="xs"
-                      borderLeft="3px solid"
-                      borderColor="violet.400"
-                    >
-                      <HStack justify="space-between" align="start" mb={1}>
-                        <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
-                          {report.title}
-                        </Text>
-                        <HStack gap={2}>
-                          <Text fontSize="xs" color="charcoal.400" fontFamily="heading" whiteSpace="nowrap">
-                            {new Date(report._creationTime).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </Text>
+                {observations.length > 0 ? (
+                  <VStack gap={2} align="stretch">
+                    {observations.map((obs) => (
+                      <Box key={obs._id} p={3} bg="gray.50" borderRadius="md">
+                        <HStack justify="space-between" align="start">
+                          <VStack gap={1} align="start" flex={1}>
+                            <HStack>
+                              <Badge
+                                bg={
+                                  obs.type === "praise" ? "green.100" :
+                                  obs.type === "concern" ? "red.100" :
+                                  obs.type === "suggestion" ? "blue.100" :
+                                  "orange.100"
+                                }
+                                color={
+                                  obs.type === "praise" ? "green.700" :
+                                  obs.type === "concern" ? "red.700" :
+                                  obs.type === "suggestion" ? "blue.700" :
+                                  "orange.700"
+                                }
+                                fontSize="xs"
+                              >
+                                {obs.type}
+                              </Badge>
+                              <Text fontSize="xs" color="charcoal.400" fontFamily="heading">
+                                {new Date(obs._creationTime).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </Text>
+                            </HStack>
+                            <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.4">
+                              {obs.note}
+                            </Text>
+                          </VStack>
                           {!isParentMode && (
                             <IconButton
-                              aria-label="Delete report"
+                              aria-label="Delete"
                               size="xs"
                               variant="ghost"
                               color="red.400"
                               _hover={{ bg: "red.50", color: "red.600" }}
-                              onClick={() => handleDeleteReport(report._id)}
+                              onClick={() => handleDeleteObservation(obs._id)}
                             >
                               <FiTrash2 />
                             </IconButton>
                           )}
                         </HStack>
-                      </HStack>
-                      <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.5" whiteSpace="pre-wrap">
-                        {report.content}
+                      </Box>
+                    ))}
+                  </VStack>
+                ) : (
+                  <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={2}>
+                    No observations yet.
+                  </Text>
+                )}
+              </Box>
+
+              {/* Reports */}
+              <Box mt={4}>
+                {!isParentMode && (
+                  <Box bg="white" borderRadius="lg" p={4} shadow="xs" mb={4}>
+                    <HStack mb={3}>
+                      <Notebook size={16} color="#AD60BF" />
+                      <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                        New Report
                       </Text>
+                    </HStack>
+                    <Box p={3} bg="gray.50" borderRadius="md">
+                      <Input
+                        size="sm"
+                        placeholder="Report title"
+                        value={newReport.title}
+                        onChange={(e) => setNewReport((prev) => ({ ...prev, title: e.target.value }))}
+                        bg="white"
+                        fontFamily="heading"
+                        mb={2}
+                      />
+                      <Textarea
+                        size="sm"
+                        placeholder="Write your report..."
+                        value={newReport.content}
+                        onChange={(e) => setNewReport((prev) => ({ ...prev, content: e.target.value }))}
+                        rows={8}
+                        bg="white"
+                        fontFamily="body"
+                        mb={2}
+                      />
+                      <Flex justify="space-between" align="center">
+                        <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                          Reports auto-append to the AI dossier.
+                        </Text>
+                        <Button
+                          size="sm"
+                          bg="violet.500"
+                          color="white"
+                          _hover={{ bg: "violet.600" }}
+                          fontFamily="heading"
+                          onClick={handleAddReport}
+                          disabled={isAddingReport || !newReport.title.trim() || !newReport.content.trim()}
+                        >
+                          Save
+                        </Button>
+                      </Flex>
                     </Box>
-                  ))}
-                </VStack>
-              ) : (
-                <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
-                  No reports yet.
+                  </Box>
+                )}
+
+                {reports.length > 0 ? (
+                  <VStack gap={3} align="stretch">
+                    {reports.map((report) => (
+                      <Box
+                        key={report._id}
+                        bg="white"
+                        borderRadius="lg"
+                        p={4}
+                        shadow="xs"
+                        borderLeft="3px solid"
+                        borderColor="violet.400"
+                      >
+                        <HStack justify="space-between" align="start" mb={1}>
+                          <Text fontFamily="heading" fontSize="sm" fontWeight="600" color="navy.500">
+                            {report.title}
+                          </Text>
+                          <HStack gap={2}>
+                            <Text fontSize="xs" color="charcoal.400" fontFamily="heading" whiteSpace="nowrap">
+                              {new Date(report._creationTime).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </Text>
+                            {!isParentMode && (
+                              <IconButton
+                                aria-label="Delete report"
+                                size="xs"
+                                variant="ghost"
+                                color="red.400"
+                                _hover={{ bg: "red.50", color: "red.600" }}
+                                onClick={() => handleDeleteReport(report._id)}
+                              >
+                                <FiTrash2 />
+                              </IconButton>
+                            )}
+                          </HStack>
+                        </HStack>
+                        <Text fontSize="sm" color="charcoal.600" fontFamily="body" lineHeight="1.5" whiteSpace="pre-wrap">
+                          {report.content}
+                        </Text>
+                      </Box>
+                    ))}
+                  </VStack>
+                ) : (
+                  <Text fontSize="sm" color="charcoal.300" fontFamily="heading" textAlign="center" py={4}>
+                    No reports yet.
+                  </Text>
+                )}
+              </Box>
+            </Box>
+
+            {/* Right: Documents — teacher only */}
+            {!isParentMode && (
+              <Box>
+                <HStack mb={3}>
+                  <FiFolder color="#AD60BF" />
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                    Documents
+                  </Text>
+                </HStack>
+                <DocumentsTab scholarId={scholarId} />
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* ── Profile (Dossier + Reading & Audio + Account) ── */}
+        {activeTab === "profile" && (
+          <Box
+            display="grid"
+            gridTemplateColumns={{ base: "1fr", lg: "2fr 1fr" }}
+            gap={4}
+            alignItems="start"
+          >
+            {/* Left: Learner Profile (Dossier) */}
+            <Box bg="white" borderRadius="lg" p={5} shadow="xs">
+              <HStack mb={3}>
+                <FiUser color="#AD60BF" />
+                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                  Learner Profile
+                </Text>
+              </HStack>
+              <Textarea
+                size="sm"
+                placeholder="No dossier yet — the AI will build one during conversations."
+                value={dossierDraft ?? dossierContent ?? ""}
+                onChange={(e) => setDossierDraft(e.target.value)}
+                onBlur={async () => {
+                  if (dossierDraft !== null && dossierDraft !== (dossierContent ?? "")) {
+                    await updateDossier({
+                      scholarId: scholarId as Id<"users">,
+                      content: dossierDraft,
+                    });
+                  }
+                  setDossierDraft(null);
+                }}
+                rows={20}
+                bg="gray.50"
+                fontFamily="body"
+                fontSize="sm"
+                lineHeight="1.6"
+                readOnly={isParentMode}
+              />
+              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={2}>
+                AI-maintained learning profile. {!isParentMode && "You can also edit manually."}
+              </Text>
+            </Box>
+
+            {/* Right: Settings + Account */}
+            <VStack gap={4} align="stretch">
+              {isParentMode && (
+                <Text fontSize="sm" color="charcoal.400" fontFamily="body" fontStyle="italic">
+                  These settings can only be edited by teacher
                 </Text>
               )}
-            </Box>
-          </VStack>
+
+              {/* Reading Level */}
+              <Box bg="white" borderRadius="lg" p={5} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
+                <HStack mb={3}>
+                  <FiBookOpen color="#AD60BF" />
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                    Reading Level
+                  </Text>
+                  {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
+                </HStack>
+                <select
+                  value={scholar?.readingLevel || ""}
+                  onChange={(e) => handleReadingLevelChange(e.target.value)}
+                  disabled={isSavingReadingLevel || isParentMode}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #e2e8f0",
+                    fontSize: "14px",
+                    fontFamily: "inherit",
+                    backgroundColor: isSavingReadingLevel || isParentMode ? "#f7f7f7" : "white",
+                    cursor: isParentMode ? "not-allowed" : undefined,
+                  }}
+                >
+                  {READING_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {level.label}
+                    </option>
+                  ))}
+                </select>
+                <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={2}>
+                  Adjusts vocabulary and complexity in conversations
+                </Text>
+              </Box>
+
+              {/* Audio Controls */}
+              <Box bg="white" borderRadius="lg" p={5} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
+                <HStack mb={3}>
+                  <FiVolume2 color="#AD60BF" />
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
+                    Audio
+                  </Text>
+                </HStack>
+                <VStack gap={4} align="stretch">
+                  <HStack justify="space-between">
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                        Text-to-Speech
+                      </Text>
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                        Read AI responses aloud
+                      </Text>
+                    </VStack>
+                    <Switch.Root
+                      checked={scholar?.ttsEnabled !== false}
+                      disabled={isParentMode}
+                      onCheckedChange={(e) =>
+                        updateAudioSettings({
+                          scholarId: scholarId as Id<"users">,
+                          ttsEnabled: e.checked,
+                        })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </HStack>
+                  <HStack justify="space-between">
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
+                        Voice Dictation
+                      </Text>
+                      <Text fontSize="xs" color="charcoal.400" fontFamily="body">
+                        Speech-to-text input
+                      </Text>
+                    </VStack>
+                    <Switch.Root
+                      checked={scholar?.sttEnabled !== false}
+                      disabled={isParentMode}
+                      onCheckedChange={(e) =>
+                        updateAudioSettings({
+                          scholarId: scholarId as Id<"users">,
+                          sttEnabled: e.checked,
+                        })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </HStack>
+                </VStack>
+              </Box>
+
+              {/* Account — teacher only */}
+              {!isParentMode && (
+                <Box bg="white" borderRadius="lg" p={5} shadow="xs">
+                  <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm" mb={3}>
+                    Account
+                  </Text>
+                  <VStack gap={2} align="stretch">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      color="charcoal.500"
+                      fontFamily="heading"
+                      fontSize="xs"
+                      borderColor="gray.200"
+                      _hover={{ bg: "gray.50" }}
+                      justifyContent="flex-start"
+                      onClick={() => setShowResetPassword(true)}
+                    >
+                      <FiKey style={{ marginRight: "6px" }} />
+                      Reset Password
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      color="charcoal.500"
+                      fontFamily="heading"
+                      fontSize="xs"
+                      borderColor="gray.200"
+                      _hover={{ bg: "gray.50" }}
+                      justifyContent="flex-start"
+                      onClick={() => setShowParentAccess(true)}
+                    >
+                      <FiShare2 style={{ marginRight: "6px" }} />
+                      Parent Access
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        color="red.500"
+                        fontFamily="heading"
+                        fontSize="xs"
+                        borderColor="red.100"
+                        _hover={{ bg: "red.50" }}
+                        justifyContent="flex-start"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        <FiTrash2 style={{ marginRight: "6px" }} />
+                        Delete Scholar
+                      </Button>
+                    )}
+                  </VStack>
+                </Box>
+              )}
+
+              {/* Parent mode: MCP Access */}
+              {isParentMode && (
+                <Box bg="white" borderRadius="lg" p={5} shadow="xs">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    color="charcoal.500"
+                    fontFamily="heading"
+                    fontSize="xs"
+                    borderColor="gray.200"
+                    _hover={{ bg: "gray.50" }}
+                    w="full"
+                    justifyContent="flex-start"
+                    onClick={() => setShowParentAccess(true)}
+                  >
+                    <FiShare2 style={{ marginRight: "6px" }} />
+                    MCP Access
+                  </Button>
+                </Box>
+              )}
+            </VStack>
+          </Box>
         )}
 
-        {activeTab === "reading" && (
-          <VStack gap={4} align="stretch" maxW="400px">
-            {isParentMode && (
-              <Text fontSize="sm" color="charcoal.400" fontFamily="body" fontStyle="italic">
-                These settings can only be edited by teacher
-              </Text>
-            )}
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
-              <HStack mb={2}>
-                <FiBookOpen color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Reading Level
-                </Text>
-                {isSavingReadingLevel && <Spinner size="xs" color="violet.500" />}
-              </HStack>
-              <select
-                value={scholar?.readingLevel || ""}
-                onChange={(e) => handleReadingLevelChange(e.target.value)}
-                disabled={isSavingReadingLevel || isParentMode}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                  fontSize: "14px",
-                  fontFamily: "inherit",
-                  backgroundColor: isSavingReadingLevel || isParentMode ? "#f7f7f7" : "white",
-                  cursor: isParentMode ? "not-allowed" : undefined,
-                }}
-              >
-                {READING_LEVELS.map((level) => (
-                  <option key={level.value} value={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
-              <Text fontSize="xs" color="charcoal.400" fontFamily="body" mt={1}>
-                Adjusts vocabulary and complexity in conversations
-              </Text>
-            </Box>
-
-            <Box bg="white" borderRadius="lg" p={4} shadow="xs" opacity={isParentMode ? 0.7 : 1}>
-              <HStack mb={3}>
-                <FiVolume2 color="#AD60BF" />
-                <Text fontWeight="600" fontFamily="heading" color="navy.500" fontSize="sm">
-                  Audio Controls
-                </Text>
-              </HStack>
-              <VStack gap={3} align="stretch">
-                <HStack justify="space-between">
-                  <VStack align="start" gap={0}>
-                    <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
-                      Text-to-Speech
-                    </Text>
-                    <Text fontSize="xs" color="charcoal.400" fontFamily="body">
-                      Read AI responses aloud
-                    </Text>
-                  </VStack>
-                  <Switch.Root
-                    checked={scholar?.ttsEnabled !== false}
-                    disabled={isParentMode}
-                    onCheckedChange={(e) =>
-                      updateAudioSettings({
-                        scholarId: scholarId as Id<"users">,
-                        ttsEnabled: e.checked,
-                      })
-                    }
-                  >
-                    <Switch.HiddenInput />
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                  </Switch.Root>
-                </HStack>
-                <HStack justify="space-between">
-                  <VStack align="start" gap={0}>
-                    <Text fontSize="sm" fontFamily="heading" color="charcoal.500" fontWeight="500">
-                      Voice Dictation
-                    </Text>
-                    <Text fontSize="xs" color="charcoal.400" fontFamily="body">
-                      Speech-to-text input
-                    </Text>
-                  </VStack>
-                  <Switch.Root
-                    checked={scholar?.sttEnabled !== false}
-                    disabled={isParentMode}
-                    onCheckedChange={(e) =>
-                      updateAudioSettings({
-                        scholarId: scholarId as Id<"users">,
-                        sttEnabled: e.checked,
-                      })
-                    }
-                  >
-                    <Switch.HiddenInput />
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                  </Switch.Root>
-                </HStack>
-              </VStack>
-            </Box>
-          </VStack>
-        )}
-
-        {/* Chats tab */}
-        {activeTab === "chats" && (
-          <VStack gap={4} align="stretch">
-            {/* Recent chats about this scholar */}
+        {/* ── AI Chat — teacher only ── */}
+        {activeTab === "ai-chat" && !isParentMode && (
+          <VStack gap={6} align="stretch" maxW="600px">
+            {/* Start a new chat — primary CTA */}
             <Box>
-              <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={3}>
-                Recent chats about this scholar
+              <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={2}>
+                Start a new AI chat about {scholar?.name}
               </Text>
-              {chatSessions.length === 0 ? (
-                <Text fontFamily="body" fontSize="sm" color="charcoal.300" fontStyle="italic">
-                  No chats yet about this scholar.
+              <QuickChatBox
+                scholarId={scholarId}
+                createSession={createChatSession}
+                onNavigate={(id) => router.push(`/teacher?tab=assistant&session=${id}`)}
+              />
+            </Box>
+
+            {/* Recent chats */}
+            {chatSessions.length > 0 && (
+              <Box>
+                <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={2}>
+                  Recent chats
                 </Text>
-              ) : (
                 <VStack gap={1} align="stretch">
                   {chatSessions.map((s) => (
                     <Button
@@ -940,25 +1041,13 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                     </Button>
                   ))}
                 </VStack>
-              )}
-            </Box>
-
-            {/* Quick-launch chat box */}
-            <Box>
-              <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={2}>
-                Start a new chat about this scholar
-              </Text>
-              <QuickChatBox
-                scholarId={scholarId}
-                createSession={createChatSession}
-                onNavigate={(id) => router.push(`/teacher?tab=assistant&session=${id}`)}
-              />
-            </Box>
+              </Box>
+            )}
           </VStack>
         )}
       </Box>
 
-      {/* Reset Password confirmation / result dialog */}
+      {/* Reset Password dialog */}
       <Dialog.Root
         open={showResetPassword}
         onOpenChange={(e) => {
