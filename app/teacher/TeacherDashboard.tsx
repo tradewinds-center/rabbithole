@@ -146,7 +146,7 @@ export default function TeacherDashboardInner() {
     ? ["curriculum", "assistant"]
     : ["live", "scholars", "curriculum", "assistant"];
   const VALID_SUB_TABS: CurriculumSubTab[] = ["units", "personas", "perspectives", "processes"];
-  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "directives", "standards", "strengths", "documents", "notes", "dossier", "reading"];
+  const VALID_SCHOLAR_TABS: ScholarTabKey[] = ["activity", "mastery", "seeds", "directives", "standards", "strengths", "documents", "notes", "dossier", "reading", "chats"];
   const rawTab = searchParams.get("tab");
   const rawSub = searchParams.get("sub");
   const rawScholar = searchParams.get("scholar");

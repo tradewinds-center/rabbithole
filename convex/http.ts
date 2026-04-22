@@ -798,23 +798,31 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const body = await request.json();
-    const { teacherId, streamId, assistantMsgId, scholarId, threadLabel } =
+    const { teacherId, streamId, assistantMsgId, sessionId, scholarId, threadLabel } =
       body as {
         teacherId: string;
         streamId: string;
         assistantMsgId: string;
+        sessionId?: string;
+        // Legacy fields kept for backward compat during transition
         scholarId?: string;
         threadLabel?: string;
       };
 
-    const context = await ctx.runQuery(
-      internal.curriculumAssistant.getContext,
-      {
-        teacherId: teacherId as Id<"users">,
-        scholarId: scholarId ? (scholarId as Id<"users">) : undefined,
-        threadLabel,
-      }
-    );
+    // Prefer session-based context; fall back to legacy scholarId-based context
+    const context = sessionId
+      ? await ctx.runQuery(
+          internal.curriculumAssistant.getContextForSession,
+          { sessionId: sessionId as Id<"chatSessions"> }
+        )
+      : await ctx.runQuery(
+          internal.curriculumAssistant.getContext,
+          {
+            teacherId: teacherId as Id<"users">,
+            scholarId: scholarId ? (scholarId as Id<"users">) : undefined,
+            threadLabel,
+          }
+        );
 
     if (!context) {
       return new Response(
@@ -1338,6 +1346,31 @@ http.route({
       },
     });
 
+    // tag_session: lets the AI associate a global session with a specific scholar
+    const tagSessionTool = sessionId ? betaTool({
+      name: "tag_session",
+      description:
+        "Tag this chat session with the scholar it is primarily about. " +
+        "Call this as soon as you determine one specific scholar is the focus of the conversation " +
+        "(e.g. teacher asks 'what should I do for Kai?'). " +
+        "Only call once per session and only when confident. " +
+        "Do NOT call for general or multi-scholar questions.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          scholarId: { type: "string", description: "The scholar's Convex user ID" },
+        },
+        required: ["scholarId"] as const,
+      },
+      run: async (input: { scholarId: string }) => {
+        await ctx.runMutation(internal.curriculumAssistant.tagSession, {
+          sessionId: sessionId as Id<"chatSessions">,
+          scholarId: input.scholarId as Id<"users">,
+        });
+        return JSON.stringify({ tagged: true });
+      },
+    }) : null;
+
     const tools = [
       listScholarsTool,
       getScholarDossierTool,
@@ -1351,6 +1384,7 @@ http.route({
       createScholarSeedTool,
       createScholarUnitTool,
       createScholarLessonTool,
+      ...(tagSessionTool ? [tagSessionTool] : []),
     ];
 
     // Build the system prompt. When the current thread is scoped to a scholar,
@@ -1486,6 +1520,19 @@ http.route({
             }
           );
           finalized = true;
+
+          // Auto-name session after first exchange
+          if (sessionId && fullContent.trim()) {
+            const firstExchange = await ctx.runQuery(
+              internal.curriculumAssistant.getSessionFirstExchange,
+              { sessionId: sessionId as Id<"chatSessions"> }
+            );
+            if (firstExchange.firstUserMessage && firstExchange.firstAssistantMessage) {
+              await ctx.scheduler.runAfter(0, internal.chatSessionTitles.autoNameSession, {
+                sessionId: sessionId as Id<"chatSessions">,
+              });
+            }
+          }
 
           controller.enqueue(
             encoder.encode(

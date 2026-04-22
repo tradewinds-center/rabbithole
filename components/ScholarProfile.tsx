@@ -52,7 +52,7 @@ import { SignalsTab } from "@/components/SignalsTab";
 import { StandardsTab } from "@/components/StandardsTab";
 import { StyledDialogContent } from "@/components/ui/StyledDialogContent";
 
-export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "directives" | "strengths" | "documents" | "notes" | "reading";
+export type ScholarTabKey = "activity" | "dossier" | "mastery" | "standards" | "seeds" | "directives" | "strengths" | "documents" | "notes" | "reading" | "chats";
 type TabKey = ScholarTabKey;
 
 interface ScholarProfileProps {
@@ -93,6 +93,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ style?: Re
   { key: "notes", label: "Notes", icon: FiFileText },
   { key: "dossier", label: "Dossier", icon: FiUser },
   { key: "reading", label: "Reading & Audio", icon: FiBookOpen },
+  { key: "chats", label: "Chats", icon: FiMessageSquare },
 ];
 
 function timeAgo(timestamp: number): string {
@@ -114,6 +115,8 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
   const { user: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === "admin";
   const deleteUser = useMutation(api.users.deleteUser);
+  const createChatSession = useMutation(api.curriculumAssistant.createSession);
+  const chatSessions = useQuery(api.curriculumAssistant.listSessionsForScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
   const resetPassword = useMutation(api.users.resetScholarPassword);
   const profile = useQuery(api.scholars.getProfile, { scholarId: scholarId as Id<"users"> });
   const observations = useQuery(api.observations.listByScholar, { scholarId: scholarId as Id<"users"> }) ?? [];
@@ -286,11 +289,12 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
                 fontFamily="heading"
                 fontSize="xs"
                 _hover={{ bg: "violet.50" }}
-                onClick={() =>
-                  router.push(`/teacher?tab=assistant&scholar=${scholarId}`)
-                }
+                onClick={async () => {
+                  const sessionId = await createChatSession({ scholarId: scholarId as Id<"users"> });
+                  router.push(`/teacher?tab=assistant&session=${String(sessionId)}`);
+                }}
               >
-                <FiCpu style={{ marginRight: "4px" }} />
+                <FiMessageSquare style={{ marginRight: "4px" }} />
                 Chat with AI
               </Button>
               <Button
@@ -902,6 +906,56 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
             </Box>
           </VStack>
         )}
+
+        {/* Chats tab */}
+        {activeTab === "chats" && (
+          <VStack gap={4} align="stretch">
+            {/* Recent chats about this scholar */}
+            <Box>
+              <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={3}>
+                Recent chats about this scholar
+              </Text>
+              {chatSessions.length === 0 ? (
+                <Text fontFamily="body" fontSize="sm" color="charcoal.300" fontStyle="italic">
+                  No chats yet about this scholar.
+                </Text>
+              ) : (
+                <VStack gap={1} align="stretch">
+                  {chatSessions.map((s) => (
+                    <Button
+                      key={String(s._id)}
+                      variant="ghost"
+                      size="sm"
+                      justifyContent="flex-start"
+                      fontFamily="heading"
+                      fontSize="xs"
+                      color="violet.600"
+                      _hover={{ bg: "violet.50" }}
+                      onClick={() => router.push(`/teacher?tab=assistant&session=${String(s._id)}`)}
+                    >
+                      <FiMessageSquare style={{ marginRight: "6px", flexShrink: 0 }} />
+                      <Text as="span" overflow="hidden" style={{ textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {s.title}
+                      </Text>
+                    </Button>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+
+            {/* Quick-launch chat box */}
+            <Box>
+              <Text fontFamily="heading" fontWeight="600" fontSize="sm" color="navy.500" mb={2}>
+                Start a new chat about this scholar
+              </Text>
+              <QuickChatBox
+                scholarId={scholarId}
+                createSession={createChatSession}
+                onNavigate={(id) => router.push(`/teacher?tab=assistant&session=${id}`)}
+              />
+            </Box>
+          </VStack>
+        )}
       </Box>
 
       {/* Reset Password confirmation / result dialog */}
@@ -1056,5 +1110,70 @@ export function ScholarProfile({ scholarId, activeTab: controlledTab, onTabChang
         mode={isParentMode ? "self" : "teacher"}
       />
     </Box>
+  );
+}
+
+// ── QuickChatBox ─────────────────────────────────────────────────────
+
+function QuickChatBox({
+  scholarId,
+  createSession,
+  onNavigate,
+}: {
+  scholarId: string;
+  createSession: (args: { scholarId: Id<"users"> }) => Promise<Id<"chatSessions">>;
+  onNavigate: (sessionId: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const sendSessionMessage = useMutation(api.curriculumAssistant.sendSessionMessage);
+  const { user } = useCurrentUser();
+
+  const handleSubmit = async () => {
+    const text = value.trim();
+    if (!text || isLoading) return;
+    setIsLoading(true);
+    try {
+      const sessionId = await createSession({ scholarId: scholarId as Id<"users"> });
+      await sendSessionMessage({ sessionId, message: text });
+      onNavigate(String(sessionId));
+    } catch (e) {
+      console.error("QuickChatBox error:", e);
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <VStack gap={2} align="stretch">
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+        placeholder="Ask something about this scholar…"
+        rows={2}
+        resize="none"
+        bg="white"
+        border="1px solid"
+        borderColor="gray.300"
+        borderRadius="lg"
+        fontFamily="body"
+        fontSize="sm"
+        disabled={isLoading || !user}
+      />
+      <Button
+        size="sm"
+        bg="violet.500"
+        color="white"
+        fontFamily="heading"
+        fontSize="xs"
+        _hover={{ bg: "violet.600" }}
+        _disabled={{ opacity: 0.4 }}
+        disabled={!value.trim() || isLoading || !user}
+        onClick={handleSubmit}
+        alignSelf="flex-end"
+      >
+        {isLoading ? <Spinner size="xs" /> : <><FiMessageSquare style={{ marginRight: "4px" }} />Start chat</>}
+      </Button>
+    </VStack>
   );
 }

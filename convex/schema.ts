@@ -397,11 +397,24 @@ export default defineSchema({
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     streamId: v.optional(v.string()),
+    sessionId: v.optional(v.id("chatSessions")),
   })
     .index("by_teacher", ["teacherId"])
     .index("by_teacher_unit", ["teacherId", "unitId"])
     .index("by_scholar_and_creation", ["scholarId"])
-    .index("by_stream", ["streamId"]),
+    .index("by_stream", ["streamId"])
+    .index("by_session", ["sessionId"]),
+
+  chatSessions: defineTable({
+    teacherId: v.id("users"),
+    title: v.string(),
+    scholarId: v.optional(v.id("users")),
+    pinned: v.boolean(),
+    lastMessageAt: v.number(),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_teacher_pinned", ["teacherId", "pinned"])
+    .index("by_scholar", ["scholarId"]),
 
   tokens: defineTable({
     token: v.string(),

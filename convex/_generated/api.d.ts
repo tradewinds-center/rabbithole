@@ -14,6 +14,7 @@ import type * as analysisHelpers from "../analysisHelpers.js";
 import type * as artifacts from "../artifacts.js";
 import type * as audioActions from "../audioActions.js";
 import type * as auth from "../auth.js";
+import type * as chatSessionTitles from "../chatSessionTitles.js";
 import type * as crossDomainConnections from "../crossDomainConnections.js";
 import type * as curriculumAssistant from "../curriculumAssistant.js";
 import type * as dossier from "../dossier.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   artifacts: typeof artifacts;
   audioActions: typeof audioActions;
   auth: typeof auth;
+  chatSessionTitles: typeof chatSessionTitles;
   crossDomainConnections: typeof crossDomainConnections;
   curriculumAssistant: typeof curriculumAssistant;
   dossier: typeof dossier;

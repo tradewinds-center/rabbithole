@@ -387,6 +387,263 @@ export const finalizeStream = internalMutation({
   },
 });
 
+// ── Chat sessions ────────────────────────────────────────────────────
+
+export const createSession = curriculumMutation({
+  args: {
+    scholarId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const sessionId = await ctx.db.insert("chatSessions", {
+      teacherId: ctx.user._id,
+      title: "New chat",
+      scholarId: args.scholarId,
+      pinned: false,
+      lastMessageAt: Date.now(),
+    });
+    return sessionId;
+  },
+});
+
+export const listSessions = curriculumQuery({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_teacher", (q) => q.eq("teacherId", ctx.user._id))
+      .order("desc")
+      .collect();
+    // Pinned first, then by lastMessageAt desc
+    const pinned = sessions.filter((s) => s.pinned).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    const recent = sessions.filter((s) => !s.pinned).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    return [...pinned, ...recent];
+  },
+});
+
+export const listSessionsForScholar = curriculumQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_scholar", (q) => q.eq("scholarId", args.scholarId))
+      .collect();
+    // Only sessions owned by this teacher (or admin sees all)
+    const filtered = ctx.user.role === ROLES.ADMIN
+      ? sessions
+      : sessions.filter((s) => s.teacherId === ctx.user._id);
+    return filtered.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+  },
+});
+
+export const renameSession = curriculumMutation({
+  args: { sessionId: v.id("chatSessions"), title: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.sessionId, { title: args.title.trim() || "Untitled" });
+  },
+});
+
+export const togglePin = curriculumMutation({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    await ctx.db.patch(args.sessionId, { pinned: !session.pinned });
+  },
+});
+
+export const deleteSession = curriculumMutation({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Not found");
+    }
+    // Cascade: delete all messages in this session
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+    await ctx.db.delete(args.sessionId);
+  },
+});
+
+export const getSessionMessages = curriculumQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      return [];
+    }
+    return await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(400);
+  },
+});
+
+export const sendSessionMessage = curriculumMutation({
+  args: {
+    sessionId: v.id("chatSessions"),
+    message: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || (session.teacherId !== ctx.user._id && ctx.user.role !== ROLES.ADMIN)) {
+      throw new Error("Session not found");
+    }
+
+    await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      sessionId: args.sessionId,
+      scholarId: session.scholarId,
+      role: "user",
+      content: args.message,
+    });
+
+    const streamId = crypto.randomUUID();
+    const assistantMsgId = await ctx.db.insert("curriculumMessages", {
+      teacherId: ctx.user._id,
+      sessionId: args.sessionId,
+      scholarId: session.scholarId,
+      role: "assistant",
+      content: "",
+      streamId,
+    });
+
+    await ctx.db.patch(args.sessionId, { lastMessageAt: Date.now() });
+    return { streamId, assistantMsgId: String(assistantMsgId) };
+  },
+});
+
+// Internal mutation called by tag_session AI tool and auto-name action
+export const tagSession = internalMutation({
+  args: { sessionId: v.id("chatSessions"), scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.scholarId) return; // idempotent — don't overwrite
+    await ctx.db.patch(args.sessionId, { scholarId: args.scholarId });
+    // Backfill messages so they show up in scholar queries
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.patch(msg._id, { scholarId: args.scholarId });
+    }
+  },
+});
+
+export const setSessionTitle = internalMutation({
+  args: { sessionId: v.id("chatSessions"), title: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.title !== "New chat") return; // don't overwrite manual renames
+    await ctx.db.patch(args.sessionId, { title: args.title });
+  },
+});
+
+export const getSessionFirstExchange = internalQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(4);
+    const userMsg = messages.find((m) => m.role === "user");
+    const assistantMsg = messages.find((m) => m.role === "assistant" && m.content.trim());
+    return {
+      firstUserMessage: userMsg?.content ?? null,
+      firstAssistantMessage: assistantMsg?.content ?? null,
+    };
+  },
+});
+
+export const getContextForSession = internalQuery({
+  args: { sessionId: v.id("chatSessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    const teacher = await ctx.db.get(session.teacherId);
+
+    const messages = await ctx.db
+      .query("curriculumMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .take(400);
+
+    // Re-use scholar context loading from the existing getContext helper
+    let scholarContext: null | {
+      scholarId: Id<"users">;
+      scholarName: string;
+      readingLevel: string | null;
+      dossier: string;
+      directives: { label: string; content: string }[];
+      seeds: { topic: string; domain: string | null; rationale: string; approachHint: string | null }[];
+      recentObservations: { note: string; type: string; createdAt: number }[];
+    } = null;
+
+    if (session.scholarId) {
+      const scholar = await ctx.db.get(session.scholarId);
+      if (scholar) {
+        const dossier = await ctx.db
+          .query("scholarDossiers")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", session.scholarId!))
+          .first();
+        const directives = await ctx.db
+          .query("teacherDirectives")
+          .withIndex("by_scholar_active", (q) =>
+            q.eq("scholarId", session.scholarId!).eq("isActive", true)
+          )
+          .collect();
+        directives.sort((a, b) => a._creationTime - b._creationTime);
+        const allSeeds = await ctx.db
+          .query("seeds")
+          .withIndex("by_scholar_status", (q) => q.eq("scholarId", session.scholarId!))
+          .collect();
+        const seeds = allSeeds
+          .filter((s) => s.status === "active" || s.status === "pending")
+          .map((s) => ({ topic: s.topic, domain: s.domain ?? null, rationale: s.rationale, approachHint: s.approachHint ?? null }));
+        const observations = await ctx.db
+          .query("observations")
+          .withIndex("by_scholar", (q) => q.eq("scholarId", session.scholarId!))
+          .order("desc")
+          .take(20);
+        scholarContext = {
+          scholarId: session.scholarId,
+          scholarName: scholar.name ?? "this scholar",
+          readingLevel: scholar.readingLevel ?? null,
+          dossier: dossier?.content ?? "No dossier data available yet.",
+          directives: directives.map((d) => ({ label: d.label, content: d.content })),
+          seeds,
+          recentObservations: observations.map((o) => ({ note: o.note, type: o.type, createdAt: o._creationTime })),
+        };
+      }
+    }
+
+    return {
+      teacherId: session.teacherId,
+      teacherName: teacher?.name ?? "Teacher",
+      sessionId: args.sessionId,
+      scholarId: session.scholarId ?? null,
+      messages: messages
+        .filter((m) => m.content.trim() !== "")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      scholarContext,
+    };
+  },
+});
+
 // ── Tool data helpers (internal) ────────────────────────────────────
 
 export const listScholarsInternal = internalQuery({
