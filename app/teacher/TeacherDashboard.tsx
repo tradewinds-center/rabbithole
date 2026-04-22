@@ -202,6 +202,19 @@ export default function TeacherDashboardInner() {
     pushUrl(params);
   }, [pushUrl]);
 
+  // Cmd-K command palette
+  const [cmdOpen, setCmdOpen] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // Focus mode data & curriculum counts
   const units = useQuery(api.units.list) ?? [];
   const personas = useQuery(api.personas.list) ?? [];
@@ -387,6 +400,16 @@ export default function TeacherDashboardInner() {
           <CurriculumAssistant />
         )}
       </Flex>
+
+      <CommandPalette
+        scholars={scholars}
+        isOpen={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onSelect={(id) => {
+          router.push(`/teacher?tab=scholars&scholar=${id}`, { scroll: false });
+          setCmdOpen(false);
+        }}
+      />
     </Flex>
   );
 }
@@ -2378,6 +2401,122 @@ function ScholarDetailNav({ scholars, currentId, onSelect, onBack }: {
         </IconButton>
       </HStack>
     </Flex>
+  );
+}
+
+// ── Command Palette (⌘K) ─────────────────────────────────────────────
+
+function CommandPalette({ scholars, isOpen, onClose, onSelect }: {
+  scholars: Scholar[];
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = scholars.filter(
+    (s) => !query || s.name?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuery("");
+      setActiveIdx(0);
+      setTimeout(() => inputRef.current?.focus(), 40);
+    }
+  }, [isOpen]);
+
+  useEffect(() => { setActiveIdx(0); }, [query]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && filtered[activeIdx]) { onSelect(filtered[activeIdx].id); }
+    else if (e.key === "Escape") { onClose(); }
+  };
+
+  return (
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(e) => { if (!e.open) onClose(); }}
+      placement="top"
+      motionPreset="slide-in-bottom"
+    >
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner pt="15vh" pb="0" alignItems="flex-start">
+          <Dialog.Content maxW="480px" borderRadius="xl" shadow="2xl" overflow="hidden" p={0} mt={0}>
+            {/* Search input */}
+            <Box px={4} py={3} borderBottom="1px solid" borderColor="gray.200">
+              <Input
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Jump to scholar…"
+                border="none"
+                fontFamily="heading"
+                fontSize="md"
+                _focus={{ boxShadow: "none" }}
+                _focusVisible={{ boxShadow: "none" }}
+              />
+            </Box>
+
+            {/* Results */}
+            <Box maxH="320px" overflowY="auto">
+              {filtered.length === 0 ? (
+                <Box px={4} py={8} textAlign="center">
+                  <Text fontFamily="heading" fontSize="sm" color="charcoal.300">No scholars found</Text>
+                </Box>
+              ) : (
+                filtered.map((s, i) => (
+                  <HStack
+                    key={s.id}
+                    px={4}
+                    py={2.5}
+                    gap={3}
+                    cursor="pointer"
+                    bg={i === activeIdx ? "violet.50" : "white"}
+                    _hover={{ bg: "violet.50" }}
+                    onClick={() => onSelect(s.id)}
+                    onMouseEnter={() => setActiveIdx(i)}
+                  >
+                    <Avatar size="sm" name={s.name} src={s.image || undefined} />
+                    <VStack gap={0} align="start" flex={1} minW={0}>
+                      <Text
+                        fontFamily="heading"
+                        fontSize="sm"
+                        fontWeight={i === activeIdx ? "600" : "400"}
+                        color="navy.500"
+                      >
+                        {s.name}
+                      </Text>
+                      {s.lastProjectTitle && (
+                        <Text fontFamily="heading" fontSize="xs" color="charcoal.400" overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
+                          {s.lastProjectTitle}
+                        </Text>
+                      )}
+                    </VStack>
+                    <StatusOrb pulseScore={s.pulseScore} lastMessageAt={s.lastMessageAt} size="sm" />
+                  </HStack>
+                ))
+              )}
+            </Box>
+
+            {/* Footer hints */}
+            <HStack px={4} py={2} borderTop="1px solid" borderColor="gray.100" bg="gray.50" gap={4}>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">↑↓ navigate</Text>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">↵ open</Text>
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">esc close</Text>
+              <Box flex={1} />
+              <Text fontFamily="heading" fontSize="2xs" color="charcoal.300">⌘K</Text>
+            </HStack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 
