@@ -476,6 +476,7 @@ function ScholarProjectInner() {
               onProjectUpdate={() => {}}
               onOpenSidebar={isRemoteMode ? undefined : () => setIsSidebarOpen(true)}
               onSignOut={signOut}
+              onNewProject={isRemoteMode ? undefined : handleNewProject}
               isTestMode={isTestMode}
               isRemoteMode={isRemoteMode}
               scholarName={isRemoteMode ? remoteUser?.name ?? null : null}
