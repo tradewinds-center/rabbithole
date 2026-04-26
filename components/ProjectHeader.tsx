@@ -12,7 +12,7 @@ import {
   Portal,
   Input,
 } from "@chakra-ui/react";
-import { FiMenu, FiPaperclip } from "react-icons/fi";
+import { FiMenu, FiPaperclip, FiPlus } from "react-icons/fi";
 import { CloudCheck, SidebarSimple } from "@phosphor-icons/react";
 import { AccountMenu } from "./AccountMenu";
 import { AppHeader } from "./AppHeader";
@@ -45,6 +45,7 @@ interface ProjectHeaderProps {
   scholarName?: string | null;
   scholarImage?: string | null;
   remoteUserId?: string | null;
+  onNewProject?: () => void;
 }
 
 export function ProjectHeader({
@@ -67,6 +68,7 @@ export function ProjectHeader({
   scholarName,
   scholarImage,
   remoteUserId,
+  onNewProject,
 }: ProjectHeaderProps) {
   // Inline title editing
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -307,6 +309,29 @@ export function ProjectHeader({
               {mobileAttachmentCount}
             </Box>
           </Box>
+        )}
+
+        {onNewProject && !isRemoteMode && (
+          <Tooltip.Root openDelay={400} closeDelay={0}>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                aria-label="New project"
+                size="sm"
+                variant="ghost"
+                color="charcoal.400"
+                _hover={{ bg: "gray.100", color: "violet.500" }}
+                onClick={onNewProject}
+                flexShrink={0}
+              >
+                <FiPlus />
+              </IconButton>
+            </Tooltip.Trigger>
+            <Portal>
+              <Tooltip.Positioner>
+                <Tooltip.Content>New project</Tooltip.Content>
+              </Tooltip.Positioner>
+            </Portal>
+          </Tooltip.Root>
         )}
 
         {onSignOut && (

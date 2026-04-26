@@ -51,6 +51,7 @@ interface ProjectInterfaceProps {
   onProjectUpdate?: () => void;
   onOpenSidebar?: () => void;
   onSignOut?: () => void;
+  onNewProject?: () => void;
   isTestMode?: boolean;
   isRemoteMode?: boolean;
   scholarName?: string | null;
@@ -63,6 +64,7 @@ export function ProjectInterface({
   onProjectUpdate,
   onOpenSidebar,
   onSignOut,
+  onNewProject,
   isTestMode,
   isRemoteMode,
   scholarName,
@@ -440,6 +442,7 @@ export function ProjectInterface({
         isSynced={hasArtifacts ? artifactSynced : undefined}
         isTestMode={isTestMode}
         onSignOut={onSignOut}
+        onNewProject={onNewProject}
         onProjectRename={(title) => updateProject({ id: projectId as Id<"projects">, title })}
         showRightPanel={showRightPanel}
         onToggleRightPanel={isTouchDevice
