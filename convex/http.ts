@@ -788,10 +788,15 @@ Tradewinds philosophy: Socratic inquiry, multiple perspectives (makawalu), depth
 
 Be concise and practical. Speak as a colleague.
 
-## Scholar links
-You can link directly to a scholar's profile using standard markdown link syntax:
-[Scholar Name](/teacher?tab=scholars&scholar=SCHOLAR_ID)
-Use the list_scholars or find_scholar tool to get the correct ID before linking. Always use the scholar's real display name as the link text.`;
+## Links — always include them when referencing scholars or sessions
+
+**Scholar profile:** [Scholar Name](/teacher?tab=scholars&scholar=SCHOLAR_ID)
+Use the list_scholars or find_scholar tool to get the ID. Use the scholar's real display name as link text.
+
+**Session/project:** [Project Title](/scholar/PROJECT_ID?remote=SCHOLAR_ID)
+The get_scholar_sessions tool returns a ready-to-use \`url\` field on each project — use it directly. When you mention a specific session by name (e.g., "the Number Line Fractions session" or "his 'bruh' chat"), wrap the title in a markdown link to that project. Same for unit names if they appear as the project's unitTitle.
+
+Be liberal with links: any time you name a scholar or a specific session, link it. This lets the teacher click straight through.`;
 
 http.route({
   path: "/curriculum-stream",
@@ -1046,10 +1051,16 @@ http.route({
             createdAt: new Date(p.createdAt).toISOString(),
             lastMessageAt: p.lastMessageAt ? new Date(p.lastMessageAt).toISOString() : null,
             lastActivityAgo: agoLabel,
+            url: `/scholar/${p.id}?remote=${scholar.id}`,
           };
         });
         emitSSE({ toolComplete: { name: "get_scholar_sessions", result: `Loaded ${projects.length} sessions for ${scholar.name}` } });
-        return JSON.stringify({ scholar: scholar.name, currentTime: new Date(now).toISOString(), projects: formatted });
+        return JSON.stringify({
+          scholar: scholar.name,
+          scholarUrl: `/teacher?tab=scholars&scholar=${scholar.id}`,
+          currentTime: new Date(now).toISOString(),
+          projects: formatted,
+        });
       },
     });
 
@@ -1518,9 +1529,15 @@ http.route({
             stream: true,
           });
 
+          let needsSeparatorBeforeNextText = false;
           for await (const messageStream of runner) {
             for await (const event of messageStream) {
               if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                // If text was already streamed before this tool, insert a paragraph break
+                // so the post-tool continuation doesn't visually concat with the pre-tool text.
+                if (fullContent.trim() && !fullContent.endsWith("\n\n")) {
+                  needsSeparatorBeforeNextText = true;
+                }
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ toolStart: { name: (event.content_block as { name?: string }).name } })}\n\n`)
                 );
@@ -1529,10 +1546,15 @@ http.route({
               } else if (event.type === "content_block_delta") {
                 const delta = event.delta;
                 if ("text" in delta) {
-                  fullContent += delta.text;
+                  let textOut = delta.text;
+                  if (needsSeparatorBeforeNextText) {
+                    textOut = "\n\n" + textOut.replace(/^\s+/, "");
+                    needsSeparatorBeforeNextText = false;
+                  }
+                  fullContent += textOut;
                   controller.enqueue(
                     encoder.encode(
-                      `data: ${JSON.stringify({ text: delta.text })}\n\n`
+                      `data: ${JSON.stringify({ text: textOut })}\n\n`
                     )
                   );
                   if (fullContent.length - lastPersistLength > 200) {
