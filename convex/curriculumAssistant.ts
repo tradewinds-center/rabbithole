@@ -774,6 +774,35 @@ export const getScholarDossier = internalQuery({
   },
 });
 
+export const getScholarProjects = internalQuery({
+  args: { scholarId: v.id("users") },
+  handler: async (ctx, args) => {
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_user_and_archived", (q) =>
+        q.eq("userId", args.scholarId).eq("isArchived", false)
+      )
+      .order("desc")
+      .take(50);
+
+    return await Promise.all(
+      projects.map(async (p) => {
+        const unit = p.unitId ? await ctx.db.get(p.unitId) : null;
+        const lesson = p.lessonId ? await ctx.db.get(p.lessonId) : null;
+        return {
+          id: p._id,
+          title: p.title,
+          createdAt: p._creationTime,
+          lastMessageAt: p.lastMessageAt ?? null,
+          lastMessagePreview: p.lastMessagePreview ?? null,
+          unitTitle: unit?.title ?? null,
+          lessonTitle: lesson?.title ?? null,
+        };
+      })
+    );
+  },
+});
+
 export const listUnitsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {

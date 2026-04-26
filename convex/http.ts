@@ -1009,6 +1009,50 @@ http.route({
       },
     });
 
+    const getScholarSessionsTool = betaTool({
+      name: "get_scholar_sessions",
+      description: "Get a scholar's recent projects (chat sessions) with timestamps. Use this to answer questions like 'how long ago was their last session?' or 'what have they been working on this week?'. Returns up to 50 most recent non-archived projects, sorted newest first, with creation time, last message time, title, and unit/lesson context.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          scholarName: {
+            type: "string" as const,
+            description: "The scholar's name (case-insensitive partial match)",
+          },
+        },
+        required: ["scholarName"] as const,
+      },
+      run: async (input) => {
+        const scholar = await resolveScholar(input.scholarName);
+        if (!scholar) return `No scholar found matching "${input.scholarName}".`;
+        const projects = await ctx.runQuery(
+          internal.curriculumAssistant.getScholarProjects,
+          { scholarId: scholar.id as Id<"users"> }
+        );
+        const now = Date.now();
+        const formatted = projects.map((p) => {
+          const lastActivityMs = p.lastMessageAt ?? p.createdAt;
+          const agoMs = now - lastActivityMs;
+          const agoMin = Math.round(agoMs / 60_000);
+          const agoHours = Math.round(agoMs / 3_600_000);
+          const agoDays = Math.round(agoMs / 86_400_000);
+          const agoLabel =
+            agoMin < 2 ? "just now" :
+            agoMin < 90 ? `${agoMin} minutes ago` :
+            agoHours < 36 ? `${agoHours} hours ago` :
+            `${agoDays} days ago`;
+          return {
+            ...p,
+            createdAt: new Date(p.createdAt).toISOString(),
+            lastMessageAt: p.lastMessageAt ? new Date(p.lastMessageAt).toISOString() : null,
+            lastActivityAgo: agoLabel,
+          };
+        });
+        emitSSE({ toolComplete: { name: "get_scholar_sessions", result: `Loaded ${projects.length} sessions for ${scholar.name}` } });
+        return JSON.stringify({ scholar: scholar.name, currentTime: new Date(now).toISOString(), projects: formatted });
+      },
+    });
+
     const listUnitsTool = betaTool({
       name: "list_units",
       description: "List all curriculum units with title, description, target Bloom's level, and building block names (persona, perspective, process).",
@@ -1378,6 +1422,7 @@ http.route({
       getScholarSignalsTool,
       getScholarSeedsTool,
       getScholarObservationsTool,
+      getScholarSessionsTool,
       listUnitsTool,
       getUnitDetailsTool,
       upsertTeacherDirectiveTool,
