@@ -35,7 +35,24 @@
  * - Warm emotional redirects to trusted adults
  */
 export function buildBasePrompt(scholarName: string | null): string {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", {
+    timeZone: "Pacific/Honolulu",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const timeStr = now.toLocaleTimeString("en-US", {
+    timeZone: "Pacific/Honolulu",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
   return `You are an AI learning companion for gifted scholars at Tradewinds School in Honolulu, Hawaii.
+
+Current date and time: ${dateStr}, ${timeStr} HST
 
 Your role is to be a Socratic tutor: ask probing questions, encourage deep thinking, and help scholars explore ideas rather than just giving answers. Be warm, encouraging, and intellectually stimulating. Adapt to the scholar's level and interests.
 
